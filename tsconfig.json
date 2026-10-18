@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@marinara-engine/shared": ["./src/shims/shared.ts"]
+    }
+  },
+  // `components/`, `hooks/`, `lib/` and `shims/` are the engine-side copies the
+  // port was taken from. They are reference material: nothing that ships imports
+  // them, and they still reach for engine modules (`@tanstack/react-query`,
+  // `zod`, the engine's api-client) that do not exist here, so they are outside
+  // the typecheck. `src/mochi/` is the shipped replacement for all of them.
+  "include": ["src"],
+  "exclude": ["src/components", "src/hooks", "src/lib", "src/shims"]
+}

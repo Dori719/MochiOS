@@ -1,0 +1,366 @@
+/* Panel-scoped overrides on top of the ported stylesheets.
+ *
+ * The engine's Mochi OS filled the whole window; here it lives in a floating
+ * panel a fraction of the width, so the desktop's own sizing variables are
+ * overridden here rather than edited into the ported CSS. Appended after the
+ * ported sheets, so these win at equal specificity. */
+
+.mochi-scope {
+  width: 100%;
+  height: 100%;
+  --content-w: 100%;
+  --tile: min(58px, 17vw);
+  --tile-radius: 16px;
+  --gutter: 10px;
+  font-size: 14px;
+}
+
+.mochi-scope .screen {
+  padding: 10px 12px 12px;
+  gap: 8px;
+}
+
+.mochi-scope .apps {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 8px;
+  align-content: start;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.mochi-scope .app {
+  gap: 5px;
+}
+
+.mochi-scope .label {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.mochi-scope .dock {
+  padding: 8px 10px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .status {
+  font-size: 13px;
+  gap: 8px;
+}
+
+.mochi-scope .status svg,
+.mochi-scope .dock svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* App windows and modals have to behave like sheets inside a small panel:
+   the ported sheets are sized for a full desktop. */
+.mochi-scope .app-window,
+.mochi-scope .modal {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  max-width: none;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mochi-scope .overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  overflow-y: auto;
+  place-items: start center;
+}
+
+.mochi-scope .mascot {
+  display: none;
+}
+
+/* Widgets and composer rows need to breathe inside the narrower panel. The
+   ported widget type scales with viewport height, which in a 600px panel leaves
+   the app grid with almost no room, so it is sized here instead. */
+.mochi-scope .widgets {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: none;
+}
+
+.mochi-scope .widget {
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.mochi-scope .widget .lbl {
+  font-size: 9.5px;
+}
+
+.mochi-scope .widget .big {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.mochi-scope .widget .dim {
+  font-size: 10.5px;
+}
+
+.mochi-scope .m-search {
+  flex-wrap: wrap;
+}
+
+.mochi-scope .mview,
+.mochi-scope .c-body {
+  min-height: 0;
+}
+
+/* Home indicator: a phone gesture inside a desktop panel would only get in the
+   way, so the port renders a plain close affordance instead. */
+.mochi-scope .mochi-home-indicator-bar {
+  width: 54px;
+  height: 4px;
+}
+
+/* Extension-owned UI: everything the port did not carry over. */
+
+.mochi-scope .m-tabs,
+.mochi-scope .mtabs {
+  margin: 0;
+  padding: 8px 12px 0;
+}
+
+.mochi-scope .convo-list {
+  padding: 4px 12px 10px;
+  gap: 10px;
+}
+
+.mochi-scope .crow {
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.mochi-scope .crow .ava {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+}
+
+.mochi-scope .m-search {
+  margin: 8px 12px 10px;
+  padding: 9px 14px;
+}
+
+.mochi-scope .m-section-title {
+  margin: 8px 12px 4px;
+  font-size: 12px;
+}
+
+.mochi-os-extension-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--paper-dim, #e2edc8);
+  color: var(--text, #33402a);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mochi-os-extension-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.mochi-os-extension-btn {
+  border: 1px solid var(--line, #c8d8ab);
+  border-radius: 9px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--paper, #f2f8df);
+  color: var(--text, #33402a);
+  cursor: pointer;
+}
+
+.mochi-os-extension-btn:hover {
+  background: var(--acc-soft, #e9f3d6);
+}
+
+.mochi-os-extension-btn.is-primary {
+  background: var(--acc, #7fa061);
+  border-color: var(--acc, #7fa061);
+  color: #fff;
+}
+
+.mochi-os-extension-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.mochi-os-extension-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px 10px;
+}
+
+.mochi-os-extension-field > span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #7d9163);
+}
+
+.mochi-os-extension-field select,
+.mochi-os-extension-field input,
+.mochi-os-extension-field textarea {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #c8d8ab);
+  background: var(--input-bg, #f2f8e6);
+  color: var(--text, #33402a);
+}
+
+.mochi-os-extension-field textarea {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.mochi-os-extension-composer {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line, #c8d8ab);
+  background: var(--paper, #f2f8df);
+}
+
+.mochi-os-extension-composer textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 130px;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line, #c8d8ab);
+  background: var(--chat-bg, #f7fbf0);
+  color: var(--text, #33402a);
+  resize: none;
+}
+
+.mochi-os-extension-composer .mochi-os-extension-btn {
+  flex: none;
+}
+
+.mochi-os-extension-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The ported thread widget brings its own height (`min(520px, 76dvh)`) and its
+   own scroll area, which a floating panel cannot afford. Inside the phone the
+   widget fills the space it is given and scrolls internally. */
+.mochi-scope .mochi-os-extension-scroll:has(.mochi-private-widget) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mochi-scope .mochi-private-widget {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.mochi-scope .mochi-private-chat-view {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+
+.mochi-scope .mochi-private-contact-screen {
+  height: 100%;
+}
+
+/* The environment panel is auto-sized and sits under the thread. Unbounded, it
+   takes most of a short panel and squeezes the messages to a sliver, so it is
+   capped and scrolls itself. */
+.mochi-scope .mochi-private-environment {
+  max-height: 38%;
+  overflow-y: auto;
+  flex: none;
+}
+
+.mochi-scope .mochi-private-environment dl {
+  font-size: 11px;
+}
+
+.mochi-os-extension-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted, #7d9163);
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 20px 12px;
+}
+
+.mochi-os-extension-empty strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text, #33402a);
+  margin-bottom: 6px;
+}
+
+.mochi-os-extension-status {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--muted, #7d9163);
+  background: var(--paper-dim, #e2edc8);
+}
+
+.mochi-os-extension-status.is-error {
+  color: #a8322b;
+}
+
+/* Thread header shown above the ported thread widget. */
+.mochi-os-extension-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line, #c8d8ab);
+  background: var(--paper, #f2f8df);
+  color: var(--text, #33402a);
+}
+
+.mochi-os-extension-thread-head strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-os-extension-back {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--acc, #7fa061);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 4px;
+}

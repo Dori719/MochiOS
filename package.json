@@ -1,0 +1,29 @@
+{
+  "name": "sillytavern-mochi-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mochi OS phone & chat simulator extension for SillyTavern (ported from Marinara Engine / Dori-Engine)",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/build-and-run.mjs",
+    "i18n": "node scripts/generate-i18n.mjs",
+    "install-extension": "node scripts/install.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.469.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3"
+  }
+}

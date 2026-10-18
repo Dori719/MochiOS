@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output — committed, because SillyTavern never runs npm install for an
+# extension and loads exactly these files.
+# index.js
+# style.css
+
+# Local scratch
+*.log
+.DS_Store
+Thumbs.db

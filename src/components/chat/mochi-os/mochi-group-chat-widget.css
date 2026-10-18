@@ -1,0 +1,55 @@
+/* Group-chat transcript embedded in a roleplay message.
+   The thread, bubbles, appbar, and environment panel all reuse the private
+   widget's own classes (see mochi-private-chat-widget.css) — the only real
+   difference between the two is that a group names its author, so this file
+   holds the sender label and the member avatar stack. */
+
+.mochi-group-widget .mochi-private-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mochi-group-widget .mochi-private-message.is-user .mochi-private-bubble-wrap {
+  align-items: flex-end;
+}
+
+/* The author and the time share one row under the bubble.
+   The author label stays on the left side, and the timestamp stays at the far right. */
+.mochi-group-widget .mochi-private-bubble-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.mochi-group-widget .mochi-msg-sender {
+  margin: 0;
+}
+
+.mochi-group-widget .mochi-private-bubble-meta .mochi-private-time {
+  margin: 4px 0 0 auto;
+}
+
+.mochi-group-avatar-stack {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.mochi-group-avatar-stack .mochi-private-mini-avatar {
+  margin-left: -7px;
+  border: 2px solid var(--paper);
+}
+
+.mochi-group-avatar-stack .mochi-private-mini-avatar:first-child {
+  margin-left: 0;
+}
+
+.mochi-group-widget .mochi-private-mini-avatar.is-tiny {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
