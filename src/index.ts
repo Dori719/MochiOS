@@ -11,7 +11,7 @@
  * There are three ways in, on purpose: a floating bubble for reach, an entry in
  * the wand menu for discoverability, and `/mochi` for Quick Replies and scripts.
  */
-import { activeChatId, ctx, offEvent, onEvent, readChatSettings, stReady, writeChatSettings } from './st/adapter';
+import { activeChatId, ctx, offEvent, onEvent, stReady } from './st/adapter';
 import { useChatStore } from './stores/chat.store';
 
 const LOG = '[Mochi OS]';
@@ -21,8 +21,6 @@ const WAND_ENTRY_ID = 'mochi_os_wand_entry';
 
 const QUICK_REPLY_SET = 'Mochi OS';
 const QUICK_REPLY_LABEL = 'Mochi OS';
-/** Set once the button exists, so deleting it is the user's decision. */
-const QUICK_REPLY_FLAG = 'quickReplyCreated';
 
 /** The slice of SillyTavern's Quick Reply API this extension uses. */
 interface QuickReplyApi {
@@ -192,15 +190,22 @@ function quickReplyApi(): QuickReplyApi | null {
 }
 
 /**
- * Adds a Mochi OS button to the Quick Reply bar, once.
+ * Adds a Mochi OS button to the Quick Reply bar.
  *
- * SillyTavern has no way to ship one with an extension, so it is created on the
- * first run through the Quick Reply extension's own API. The settings flag means
- * a user who deletes the button keeps it deleted.
+ * Only for someone who already uses Quick Replies: with the feature switched
+ * off there is no bar to put a button in, and writing one anyway would leave an
+ * unused set in their data folder. Nothing is written in that case.
+ *
+ * SillyTavern cannot ship a Quick Reply inside an extension, so the set is made
+ * through the Quick Reply extension's own API, looked up by label first so a
+ * second page load never duplicates it. Deleting the button therefore sticks.
  */
 async function installQuickReply(attempt = 0): Promise<void> {
   if (disabled) return;
-  if (readChatSettings()[QUICK_REPLY_FLAG]) return;
+
+  const quickReply = (ctx().extensionSettings as { quickReply?: { quickReplyEnabled?: boolean } })
+    ?.quickReply;
+  if (!quickReply?.quickReplyEnabled) return;
 
   const api = quickReplyApi();
   if (!api) {
@@ -223,9 +228,7 @@ async function installQuickReply(attempt = 0): Promise<void> {
     }
 
     api.addGlobalSet(QUICK_REPLY_SET, true);
-    writeChatSettings({ [QUICK_REPLY_FLAG]: true });
   } catch (error) {
-    // Leave the flag unset: a later load can try again.
     console.warn(LOG, 'the Mochi OS Quick Reply could not be created.', error);
   }
 }

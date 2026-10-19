@@ -32,7 +32,7 @@ Three ways, all of them first-class:
 | --- | --- |
 | Floating bubble | The phone button at the bottom right of the chat. |
 | Wand menu | Extensions (wand) → **Mochi OS**. |
-| Quick Reply | A **Mochi OS** set with one `/mochi` button is created on first run. Turn Quick Replies on and it appears in the bar; delete it and it stays deleted. |
+| Quick Reply | With Quick Replies switched **on**, a **Mochi OS** set holding one `/mochi` button is added to the bar. With them off, nothing is written at all. Delete the button and it stays deleted. |
 | Slash command | `/mochi`, also `/mochios`. |
 
 Escape closes it, as does dragging the home indicator down or clicking **Return

@@ -253,24 +253,31 @@ export function writeChatMeta(next: Record<string, any>): void {
   st().saveMetadataDebounced?.();
 }
 
+/**
+ * The port's extension-wide settings — theme, colours, the profile's status, the
+ * page size.
+ *
+ * Reading never creates the key: an empty `mochi_os` block in the user's
+ * `settings.json` would be a change to their SillyTavern for nothing. It appears
+ * the first time a setting is actually changed.
+ */
 export function readChatSettings(): Record<string, any> {
-  const context = ctx();
-  const settings = context.extensionSettings ?? {};
-  if (!settings.mochi_os || typeof settings.mochi_os !== 'object') settings.mochi_os = {};
-  return settings.mochi_os;
+  const stored = (ctx().extensionSettings ?? {}).mochi_os;
+  return stored && typeof stored === 'object' ? stored : {};
 }
 
 /**
- * Persist the port's extension-wide settings — theme, colours, the profile's
- * status, the page size.
+ * Persist the port's extension-wide settings.
  *
  * These belong to the user, not to a chat, so they go into SillyTavern's
  * extension settings and are written with `saveSettingsDebounced` (the settings
  * file), not `saveMetadataDebounced` (the chat's own metadata).
  */
 export function writeChatSettings(next: Record<string, any>): void {
-  const settings = readChatSettings();
-  Object.assign(settings, next);
+  const context = ctx();
+  const settings = (context.extensionSettings ??= {});
+  if (!settings.mochi_os || typeof settings.mochi_os !== 'object') settings.mochi_os = {};
+  Object.assign(settings.mochi_os, next);
   st().saveSettingsDebounced?.();
 }
 
