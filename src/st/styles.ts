@@ -24,10 +24,46 @@ import privateChatWidgetCss from '../components/chat/mochi-os/mochi-private-chat
 import groupChatWidgetCss from '../components/chat/mochi-os/mochi-group-chat-widget.css';
 import portChromeCss from '../styles/port-chrome.css';
 
+/**
+ * Re-points the engine's measurements at the phone window.
+ *
+ * The engine was the page, so it measured itself in viewport units: `10vh` for a
+ * tile, `3vw` for a gutter, `@media (max-width: 700px)` for the small-phone
+ * layout. Inside SillyTavern it is a window, and those units would then describe
+ * the browser rather than the phone — tiles sized for a desktop, and the
+ * small-phone layout never chosen on a wide screen.
+ *
+ * Container units say exactly what was meant: "relative to the thing holding
+ * this". The window's screen is a size container, so `cqh`/`cqw` and the
+ * `@container` queries resolve against the phone, and the interface scales as one
+ * piece at any window size. The chat widgets share these stylesheets but live in
+ * a message instead; they are given their own inline-size container, and where
+ * neither exists container units fall back to the viewport, which is how they
+ * looked before.
+ */
+function toPhoneMeasurements(css: string, { blockAxis }: { blockAxis: boolean }): string {
+  const units = blockAxis
+    ? css
+        .replace(/(-?\d*\.?\d+)(?:sv|dv|lv)?vh\b/g, '$1cqh')
+        .replace(/(-?\d*\.?\d+)(?:sv|dv|lv)?vw\b/g, '$1cqw')
+    : // A transcript widget is only an inline-size container, so a block-axis
+      // container unit would have nothing to measure. Its width is the phone's,
+      // so `cqw` is right; its height stays the viewport's, as it always was.
+      css.replace(/(-?\d*\.?\d+)(?:sv|dv|lv)?vw\b/g, '$1cqw');
+
+  return units.replace(/@media\s*([^{]+)\{/g, (match, condition: string) => {
+    // Only size queries move. Colour scheme, reduced motion, pointer and print
+    // describe the machine, not the phone.
+    if (!/\b(width|height)\b/.test(condition)) return match;
+    if (/prefers-|orientation|aspect-ratio|hover|pointer|resolution|print/i.test(condition)) return match;
+    return `@container ${condition.trim()} {`;
+  });
+}
+
 export const MOCHI_OS_STYLES = [
   utilitiesCss,
-  engineCss,
-  privateChatWidgetCss,
-  groupChatWidgetCss,
+  toPhoneMeasurements(engineCss, { blockAxis: true }),
+  toPhoneMeasurements(privateChatWidgetCss, { blockAxis: false }),
+  toPhoneMeasurements(groupChatWidgetCss, { blockAxis: false }),
   portChromeCss,
 ].join('\n\n');

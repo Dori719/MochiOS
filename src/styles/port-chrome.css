@@ -65,8 +65,10 @@
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  width: min(318px, calc(100vw - 40px));
-  max-height: min(52vh, 380px);
+  /* Container units, like the engine's own stylesheet: this popover belongs to
+     the phone, so it measures the phone and not the browser. */
+  width: min(318px, calc(100cqw - 40px));
+  max-height: min(52cqh, 380px);
 }
 
 .mochi-scope .mochi-media-picker-tabs {
@@ -405,6 +407,22 @@
   --secondary: var(--paper-dim);
   --surface-layer-1: var(--paper-dim);
   --text-secondary: var(--muted);
+}
+
+/* ── Containers ──────────────────────────────────────────────────────── */
+
+/* The phone window's screen is the container the whole interface measures
+   itself against (`st/styles.ts` turns the engine's `vh`/`vw` into `cqh`/`cqw`).
+   It is declared in `style.css`, because it has to exist before the phone's
+   stylesheet is injected. */
+
+/* A transcript widget is not in the phone: it sits in a chat message. The
+   element the port mounts widgets into is the container they measure, so the
+   widget's own `@container` rules and `cqw` units resolve against the width of
+   the message they are in. (Putting the container on the widget itself would
+   leave its rules with no ancestor container to match.) */
+.mochi-inline-blocks {
+  container-type: inline-size;
 }
 
 /* ── The handful of Tailwind utilities Mochi OS itself uses ──────────── */

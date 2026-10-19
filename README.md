@@ -35,8 +35,11 @@ Three ways, all of them first-class:
 | Quick Reply | With Quick Replies switched **on**, a **Mochi OS** set holding one `/mochi` button is added to the bar. With them off, nothing is written at all. Delete the button and it stays deleted. |
 | Slash command | `/mochi`, also `/mochios`. |
 
-Escape closes it, as does dragging the home indicator down or clicking **Return
-to Roleplay**.
+Mochi OS opens as a phone-shaped window over SillyTavern, not as a full-screen
+takeover: it is never wider than SillyTavern's top bar, its height follows from
+that width (9:19.5), and it never covers the top bar or runs off the bottom. Drag
+it by its bar; the position is remembered. Escape, the bar's **×**, dragging the
+home indicator down or **Return to Roleplay** all close it.
 
 ## Installing
 
@@ -111,7 +114,7 @@ types the interface reads. `src/compat/` does the same for `clsx`,
 manifest.json               what SillyTavern reads first
 index.js                    built entry point — self-contained
 app.js                      built phone — fetched on demand by index.js
-style.css                   launcher styles
+style.css                   the window, the launchers, the size container
 src/
   index.ts                  the launchers, the event bridge, /mochi
   app.ts                    what app.js exports: the overlay, widgets, readiness
@@ -120,7 +123,8 @@ src/
     api.ts                  the engine's REST surface, answered from SillyTavern
     mochi-data.ts           phone document storage, transcript generation
     generate.ts             generateRaw, and the {{ escape
-    host.tsx                the overlay Mochi OS is mounted into
+    host.tsx                the phone window: its bar, its drag, its lifecycle
+    frame-layout.ts         how big the window is and where it sits
     inline.tsx              the transcript widgets inside messages
     styles.ts               the stylesheets, in the engine's order
   components/chat/mochi-os/ the engine's interface — MochiOsView and everything it draws
@@ -133,6 +137,19 @@ src/
 runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` and
 `mochi-os.css` are the engine's files and are edited by nobody. If a change is
 needed there, it belongs in the engine first.
+
+### Why the interface is measured in `cq` units
+
+The engine was the page, so it sized itself with `vh`/`vw` and switched layouts
+with `@media (max-width: …)`. As a window inside SillyTavern those would describe
+the browser, not the phone: desktop-sized tiles in a narrow window, and the
+small-phone layout never selected on a wide screen.
+
+`st/styles.ts` therefore rewrites the engine's stylesheet on the way into the
+page: `vh`→`cqh`, `vw`→`cqw`, and size media queries→`@container`. The window's
+screen (`style.css`) is the container, so the interface scales as one piece at any
+window size. The engine's file itself is untouched — the rewrite happens at build
+time, in memory.
 
 ## Working on it
 

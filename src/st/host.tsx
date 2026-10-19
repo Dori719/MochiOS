@@ -1,13 +1,10 @@
 /**
- * The overlay that Mochi OS lives in, and the SillyTavern events that keep it
- * current.
+ * The window Mochi OS lives in, and the SillyTavern events that keep it current.
  *
- * Mochi OS is a phone interface, not a panel: it paints its own wallpaper over
- * the whole viewport and then draws the device on top of it. So instead of
- * squeezing it into a SillyTavern drawer, the extension mounts it into a
- * full-viewport element it creates, and removes that element when the user
- * leaves. Nothing is left behind for SillyTavern to trip over, and the interface
- * is never half-there while a chat loads.
+ * Mochi OS is a phone interface, so it opens as a phone: a floating window with
+ * the device's proportions, dragged by its bar, capped to the width of
+ * SillyTavern's top bar and to the room below it. `frame-layout.ts` holds the
+ * arithmetic; this file owns the elements and the lifecycle.
  *
  * The React tree is created on open and destroyed on close rather than kept
  * mounted and hidden: Mochi OS subscribes to the chat, to streaming and to a few
@@ -19,7 +16,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { MochiOsView } from '../components/chat/mochi-os/MochiOsView';
 import { useChatStore } from '../stores/chat.store';
-import { activeChatId, offEvent, onEvent } from './adapter';
+import { activeChatId, offEvent, onEvent, readChatSettings, writeChatSettings } from './adapter';
+import { defaultPlace, phoneSize, placeFrame, readLimits, type FrameSize } from './frame-layout';
 import { mochiQueryClient } from './query-client';
 import { ensureMochiStyles } from './stylesheet';
 
@@ -32,34 +30,152 @@ const HOST_ID = 'mochi-os-host';
  */
 const OVERLAY_Z_INDEX = '3000';
 
+/** Height of the drag bar, in px. Kept in step with `.mochi-os-frame-bar`. */
+const BAR_HEIGHT = 30;
+
 let host: HTMLDivElement | null = null;
+let body: HTMLDivElement | null = null;
 let root: Root | null = null;
 let unlisten: Array<() => void> = [];
 
+/** The phone's size, and where it sits, in viewport pixels. */
+let size: FrameSize = { width: 0, height: 0 };
+let position: { left: number; top: number } | null = null;
+
+/** Where the window was last left, from the extension's settings. */
+function storedPosition(): { left: number; top: number } | null {
+  const stored = readChatSettings().window as { left?: unknown; top?: unknown } | undefined;
+  if (!stored || typeof stored.left !== 'number' || typeof stored.top !== 'number') return null;
+  return { left: stored.left, top: stored.top };
+}
+
+/** Remembers the window's position, but only once the user has moved it. */
+function persistPosition(): void {
+  if (!position) return;
+  writeChatSettings({ window: { left: Math.round(position.left), top: Math.round(position.top) } });
+}
+
+/**
+ * Sizes and places the window.
+ *
+ * On open the stored position is used; on a resize the current one is kept, so
+ * the phone only moves if it no longer fits.
+ */
+function layout(initial: boolean): void {
+  if (!host) return;
+
+  const limits = readLimits(BAR_HEIGHT);
+  size = phoneSize(limits);
+
+  host.style.width = `${Math.round(size.width)}px`;
+  // The bar is part of the window, not of the phone's proportions.
+  host.style.height = `${Math.round(size.height + BAR_HEIGHT)}px`;
+
+  const wanted = initial ? storedPosition() : position;
+  const placed = wanted ? placeFrame(wanted.left, wanted.top, size, limits) : defaultPlace(size, limits);
+  position = placed;
+
+  host.style.left = `${Math.round(placed.left)}px`;
+  host.style.top = `${Math.round(placed.top)}px`;
+}
+
+function onResize(): void {
+  layout(false);
+}
+
+/**
+ * Dragging by the bar.
+ *
+ * Pointer capture keeps the window following the cursor even when the cursor
+ * leaves the bar — which it does constantly, because the bar is thin.
+ */
+function installDrag(bar: HTMLElement): void {
+  let drag: { pointerId: number; offsetX: number; offsetY: number } | null = null;
+
+  bar.addEventListener('pointerdown', (event: PointerEvent) => {
+    if (event.button !== 0 || !host) return;
+    if ((event.target as HTMLElement).closest('.mochi-os-frame-close')) return;
+
+    const rect = host.getBoundingClientRect();
+    drag = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    host.classList.add('is-dragging');
+    bar.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  bar.addEventListener('pointermove', (event: PointerEvent) => {
+    if (!drag || !host || event.pointerId !== drag.pointerId) return;
+
+    const placed = placeFrame(
+      event.clientX - drag.offsetX,
+      event.clientY - drag.offsetY,
+      size,
+      readLimits(BAR_HEIGHT),
+    );
+    position = placed;
+    host.style.left = `${Math.round(placed.left)}px`;
+    host.style.top = `${Math.round(placed.top)}px`;
+  });
+
+  const end = (event: PointerEvent): void => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    drag = null;
+    host?.classList.remove('is-dragging');
+    if (bar.hasPointerCapture(event.pointerId)) bar.releasePointerCapture(event.pointerId);
+    persistPosition();
+  };
+
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
+}
+
 function ensureHost(): HTMLDivElement {
-  if (host?.isConnected) return host;
-  host = document.createElement('div');
-  host.id = HOST_ID;
-  host.className = 'mochi-os-host';
-  host.style.cssText = [
-    'position: fixed',
-    'top: 0',
-    'left: 0',
-    // Sized from the viewport, not from `inset: 0`. SillyTavern is served inside
-    // wrappers that can carry a transform, and that makes a fixed element's
-    // containing block the wrapper's own box — which, with a fixed-position body,
-    // has no height at all. `inset: 0` would then collapse the whole phone to
-    // nothing. `dvh` always measures the viewport.
-    'width: 100%',
-    'height: 100dvh',
-    `z-index: ${OVERLAY_Z_INDEX}`,
-    // A plain block, so Mochi OS's own `w-full h-full` on the root keeps the
-    // meaning it had in the engine.
-    'display: block',
-    'overflow: hidden',
-  ].join('; ');
-  document.body.append(host);
-  return host;
+  if (host?.isConnected && body) return body;
+
+  const frame = document.createElement('div');
+  frame.id = HOST_ID;
+  frame.className = 'mochi-os-frame';
+  frame.style.zIndex = OVERLAY_Z_INDEX;
+  frame.setAttribute('role', 'dialog');
+  frame.setAttribute('aria-label', 'Mochi OS');
+
+  const bar = document.createElement('div');
+  bar.className = 'mochi-os-frame-bar';
+
+  const grip = document.createElement('span');
+  grip.className = 'mochi-os-frame-grip';
+  grip.setAttribute('aria-hidden', 'true');
+
+  const title = document.createElement('span');
+  title.className = 'mochi-os-frame-title';
+  title.textContent = 'Mochi OS';
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'mochi-os-frame-close';
+  close.title = 'Close Mochi OS';
+  close.setAttribute('aria-label', 'Close Mochi OS');
+  close.textContent = '×';
+  close.addEventListener('click', () => closeMochiOs());
+
+  bar.append(grip, title, close);
+
+  const screen = document.createElement('div');
+  screen.className = 'mochi-os-frame-body';
+
+  frame.append(bar, screen);
+  document.body.append(frame);
+
+  host = frame;
+  body = screen;
+
+  installDrag(bar);
+  layout(true);
+  return screen;
 }
 
 function invalidateAll(): void {
@@ -83,11 +199,11 @@ function endGeneration(): void {
 }
 
 /**
- * Mirror SillyTavern into the store and the query cache while the overlay is up.
+ * Mirror SillyTavern into the store and the query cache while the window is up.
  *
  * SillyTavern owns the chat, generation and the character list, so Mochi OS
  * cannot be told about a change by whoever made it. Listening here — and only
- * while the overlay exists — keeps the cache honest without polling.
+ * while the window exists — keeps the cache honest without polling.
  */
 function startEventBridge(): void {
   const listen = (name: string, handler: (...args: any[]) => void): void => {
@@ -145,9 +261,9 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 /**
- * Tells the launchers whether the overlay is up.
+ * Tells the launchers whether the window is up.
  *
- * The overlay can be closed from inside itself (dragging the home indicator
+ * The phone can be closed from inside itself (dragging the home indicator
  * down), so the bubble cannot simply track its own clicks.
  */
 function announce(open: boolean): void {
@@ -158,8 +274,8 @@ function announce(open: boolean): void {
  * A last line of defence.
  *
  * Mochi OS is a large interface ported from another application; if something in
- * it throws, the alternative is a frozen full-screen layer over SillyTavern with
- * no way back. This turns that into a readable message and a way out.
+ * it throws, the alternative is a frozen layer with no way back. This turns that
+ * into a readable message and a way out.
  */
 class OverlayBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -234,12 +350,14 @@ export function openMochiOs(): void {
     </QueryClientProvider>,
   );
 
+  window.addEventListener('resize', onResize);
   // Capture phase, so SillyTavern's own handlers never see the key.
   document.addEventListener('keydown', onKeyDown, true);
   announce(true);
 }
 
 export function closeMochiOs(): void {
+  window.removeEventListener('resize', onResize);
   document.removeEventListener('keydown', onKeyDown, true);
   stopEventBridge();
   announce(false);
@@ -248,6 +366,7 @@ export function closeMochiOs(): void {
   const element = host;
   root = null;
   host = null;
+  body = null;
 
   if (!closing) {
     element?.remove();

@@ -98,6 +98,141 @@
 }
 
 /* --------------------------------------------------------------------------
+   The phone window
+
+   Mochi OS is a phone, so it opens as one: a floating window with the phone's
+   proportions, dragged by its bar, never wider than SillyTavern's top bar and
+   never taller than the room below it. The bar is the only chrome the port adds
+   around the interface; it is styled from SillyTavern's own theme variables so
+   it belongs to the application it floats in.
+
+   `.mochi-os-frame-body` is a size container. The interface's stylesheet is
+   re-pointed at it (`st/styles.ts`), so `vh`/`vw` and its media queries describe
+   the phone rather than the browser window.
+   -------------------------------------------------------------------------- */
+
+#mochi-os-host {
+    position: fixed;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #0a0d0a;
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.mochi-os-frame-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 6px 0 10px;
+    background: var(--SmartThemeBlurTintColor, #1c1f1a);
+    color: var(--SmartThemeBodyColor, #dcdcd2);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    cursor: grab;
+}
+
+#mochi-os-host.is-dragging .mochi-os-frame-bar {
+    cursor: grabbing;
+}
+
+#mochi-os-host.is-dragging {
+    box-shadow:
+        0 40px 90px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.mochi-os-frame-grip {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 3px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.35;
+}
+
+.mochi-os-frame-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.mochi-os-frame-close {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.65;
+    cursor: pointer;
+    transition:
+        background 120ms ease,
+        color 120ms ease,
+        opacity 120ms ease;
+}
+
+.mochi-os-frame-close:hover {
+    background: rgba(248, 113, 113, 0.18);
+    color: #f87171;
+    opacity: 1;
+}
+
+.mochi-os-frame-close:focus-visible {
+    outline: 2px solid var(--SmartThemeQuoteColor, #7fa061);
+    outline-offset: 1px;
+}
+
+.mochi-os-frame-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: #101410;
+    /* The phone measures itself against this box, and fixed-position layers
+       inside it (sheets, tooltips) are contained by it instead of the page. */
+    container-type: size;
+}
+
+/* `w-full h-full` on the Mochi root, made independent of how flex resolves a
+   percentage height. */
+.mochi-os-frame-body > .mochi-scope {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+}
+
+@media (max-width: 640px) {
+    #mochi-os-host {
+        border-radius: 20px;
+    }
+}
+
+/* --------------------------------------------------------------------------
    Wand menu entry
 
    SillyTavern already styles everything inside `#extensionsMenu`: the row,
