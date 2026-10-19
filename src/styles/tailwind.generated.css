@@ -1,0 +1,95 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Tailwind utilities used by the Mochi OS port — GENERATED, do not edit.
+
+   Regenerate with `node scripts/gen-tailwind.mjs` after changing what the
+   ported components render. See that script for why this file exists.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.mochi-scope{
+    --color-red-400: oklch(70.4% 0.191 22.216);
+    --color-emerald-400: oklch(76.5% 0.177 163.223);
+    --spacing: 0.25rem;
+    --text-xs: 0.75rem;
+    --text-xs--line-height: calc(1 / 0.75);
+    --radius-lg: 0.5rem;
+  }.mochi-scope .invisible, .mochi-scope.invisible{
+    visibility: hidden;
+  }.mochi-scope .relative, .mochi-scope.relative{
+    position: relative;
+  }.mochi-scope .mt-1, .mochi-scope.mt-1{
+    margin-top: var(--spacing);
+  }.mochi-scope .block, .mochi-scope.block{
+    display: block;
+  }.mochi-scope .flex, .mochi-scope.flex{
+    display: flex;
+  }.mochi-scope .hidden, .mochi-scope.hidden{
+    display: none;
+  }.mochi-scope .h-full, .mochi-scope.h-full{
+    height: 100%;
+  }.mochi-scope .w-full, .mochi-scope.w-full{
+    width: 100%;
+  }.mochi-scope .transform, .mochi-scope.transform{
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }.mochi-scope .overflow-clip, .mochi-scope.overflow-clip{
+    overflow: clip;
+  }.mochi-scope .rounded-lg, .mochi-scope.rounded-lg{
+    border-radius: var(--radius-lg);
+  }.mochi-scope .border, .mochi-scope.border{
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+  }.mochi-scope .border-\[var\(--border-subtle\)\], .mochi-scope.border-\[var\(--border-subtle\)\]{
+    border-color: var(--border-subtle);
+  }.mochi-scope .bg-\[var\(--surface-layer-1\)\], .mochi-scope.bg-\[var\(--surface-layer-1\)\]{
+    background-color: var(--surface-layer-1);
+  }.mochi-scope .p-2, .mochi-scope.p-2{
+    padding: calc(var(--spacing) * 2);
+  }.mochi-scope .text-xs, .mochi-scope.text-xs{
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+  }.mochi-scope .whitespace-pre-wrap, .mochi-scope.whitespace-pre-wrap{
+    white-space: pre-wrap;
+  }.mochi-scope .text-\[var\(--acc\)\], .mochi-scope.text-\[var\(--acc\)\]{
+    color: var(--acc);
+  }.mochi-scope .text-\[var\(--text-secondary\)\], .mochi-scope.text-\[var\(--text-secondary\)\]{
+    color: var(--text-secondary);
+  }.mochi-scope .text-emerald-400, .mochi-scope.text-emerald-400{
+    color: var(--color-emerald-400);
+  }
+  @media (hover: hover) {.mochi-scope .hover\:border-red-400\/40:hover, .mochi-scope.hover\:border-red-400\/40:hover{
+      border-color: color-mix(in srgb, oklch(70.4% 0.191 22.216) 40%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {.mochi-scope .hover\:border-red-400\/40:hover, .mochi-scope.hover\:border-red-400\/40:hover{
+        border-color: color-mix(in oklab, var(--color-red-400) 40%, transparent);
+      }
+    }.mochi-scope .hover\:text-\[var\(--acc\)\]:hover, .mochi-scope.hover\:text-\[var\(--acc\)\]:hover{
+      color: var(--acc);
+    }.mochi-scope .hover\:text-red-400:hover, .mochi-scope.hover\:text-red-400:hover{
+      color: var(--color-red-400);
+    }
+  }
+
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}

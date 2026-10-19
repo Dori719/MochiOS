@@ -1,29 +1,29 @@
 {
-  "name": "sillytavern-mochi-os",
+  "name": "mochi-os-sillytavern",
   "version": "1.0.0",
   "private": true,
-  "description": "Mochi OS phone & chat simulator extension for SillyTavern (ported from Marinara Engine / Dori-Engine)",
-  "license": "AGPL-3.0",
+  "description": "Mochi OS, the phone interface from Dori Engine, ported to SillyTavern as a native extension.",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "watch": "node build.mjs --watch",
+    "dev": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/build-and-run.mjs",
-    "i18n": "node scripts/generate-i18n.mjs",
-    "install-extension": "node scripts/install.mjs"
+    "tailwind": "node scripts/gen-tailwind.mjs",
+    "install:st": "node scripts/install.mjs"
   },
   "dependencies": {
-    "lucide-react": "^0.469.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "yaml": "^2.7.0"
+    "@tanstack/react-query": "5.103.0",
+    "lucide-react": "0.469.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "yaml": "2.9.1",
+    "zod": "^3.25.76",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "esbuild": "^0.28.1",
-    "typescript": "^5.9.3"
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
   }
 }

@@ -1,25 +1,28 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
-    "skipLibCheck": true,
     "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [],
     "baseUrl": ".",
     "paths": {
-      "@marinara-engine/shared": ["./src/shims/shared.ts"]
+      "@marinara-engine/shared": ["src/shared/index.ts"],
+      "clsx": ["src/compat/clsx.ts"],
+      "tailwind-merge": ["src/compat/tailwind-merge.ts"],
+      "i18next": ["src/compat/i18next.ts"],
+      "react-i18next": ["src/compat/react-i18next.ts"],
+      "sonner": ["src/compat/sonner.ts"]
     }
   },
-  // `components/`, `hooks/`, `lib/` and `shims/` are the engine-side copies the
-  // port was taken from. They are reference material: nothing that ships imports
-  // them, and they still reach for engine modules (`@tanstack/react-query`,
-  // `zod`, the engine's api-client) that do not exist here, so they are outside
-  // the typecheck. `src/mochi/` is the shipped replacement for all of them.
-  "include": ["src"],
-  "exclude": ["src/components", "src/hooks", "src/lib", "src/shims"]
+  "include": ["src"]
 }

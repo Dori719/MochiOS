@@ -1,40 +1,133 @@
+#!/usr/bin/env node
 /**
- * Install the built extension into a SillyTavern checkout.
+ * Mirrors the built extension into SillyTavern.
  *
- *   node scripts/install.mjs ["D:/path/to/SillyTavern"]
+ * SillyTavern only looks for extensions under
+ * `public/scripts/extensions/third-party/<folder>`, so the build output has to be
+ * copied there. This script does that, into every SillyTavern checkout it can
+ * find, and refuses to delete anything that does not look like the previously
+ * installed extension.
  *
- * SillyTavern resolves third-party extensions from
- * `public/scripts/extensions/third-party/<name>`, so that is where the built
- * files are copied. The default target is the sibling checkout used during
- * development.
+ *   node scripts/install.mjs                     # every checkout found
+ *   node scripts/install.mjs --target D:/ST     # one specific checkout
+ *   SILLYTAVERN_DIR=D:/ST node scripts/install.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = path.resolve(import.meta.dirname, '..');
+const DIST = path.join(ROOT, 'dist');
 
-const target = process.argv[2] ?? 'D:/Silly Project argon/SillyTavern-1.19.0';
-const destination = path.join(target, 'public', 'scripts', 'extensions', 'third-party', 'mochi-os');
+/** The folder name SillyTavern serves the extension from. */
+const FOLDER = 'mochi-os';
 
-/** Files the extension needs at runtime. Everything else is build input. */
-const RUNTIME_FILES = ['index.js', 'style.css', 'manifest.json'];
+/** Third-party extension directory inside a SillyTavern checkout. */
+const THIRD_PARTY = path.join('public', 'scripts', 'extensions', 'third-party');
 
-if (!fs.existsSync(path.join(target, 'package.json'))) {
-  console.error(`${target} does not look like a SillyTavern checkout (no package.json).`);
-  process.exit(1);
+/**
+ * Checkouts this project knows about.
+ *
+ * A sibling checkout is found automatically; the second one lives elsewhere in
+ * the workspace, so it is named here. `--target` covers anything else.
+ */
+function candidateRoots() {
+  const roots = new Set();
+  const explicit = process.env.SILLYTAVERN_DIR;
+  if (explicit) roots.add(path.resolve(explicit));
+
+  const workspace = path.resolve(ROOT, '..');
+  try {
+    for (const entry of fs.readdirSync(workspace, { withFileTypes: true })) {
+      if (entry.isDirectory() && /^SillyTavern/i.test(entry.name)) {
+        roots.add(path.join(workspace, entry.name));
+      }
+    }
+  } catch {
+    // No workspace folder — `--target` is the only way in.
+  }
+
+  roots.add(path.resolve(workspace, '..', 'Silly Project', 'SillyTavern-1.19.0'));
+  return [...roots].filter((root) => fs.existsSync(path.join(root, THIRD_PARTY)));
 }
 
-for (const file of ['index.js', 'style.css']) {
-  if (!fs.existsSync(path.join(root, file))) {
-    console.error(`${file} is missing — run "npm run build" first.`);
-    process.exit(1);
+function copyTree(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+    const source = path.join(from, entry.name);
+    const destination = path.join(to, entry.name);
+    if (entry.isDirectory()) copyTree(source, destination);
+    else fs.copyFileSync(source, destination);
   }
 }
 
-fs.mkdirSync(destination, { recursive: true });
-for (const file of RUNTIME_FILES) {
-  fs.copyFileSync(path.join(root, file), path.join(destination, file));
+/**
+ * Replaces what is in `destination`.
+ *
+ * The previous version of this extension may be there, and it has to go — leftover
+ * files would be served alongside the new ones. Only a folder that is empty or
+ * holds an extension manifest is removed.
+ */
+function replace(destination) {
+  if (fs.existsSync(destination)) {
+    const entries = fs.readdirSync(destination);
+    if (entries.length > 0 && !entries.includes('manifest.json')) {
+      throw new Error(`${destination} does not look like an extension folder; refusing to replace it`);
+    }
+    fs.rmSync(destination, { recursive: true, force: true });
+  }
+  copyTree(DIST, destination);
 }
 
-console.log(`installed ${RUNTIME_FILES.length} files to ${destination}`);
+/** Copies `dist/` into one SillyTavern checkout. Returns the installed path. */
+export function install(target) {
+  if (!fs.existsSync(path.join(DIST, 'index.js'))) {
+    throw new Error(`Nothing to install: ${path.join(DIST, 'index.js')} is missing. Run "npm run build" first.`);
+  }
+  const destination = path.join(target, THIRD_PARTY, FOLDER);
+  replace(destination);
+  return destination;
+}
+
+/**
+ * Installs into every checkout it can find.
+ *
+ * Returns the paths it wrote, so a build can report them without treating a
+ * missing checkout as a failure.
+ */
+export function installIntoAll() {
+  const installed = [];
+  for (const target of candidateRoots()) {
+    try {
+      installed.push(install(target));
+    } catch (error) {
+      console.warn(`Mochi OS was not installed into ${target}: ${error.message}`);
+    }
+  }
+  return installed;
+}
+
+function main() {
+  const targetIndex = process.argv.indexOf('--target');
+  const targets =
+    targetIndex !== -1 && process.argv[targetIndex + 1]
+      ? [path.resolve(process.argv[targetIndex + 1])]
+      : candidateRoots();
+
+  if (targets.length === 0) {
+    console.warn('No SillyTavern checkout found. Pass --target <checkout> to install.');
+    return;
+  }
+
+  for (const target of targets) {
+    try {
+      console.log(`Mochi OS -> ${install(target)}`);
+    } catch (error) {
+      console.error(`Mochi OS could not be installed into ${target}:`, error.message);
+      process.exitCode = 1;
+    }
+  }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+  main();
+}

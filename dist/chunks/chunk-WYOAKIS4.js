@@ -1,0 +1,7111 @@
+var i=`/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Tailwind utilities used by the Mochi OS port \u2014 GENERATED, do not edit.
+
+   Regenerate with \`node scripts/gen-tailwind.mjs\` after changing what the
+   ported components render. See that script for why this file exists.
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+.mochi-scope{
+    --color-red-400: oklch(70.4% 0.191 22.216);
+    --color-emerald-400: oklch(76.5% 0.177 163.223);
+    --spacing: 0.25rem;
+    --text-xs: 0.75rem;
+    --text-xs--line-height: calc(1 / 0.75);
+    --radius-lg: 0.5rem;
+  }.mochi-scope .invisible, .mochi-scope.invisible{
+    visibility: hidden;
+  }.mochi-scope .relative, .mochi-scope.relative{
+    position: relative;
+  }.mochi-scope .mt-1, .mochi-scope.mt-1{
+    margin-top: var(--spacing);
+  }.mochi-scope .block, .mochi-scope.block{
+    display: block;
+  }.mochi-scope .flex, .mochi-scope.flex{
+    display: flex;
+  }.mochi-scope .hidden, .mochi-scope.hidden{
+    display: none;
+  }.mochi-scope .h-full, .mochi-scope.h-full{
+    height: 100%;
+  }.mochi-scope .w-full, .mochi-scope.w-full{
+    width: 100%;
+  }.mochi-scope .transform, .mochi-scope.transform{
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }.mochi-scope .overflow-clip, .mochi-scope.overflow-clip{
+    overflow: clip;
+  }.mochi-scope .rounded-lg, .mochi-scope.rounded-lg{
+    border-radius: var(--radius-lg);
+  }.mochi-scope .border, .mochi-scope.border{
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+  }.mochi-scope .border-\\[var\\(--border-subtle\\)\\], .mochi-scope.border-\\[var\\(--border-subtle\\)\\]{
+    border-color: var(--border-subtle);
+  }.mochi-scope .bg-\\[var\\(--surface-layer-1\\)\\], .mochi-scope.bg-\\[var\\(--surface-layer-1\\)\\]{
+    background-color: var(--surface-layer-1);
+  }.mochi-scope .p-2, .mochi-scope.p-2{
+    padding: calc(var(--spacing) * 2);
+  }.mochi-scope .text-xs, .mochi-scope.text-xs{
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+  }.mochi-scope .whitespace-pre-wrap, .mochi-scope.whitespace-pre-wrap{
+    white-space: pre-wrap;
+  }.mochi-scope .text-\\[var\\(--acc\\)\\], .mochi-scope.text-\\[var\\(--acc\\)\\]{
+    color: var(--acc);
+  }.mochi-scope .text-\\[var\\(--text-secondary\\)\\], .mochi-scope.text-\\[var\\(--text-secondary\\)\\]{
+    color: var(--text-secondary);
+  }.mochi-scope .text-emerald-400, .mochi-scope.text-emerald-400{
+    color: var(--color-emerald-400);
+  }
+  @media (hover: hover) {.mochi-scope .hover\\:border-red-400\\/40:hover, .mochi-scope.hover\\:border-red-400\\/40:hover{
+      border-color: color-mix(in srgb, oklch(70.4% 0.191 22.216) 40%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {.mochi-scope .hover\\:border-red-400\\/40:hover, .mochi-scope.hover\\:border-red-400\\/40:hover{
+        border-color: color-mix(in oklab, var(--color-red-400) 40%, transparent);
+      }
+    }.mochi-scope .hover\\:text-\\[var\\(--acc\\)\\]:hover, .mochi-scope.hover\\:text-\\[var\\(--acc\\)\\]:hover{
+      color: var(--acc);
+    }.mochi-scope .hover\\:text-red-400:hover, .mochi-scope.hover\\:text-red-400:hover{
+      color: var(--color-red-400);
+    }
+  }
+
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+`;var r=`.mochi-scope {
+  --screen: #d9eeb0;
+  --tile-a: #a6bb8d;
+  --tile-b: #93a87b;
+  --dock-a: #bccda4;
+  --dock-b: #a9bc90;
+  --ink: #ffffff;
+  --paper: #f2f8df;
+  --paper-dim: #e2edc8;
+  --line: #c8d8ab;
+  --text: #33402a;
+  --muted: #7d9163;
+  --acc: #7fa061;
+  --acc-soft: #e9f3d6;
+  --bubble-line: #e7f0d6;
+  --chat-bg: #f7fbf0;
+  --chat-bubble-in: #fff;
+  --chat-item-bg: #fff;
+  --modal-bg: #fff;
+  --nav-bg: #fff;
+  --input-bg: #f2f8e6;
+  --content-w: min(1500px, 100%);
+  /* Icon tile size: height-driven on desktop, but capped against the viewport width so a
+     4-column phone grid never overflows its column. */
+  --tile: min(clamp(88px, 10vh, 116px), 21vw);
+  --tile-radius: clamp(15px, 4.5vw, 24px);
+  --gutter: clamp(10px, 3vw, 30px);
+  --dock-bg: rgba(148, 168, 122, 0.55);
+
+  font-family: "Nunito", system-ui, sans-serif;
+  color: var(--text);
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent Android touch/compositor jitter & Termux Webview glitches */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* No resting \`translateZ(0)\`: promoting the desktop permanently makes every surface inside it a
+     separate composited layer, and a fresh layer shows the roleplay interface beneath the whole
+     Mochi OS until it paints. The drag/dismiss animations set a transform themselves. */
+  backface-visibility: hidden;
+}
+
+.mochi-scope * {
+  box-sizing: border-box;
+}
+
+.mochi-scope button {
+  font: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Dark theme */
+.mochi-scope.theme-dark {
+  --screen: #3a4a2b;
+  --tile-a: #4d603a;
+  --tile-b: #3e4f2d;
+  --dock-bg: rgba(44, 58, 32, 0.55);
+  --ink: #e4f2c9;
+  --paper: #2c3a20;
+  --paper-dim: #354728;
+  --line: #465a33;
+  --text: #e4f2c9;
+  --muted: #94b172;
+  --acc: #94b172;
+  --acc-soft: #354728;
+  --bubble-line: #3e4f2d;
+  --chat-bg: #26331a;
+  --chat-bubble-in: #2f4021;
+  --chat-item-bg: #2c3a20;
+  --modal-bg: #2c3a20;
+  --nav-bg: #2c3a20;
+  --input-bg: #354728;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto {
+    --screen: #3a4a2b;
+    --tile-a: #4d603a;
+    --tile-b: #3e4f2d;
+    --dock-bg: rgba(44, 58, 32, 0.55);
+    --ink: #e4f2c9;
+    --paper: #2c3a20;
+    --paper-dim: #354728;
+    --line: #465a33;
+    --text: #e4f2c9;
+    --muted: #94b172;
+    --acc: #94b172;
+    --acc-soft: #354728;
+    --bubble-line: #3e4f2d;
+    --chat-bg: #26331a;
+    --chat-bubble-in: #2f4021;
+    --chat-item-bg: #2c3a20;
+    --modal-bg: #2c3a20;
+    --nav-bg: #2c3a20;
+    --input-bg: #354728;
+  }
+}
+
+/* Color Ocean */
+.mochi-scope.color-ocean {
+  --screen: #cbe4f9;
+  --tile-a: #88b4d8;
+  --tile-b: #6fa2cc;
+  --dock-bg: rgba(142, 186, 224, 0.55);
+  --paper: #e6f3fc;
+  --paper-dim: #d4e9f9;
+  --line: #b3d6f2;
+  --text: #2b4255;
+  --muted: #668aa6;
+  --acc: #6fa2cc;
+  --acc-soft: #eef6fc;
+  --bubble-line: #e2f0fb;
+}
+.mochi-scope.theme-dark.color-ocean {
+  --screen: #1e2b3c;
+  --tile-a: #3a5a78;
+  --tile-b: #2b4763;
+  --dock-bg: rgba(43, 71, 99, 0.55);
+  --ink: #d8ebf9;
+  --paper: #192433;
+  --paper-dim: #223246;
+  --line: #2e445e;
+  --text: #d8ebf9;
+  --muted: #7c9cb8;
+  --acc: #6fa2cc;
+  --acc-soft: #223246;
+  --bubble-line: #2b4763;
+  --chat-bg: #16202d;
+  --chat-bubble-in: #1d2a3a;
+  --chat-item-bg: #192433;
+  --modal-bg: #192433;
+  --nav-bg: #192433;
+  --input-bg: #223246;
+}
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto.color-ocean {
+    --screen: #1e2b3c;
+    --tile-a: #3a5a78;
+    --tile-b: #2b4763;
+    --dock-bg: rgba(43, 71, 99, 0.55);
+    --ink: #d8ebf9;
+    --paper: #192433;
+    --paper-dim: #223246;
+    --line: #2e445e;
+    --text: #d8ebf9;
+    --muted: #7c9cb8;
+    --acc: #6fa2cc;
+    --acc-soft: #223246;
+    --bubble-line: #2b4763;
+    --chat-bg: #16202d;
+    --chat-bubble-in: #1d2a3a;
+    --chat-item-bg: #192433;
+    --modal-bg: #192433;
+    --nav-bg: #192433;
+    --input-bg: #223246;
+  }
+}
+
+/* Color Plum */
+.mochi-scope.color-plum {
+  --screen: #ebdff2;
+  --tile-a: #c69bc9;
+  --tile-b: #b57fb8;
+  --dock-bg: rgba(205, 166, 206, 0.55);
+  --paper: #f5ecf7;
+  --paper-dim: #ebdff2;
+  --line: #dcb5de;
+  --text: #4a2c4d;
+  --muted: #9c6e9e;
+  --acc: #b57fb8;
+  --acc-soft: #faf2fc;
+  --bubble-line: #f4e9f5;
+}
+.mochi-scope.theme-dark.color-plum {
+  --screen: #3a283c;
+  --tile-a: #6b476e;
+  --tile-b: #563659;
+  --dock-bg: rgba(86, 54, 89, 0.55);
+  --ink: #f4e8f5;
+  --paper: #2d1e2f;
+  --paper-dim: #3d2a3f;
+  --line: #513654;
+  --text: #f4e8f5;
+  --muted: #b082b2;
+  --acc: #b57fb8;
+  --acc-soft: #3d2a3f;
+  --bubble-line: #563659;
+  --chat-bg: #241825;
+  --chat-bubble-in: #2e1f30;
+  --chat-item-bg: #2d1e2f;
+  --modal-bg: #2d1e2f;
+  --nav-bg: #2d1e2f;
+  --input-bg: #3d2a3f;
+}
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto.color-plum {
+    --screen: #3a283c;
+    --tile-a: #6b476e;
+    --tile-b: #563659;
+    --dock-bg: rgba(86, 54, 89, 0.55);
+    --ink: #f4e8f5;
+    --paper: #2d1e2f;
+    --paper-dim: #3d2a3f;
+    --line: #513654;
+    --text: #f4e8f5;
+    --muted: #b082b2;
+    --acc: #b57fb8;
+    --acc-soft: #3d2a3f;
+    --bubble-line: #563659;
+    --chat-bg: #241825;
+    --chat-bubble-in: #2e1f30;
+    --chat-item-bg: #2d1e2f;
+    --modal-bg: #2d1e2f;
+    --nav-bg: #2d1e2f;
+    --input-bg: #3d2a3f;
+  }
+}
+
+/* Color Peach */
+.mochi-scope.color-peach {
+  --screen: #fbdfd1;
+  --tile-a: #e3a289;
+  --tile-b: #d98e71;
+  --dock-bg: rgba(230, 180, 162, 0.55);
+  --paper: #fdf0e9;
+  --paper-dim: #fbe2d7;
+  --line: #efbca4;
+  --text: #523226;
+  --muted: #b36c50;
+  --acc: #d98e71;
+  --acc-soft: #fef7f3;
+  --bubble-line: #fceae1;
+}
+.mochi-scope.theme-dark.color-peach {
+  --screen: #4a2b1f;
+  --tile-a: #7a4a37;
+  --tile-b: #633928;
+  --dock-bg: rgba(99, 57, 40, 0.55);
+  --ink: #faebe4;
+  --paper: #361f15;
+  --paper-dim: #4a2c1f;
+  --line: #633c2a;
+  --text: #faebe4;
+  --muted: #c68369;
+  --acc: #d98e71;
+  --acc-soft: #4a2c1f;
+  --bubble-line: #633928;
+  --chat-bg: #2d1910;
+  --chat-bubble-in: #3a2016;
+  --chat-item-bg: #361f15;
+  --modal-bg: #361f15;
+  --nav-bg: #361f15;
+  --input-bg: #4a2c1f;
+}
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto.color-peach {
+    --screen: #4a2b1f;
+    --tile-a: #7a4a37;
+    --tile-b: #633928;
+    --dock-bg: rgba(99, 57, 40, 0.55);
+    --ink: #faebe4;
+    --paper: #361f15;
+    --paper-dim: #4a2c1f;
+    --line: #633c2a;
+    --text: #faebe4;
+    --muted: #c68369;
+    --acc: #d98e71;
+    --acc-soft: #4a2c1f;
+    --bubble-line: #633928;
+    --chat-bg: #2d1910;
+    --chat-bubble-in: #3a2016;
+    --chat-item-bg: #361f15;
+    --modal-bg: #361f15;
+    --nav-bg: #361f15;
+    --input-bg: #4a2c1f;
+  }
+}
+
+/* Color Custom
+   The custom palette is derived from the picked hex at runtime (see
+   mochi-os.color.ts) and injected as inline custom properties on the scope
+   element, so there is deliberately no static \`.color-custom\` block here. A
+   static block would fight the inline tokens and reintroduce the fixed
+   green-grey surfaces the derivation replaces. */
+
+.mochi-scope .screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* \`clip\`, not \`hidden\`: \`overflow: hidden\` still makes this a scroll container, so focusing an
+     off-centre control (the dock's Settings button) scrolled the whole desktop sideways and
+     dragged every overlay inside it off the left edge. \`clip\` clips without ever scrolling. */
+  overflow: hidden;
+  overflow-x: clip;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2vh;
+  padding: 1.8vh 3vw 2.6vh;
+  background: var(--screen)
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='170'%20height='170'%3E%3Cg%20stroke='%23333a2e'%20stroke-width='2.4'%20stroke-linecap='round'%20opacity='0.4'%3E%3Cpath%20d='M24%2034l6-9'/%3E%3Cpath%20d='M34%2036l6-9'/%3E%3Cpath%20d='M118%2078l6-9'/%3E%3Cpath%20d='M128%2080l6-9'/%3E%3Cpath%20d='M64%20132l6-9'/%3E%3Cpath%20d='M74%20134l6-9'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.mochi-scope .status,
+.mochi-scope .apps,
+.mochi-scope .dock {
+  width: var(--content-w);
+  margin-inline: auto;
+}
+
+.mochi-scope .status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: clamp(15px, 2vh, 19px);
+  text-shadow: 0 1px 2px rgba(70, 90, 50, 0.35);
+}
+
+.mochi-scope .status .right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mochi-scope .status svg {
+  display: block;
+}
+
+/* ================= HOME INDICATOR ================= */
+.mochi-scope .mochi-home-indicator-wrapper {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.mochi-scope .mochi-home-indicator-hitarea {
+  pointer-events: auto;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 24px 8px;
+  background: transparent;
+  border: none;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mochi-scope .mochi-home-indicator-hitarea:active {
+  cursor: grabbing;
+  transform: scale(0.96);
+}
+
+.mochi-scope .mochi-home-indicator-bar {
+  width: clamp(72px, 15vw, 130px);
+  height: 4.5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 40%, #ffffff 60%);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.28),
+    0 0 1px rgba(255, 255, 255, 0.4);
+  transition:
+    width 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mochi-scope .mochi-home-indicator-hitarea:hover .mochi-home-indicator-bar {
+  width: clamp(84px, 17vw, 145px);
+  height: 5.5px;
+  background: color-mix(in srgb, var(--ink) 70%, #ffffff 30%);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.mochi-scope .mochi-home-indicator-hitarea:active .mochi-home-indicator-bar {
+  width: clamp(80px, 16vw, 140px);
+  height: 5px;
+  background: #ffffff;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.45),
+    0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.mochi-scope .mochi-home-indicator-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--ink);
+  opacity: 0.82;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.mochi-scope .mochi-home-indicator-hitarea:hover .mochi-home-indicator-label {
+  opacity: 1;
+  transform: translateY(1px);
+}
+
+.mochi-scope .mochi-home-indicator-label svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.5;
+  animation: mochi-bounce-hint 2s ease-in-out infinite;
+}
+
+@keyframes mochi-bounce-hint {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+.mochi-scope .universe-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 3;
+  margin-top: 1vh;
+  margin-bottom: -1vh;
+  padding: 0 clamp(16px, 3vw, 28px);
+}
+
+.mochi-scope .mochi-return-roleplay-btn {
+  position: absolute;
+  right: clamp(16px, 3vw, 28px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-dim) 88%, transparent);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  font-weight: 700;
+  font-size: clamp(11px, 1.4vh, 13px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mochi-scope .mochi-return-roleplay-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: var(--acc);
+  color: var(--acc);
+  background: var(--paper-dim);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.mochi-scope .mochi-return-roleplay-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.mochi-scope .universe-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: var(--ink);
+  font-weight: 800;
+  font-size: clamp(13px, 1.8vh, 16px);
+  letter-spacing: 0.5px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 6px 16px rgba(70, 90, 50, 0.22);
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mochi-scope .universe-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.mochi-scope .universe-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 10px 22px rgba(70, 90, 50, 0.3);
+  filter: brightness(1.05);
+}
+
+.mochi-scope .universe-btn:hover svg {
+  transform: rotate(20deg);
+}
+
+.mochi-scope .universe-btn:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 10px rgba(70, 90, 50, 0.25);
+}
+
+.mochi-scope .widgets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(12px, 3vw, 26px);
+  position: relative;
+  z-index: 2;
+  width: var(--content-w);
+  max-width: 1100px;
+  margin-inline: auto;
+  margin-top: clamp(10px, 4.5vh, 4.5vh);
+}
+
+.mochi-scope .widget {
+  border-radius: clamp(16px, 4vw, 26px);
+  padding: clamp(10px, 2vh, 2vh) clamp(12px, 4vw, 20px);
+  text-align: center;
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 8px 18px rgba(70, 90, 50, 0.25);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-height: clamp(84px, 21vh, 190px);
+  transition: transform 0.18s ease;
+  backface-visibility: hidden;
+}
+
+.mochi-scope .widget:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.mochi-scope .widget .big {
+  font-size: clamp(28px, 6vh, 58px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 3px rgba(70, 90, 50, 0.35);
+}
+
+.mochi-scope .widget .sub {
+  font-size: clamp(12px, 2vh, 17px);
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.mochi-scope .apps {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  grid-template-columns: repeat(6, 1fr);
+  gap: clamp(16px, 4.5vh, 44px) clamp(8px, 2.5vw, 12px);
+}
+
+.mochi-scope .app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  transition: transform 0.18s ease;
+}
+
+.mochi-scope .app:hover {
+  transform: translateY(-4px) scale(1.04);
+}
+
+.mochi-scope .tile {
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: var(--tile-radius);
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 14px rgba(70, 90, 50, 0.28);
+}
+
+.mochi-scope .tile svg {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: #fff;
+  filter: drop-shadow(0 1px 1px rgba(70, 90, 50, 0.3));
+}
+
+.mochi-scope .label {
+  color: var(--ink);
+  font-weight: 800;
+  font-size: clamp(11px, 1.9vh, 17px);
+  line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(70, 90, 50, 0.4);
+}
+
+/* The dock is permanently on screen, so a \`backdrop-filter\` here is a full-width backdrop pass on
+   every frame the desktop animates \u2014 the wallpaper it blurs is a flat wash with a faint pattern, so
+   the effect shows almost nothing while promoting the dock to its own composited layer. That layer
+   is what flashes the roleplay interface underneath the whole Mochi OS while the compositor
+   catches up. The dock therefore carries more of its own colour instead of blurring. */
+.mochi-scope .dock {
+  position: relative;
+  z-index: 2;
+  border-radius: clamp(18px, 5vw, 30px);
+  padding: 2vh var(--gutter) 1.4vh;
+  background: color-mix(in srgb, var(--dock-bg, rgba(148, 168, 122, 0.55)) 88%, var(--screen));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: space-around;
+  backface-visibility: hidden;
+}
+
+.mochi-scope .mascot {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  animation: mochi-float 5s ease-in-out infinite;
+}
+
+.mochi-scope .m1 {
+  width: clamp(150px, 15vw, 230px);
+  right: 14%;
+  top: 42%;
+  transform: rotate(-6deg);
+}
+
+.mochi-scope .m2 {
+  width: clamp(120px, 12vw, 190px);
+  left: 27%;
+  top: 48%;
+  transform: rotate(9deg);
+  animation-duration: 6.5s;
+}
+
+@keyframes mochi-float {
+  50% {
+    translate: 0 -7px;
+  }
+}
+
+/* Modals
+   The scrim sits directly on top of \`.screen\`, so a flat translucent colour lets the Mochi OS
+   homescreen read through it. It deliberately carries no \`backdrop-filter\`: a backdrop filter
+   snapshots everything painted beneath the element, and inside a scope whose own root is a 3D
+   transform that snapshot resolves to the page under the whole Mochi OS layer \u2014 the roleplay
+   interface \u2014 instead of the homescreen, and the snapshot repaint shows as a glitch. \`isolation\`
+   keeps the scrim's stacking context closed to \`.screen\`, and \`backface-visibility: hidden\` stops
+   a composited scrim layer from ever drawing a mirrored backface of that same page content. */
+.mochi-scope .overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 20, 15, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s;
+  isolation: isolate;
+  backface-visibility: hidden;
+}
+
+.mochi-scope .overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mochi-scope .modal {
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  overflow: auto;
+  background: var(--modal-bg);
+  border-radius: clamp(16px, 5vw, 26px);
+  padding: clamp(14px, 4vw, 22px) clamp(14px, 4.5vw, 24px);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.mochi-scope .modal.modal-settings-split {
+  width: min(1060px, 96vw);
+  height: min(780px, 92vh);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mochi-scope .settings-split-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(11px, 3.4vw, 18px) clamp(14px, 4vw, 24px) clamp(9px, 2.6vw, 14px);
+  border-bottom: 1px solid var(--bubble-line);
+}
+
+.mochi-scope .settings-split-head h3 {
+  font-size: clamp(16px, 3.6vw, 20px);
+  font-weight: 900;
+}
+
+.mochi-scope .settings-split-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mochi-scope .settings-split-sidebar {
+  width: 220px;
+  background: var(--paper-dim);
+  border-right: 1px solid var(--bubble-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.mochi-scope .settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: left;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.mochi-scope .settings-nav-item svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.mochi-scope .settings-nav-item:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.mochi-scope .settings-nav-item.active {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(70, 90, 50, 0.25);
+}
+
+.mochi-scope .settings-nav-item.active svg {
+  stroke: #fff;
+}
+
+.mochi-scope .settings-split-content {
+  flex: 1;
+  min-width: 0;
+  padding: clamp(14px, 4vw, 24px) clamp(14px, 5vw, 28px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 16px);
+}
+
+.mochi-scope .settings-section-title {
+  font-size: clamp(15px, 3.2vw, 17px);
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+@media (max-width: 600px) {
+  .mochi-scope .modal.modal-settings-split {
+    width: 96vw;
+    height: 90vh;
+    max-height: 90vh;
+    border-radius: 20px;
+    margin: auto;
+  }
+
+  .mochi-scope .settings-split-head {
+    padding: 12px 16px 10px;
+  }
+
+  /* A 220px icon-less sidebar would eat a third of a phone and hide every label. The section
+     names become a scrollable tab strip across the top instead, so the words stay readable and
+     the pane underneath gets the full width. */
+  .mochi-scope .settings-split-body {
+    flex-direction: column;
+  }
+
+  .mochi-scope .settings-split-sidebar {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    border-right: 0;
+    border-bottom: 1px solid var(--bubble-line);
+    scrollbar-width: none;
+  }
+
+  .mochi-scope .settings-split-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mochi-scope .settings-nav-item {
+    flex: 0 0 auto;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .mochi-scope .settings-nav-item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .mochi-scope .settings-split-content {
+    padding: 14px 14px 20px;
+    gap: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.mochi-scope .modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.mochi-scope .modal-head h3 {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.mochi-scope .close {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--paper-dim);
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mochi-scope .seg {
+  display: flex;
+  background: var(--paper-dim);
+  border-radius: 16px;
+  padding: 5px;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.mochi-scope .seg button {
+  flex: 1;
+  padding: 9px;
+  border-radius: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .seg button.active {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(70, 90, 50, 0.3);
+}
+
+/* Twelve currency symbols are picked from a dropdown, not a segmented row. */
+
+.mochi-scope .panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mochi-scope .panel.hidden {
+  display: none;
+}
+
+.mochi-scope .lbl {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mochi-scope select,
+.mochi-scope input[type="text"],
+.mochi-scope input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--input-bg);
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  outline: none;
+}
+
+.mochi-scope select:focus,
+.mochi-scope input[type="text"]:focus,
+.mochi-scope input[type="number"]:focus {
+  border-color: var(--tile-b);
+}
+
+.mochi-scope select {
+  border-radius: 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tile-b) transparent;
+}
+
+/* Currency sits inline with the amount, on the left. */
+.mochi-scope .mochi-transfer-amount-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.mochi-scope .mochi-transfer-amount-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.mochi-scope .mochi-currency-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 76px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.mochi-scope select::-webkit-scrollbar,
+.mochi-scope .modal::-webkit-scrollbar,
+.mochi-scope .convo-list::-webkit-scrollbar,
+.mochi-scope .contact-pick::-webkit-scrollbar {
+  width: 9px;
+}
+
+.mochi-scope select::-webkit-scrollbar-track,
+.mochi-scope .modal::-webkit-scrollbar-track,
+.mochi-scope .convo-list::-webkit-scrollbar-track,
+.mochi-scope .contact-pick::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mochi-scope select::-webkit-scrollbar-thumb,
+.mochi-scope .modal::-webkit-scrollbar-thumb,
+.mochi-scope .convo-list::-webkit-scrollbar-thumb,
+.mochi-scope .contact-pick::-webkit-scrollbar-thumb {
+  background: var(--tile-b);
+  border-radius: 8px;
+}
+
+.mochi-scope .btn {
+  padding: 11px 16px;
+  border-radius: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  box-shadow: 0 4px 10px rgba(70, 90, 50, 0.3);
+}
+
+.mochi-scope .btn.btn-sm {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mochi-scope .preset-blocks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mochi-scope .preset-drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mochi-scope .preset-drag-handle:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.mochi-scope .preset-drag-handle:active {
+  cursor: grabbing;
+}
+
+.mochi-scope .preset-block-card.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: var(--acc);
+}
+
+.mochi-scope .preset-block-card.drag-over {
+  border-color: var(--acc);
+  box-shadow:
+    0 0 0 2px var(--acc-soft),
+    0 4px 12px rgba(70, 90, 50, 0.15);
+  transform: translateY(-2px);
+}
+
+.mochi-scope .preset-block-card {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.mochi-scope .preset-block-card:focus-within {
+  border-color: var(--acc);
+}
+
+.mochi-scope .preset-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mochi-scope .preset-block-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mochi-scope .preset-block-name-input {
+  font-weight: 800 !important;
+  font-size: 14px !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--text) !important;
+  max-width: 220px;
+}
+
+.mochi-scope .preset-role-select {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--muted) !important;
+  width: auto !important;
+}
+
+.mochi-scope .preset-block-textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  resize: vertical;
+  min-height: 130px;
+  outline: none;
+}
+
+.mochi-scope .preset-block-textarea:focus {
+  border-color: var(--acc);
+}
+
+.mochi-scope .preset-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mochi-scope .preset-del-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: transparent;
+  color: #c0563e;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mochi-scope .preset-marker-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--acc) 16%, var(--paper-dim));
+  border: 1px solid var(--acc);
+  color: var(--text);
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.mochi-scope .preset-marker-desc {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px dashed var(--bubble-line);
+}
+
+/* Header & Clean Toolbars */
+.mochi-scope .settings-panel-header-clean {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mochi-scope .settings-section-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mochi-scope .settings-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mochi-scope .settings-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: none;
+}
+
+.mochi-scope .settings-icon-btn:hover {
+  background: var(--input-bg);
+  color: var(--text);
+  border-color: var(--acc);
+}
+
+.mochi-scope .preset-editor-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--paper-dim);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bubble-line);
+}
+
+/* Format Guides Styles & Filter Bar */
+.mochi-scope .format-guides-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .format-guides-category-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .format-guide-pill {
+  border: 1px solid transparent;
+  background: var(--input-bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.mochi-scope .format-guide-pill .pill-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--paper-dim);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.mochi-scope .format-guide-pill:hover {
+  background: color-mix(in srgb, var(--acc) 12%, var(--input-bg));
+  color: var(--text);
+}
+
+.mochi-scope .format-guide-pill.active {
+  background: var(--acc);
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.mochi-scope .format-guide-pill.active .pill-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.mochi-scope .format-guide-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 180px;
+  flex: 1;
+  max-width: 260px;
+}
+
+.mochi-scope .format-guide-search-wrap > svg {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mochi-scope input[type="text"].format-guide-search-input {
+  width: 100%;
+  font-size: 12px !important;
+  height: 32px !important;
+  padding: 6px 28px 6px 36px !important;
+  border-radius: 999px !important;
+  background: var(--input-bg);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+  line-height: normal;
+}
+
+.mochi-scope input[type="text"].format-guide-search-input:focus {
+  border-color: var(--acc);
+}
+
+.mochi-scope .format-guide-search-clear {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  z-index: 2;
+}
+
+.mochi-scope .format-guides-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+  padding-bottom: 32px;
+  box-sizing: border-box;
+}
+
+.mochi-scope .format-guide-accordion-card {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mochi-scope .preset-block-card {
+  flex-shrink: 0;
+}
+
+.mochi-scope .format-guide-accordion-card:hover {
+  border-color: color-mix(in srgb, var(--acc) 35%, var(--bubble-line));
+}
+
+.mochi-scope .format-guide-accordion-card.expanded {
+  border-color: var(--acc);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.mochi-scope .format-guide-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mochi-scope .format-guide-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mochi-scope .format-guide-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #a78bfa;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(167, 139, 250, 0.3);
+}
+
+.mochi-scope .format-guide-card-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.mochi-scope .format-guide-card-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.mochi-scope .format-guide-card-subtitle {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.mochi-scope .format-guide-modified-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--acc) 18%, transparent);
+  color: var(--acc);
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+
+.mochi-scope .format-guide-chars-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--input-bg);
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--bubble-line);
+}
+
+.mochi-scope .format-guide-header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mochi-scope .format-guide-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mochi-scope .format-guide-chevron {
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.mochi-scope .format-guide-chevron.rotated {
+  transform: rotate(180deg);
+  color: var(--acc);
+}
+
+.mochi-scope .format-guide-card-body {
+  padding: 0 12px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mochi-scope .format-guide-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.mochi-scope .format-guide-textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  background: var(--input-bg);
+  border: 1px solid var(--bubble-line);
+  border-radius: 10px;
+  padding: 12px 14px 20px 14px;
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  min-height: 240px;
+  max-height: 480px;
+  box-sizing: border-box;
+}
+
+.mochi-scope .format-guide-textarea:focus {
+  border-color: var(--acc);
+}
+
+.mochi-scope .format-guides-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mochi-scope .row {
+  display: flex;
+  gap: 10px;
+}
+
+.mochi-scope .row > * {
+  flex: 1;
+}
+
+.mochi-scope .err {
+  font-size: 13px;
+  font-weight: 800;
+  color: #c0563e;
+  min-height: 18px;
+}
+
+.mochi-scope .filebox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .filebox .filename {
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.mochi-scope .contact-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  background: var(--input-bg);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.mochi-scope .cpick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--paper-dim);
+  font-weight: 800;
+  color: var(--text);
+  transition: all 0.15s;
+}
+
+.mochi-scope .cpick.on {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  border-color: transparent;
+}
+
+.mochi-scope .cpick .dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--c);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.mochi-scope .modal .lbl {
+  margin-top: 14px;
+}
+
+.mochi-scope .voice-rec {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+}
+
+.mochi-scope .micbig {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+  box-shadow: 0 6px 16px rgba(70, 90, 50, 0.3);
+}
+
+.mochi-scope .micbig svg {
+  width: 30px;
+  height: 30px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .micbig:hover {
+  transform: scale(1.06);
+}
+
+.mochi-scope .micbig.recording {
+  background: linear-gradient(160deg, #c0563e, #a4442f);
+  animation: mochi-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mochi-pulse {
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 12px rgba(192, 86, 62, 0.15);
+  }
+}
+
+.mochi-scope .preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--chat-item-bg);
+  border-radius: 20px;
+  padding: 12px;
+  box-shadow: inset 0 0 0 2px var(--bubble-line);
+}
+
+.mochi-scope .preview-row .play-btn {
+  background: var(--input-bg);
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.mochi-scope .preview-row .play-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--acc);
+}
+
+.mochi-scope .preview-wave {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 26px;
+  flex: 1;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.mochi-scope .preview-wave i {
+  width: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--acc);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+@keyframes mochi-wave-play {
+  0% {
+    transform: scaleY(0.4);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.5;
+  }
+}
+
+.mochi-scope .preview-wave.playing i {
+  animation: mochi-wave-play 0.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.mochi-scope .preview-wave i:nth-child(even) {
+  animation-delay: 0.2s;
+}
+
+.mochi-scope .preview-wave i:nth-child(3n) {
+  animation-delay: 0.4s;
+}
+
+.mochi-scope .preview-time {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.mochi-scope .del-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #c0563e;
+  transition: transform 0.15s;
+}
+
+.mochi-scope .del-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .del-btn:hover {
+  transform: scale(1.1);
+}
+
+.mochi-scope .rec-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mochi-scope .rec-timer {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.mochi-scope .rec-status {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .rec-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 30px;
+}
+
+.mochi-scope .rec-wave i {
+  width: 4px;
+  border-radius: 2px;
+  background: var(--acc);
+  height: 5px;
+  transition: height 0.2s;
+}
+
+.mochi-scope .color-picker {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .color-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.15s;
+}
+
+.mochi-scope .color-btn:focus-visible,
+.mochi-scope .color-custom-wrap .color-btn:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 5px;
+}
+
+.mochi-scope .color-btn.active {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 0 2px var(--modal-bg),
+    0 0 0 4px var(--c);
+}
+
+.mochi-scope .color-custom-wrap {
+  position: relative;
+  width: 42px;
+  height: 42px;
+}
+
+.mochi-scope .color-btn.custom {
+  background: var(--paper-dim) !important;
+  border: 2px dashed var(--muted);
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.mochi-scope .color-btn.custom svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.mochi-scope .color-btn.custom.active {
+  /* Fill with the resolved custom accent so the swatch matches what the theme
+     applies; the dashed outline is only the "add a custom color" affordance. */
+  background: var(--c, var(--paper-dim)) !important;
+  border-style: solid;
+  border-color: transparent;
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 2px rgb(0 0 0 / 0.1),
+    0 0 0 2px var(--modal-bg),
+    0 0 0 4px var(--text);
+}
+
+/* Inline custom color picker. The swatch and the palette strip read the live
+   Mochi tokens, so the control itself is themed by the pick it is editing. */
+.mochi-scope .mochi-color-editor {
+  display: flex;
+  max-width: 460px;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--text);
+}
+
+.mochi-scope .mochi-color-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mochi-scope .mochi-color-swatch {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.14),
+    0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+.mochi-scope .mochi-color-hex-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .mochi-color-hex-field > span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-color-hex {
+  width: 120px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-dim);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.mochi-scope .mochi-color-hex:focus-visible {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px var(--acc-soft);
+}
+
+.mochi-scope .mochi-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mochi-scope .mochi-color-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-color-field-label output {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.mochi-scope .mochi-color-field input[type="range"] {
+  background-clip: padding-box;
+}
+
+/* One flat strip instead of nested preview cards: the steps read as a ramp. */
+.mochi-scope .mochi-color-preview {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  height: 34px;
+}
+
+.mochi-scope .mochi-color-preview i {
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+
+.mochi-scope input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  outline: none;
+  transition: opacity 0.2s;
+}
+
+.mochi-scope input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--acc);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s;
+}
+
+.mochi-scope input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.mochi-scope .cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mochi-scope .cal-head button {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--paper-dim);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.mochi-scope .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.mochi-scope .dow {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0;
+}
+
+.mochi-scope .cal-day {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+
+.mochi-scope .cal-day:hover {
+  background: var(--paper-dim);
+}
+
+.mochi-scope .cal-day.sel {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+}
+
+.mochi-scope .cal-day.empty {
+  visibility: hidden;
+}
+
+.mochi-scope .results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .results button {
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mochi-scope .results button:hover {
+  background: var(--paper-dim);
+}
+
+.mochi-scope .results .dim {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ================= MESSAGES APP ================= */
+/* ================= APP JIGGLE / EDIT MODE ================= */
+@keyframes mochi-jiggle {
+  0% {
+    transform: rotate(0deg) scale(1.005);
+  }
+  25% {
+    transform: rotate(-0.55deg) translateY(-0.5px) scale(1.005);
+  }
+  75% {
+    transform: rotate(0.55deg) translateY(0.5px) scale(1.005);
+  }
+  100% {
+    transform: rotate(0deg) scale(1.005);
+  }
+}
+
+.mochi-scope .apps.is-editing .app {
+  animation: mochi-jiggle 0.32s infinite ease-in-out;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+}
+
+.mochi-scope .apps.is-editing .app:nth-child(2n) {
+  animation-duration: 0.28s;
+  animation-delay: -0.09s;
+}
+
+.mochi-scope .apps.is-editing .app:nth-child(3n) {
+  animation-duration: 0.36s;
+  animation-delay: -0.16s;
+}
+
+.mochi-scope .apps.is-editing .app.is-dragging {
+  opacity: 0.45;
+  transform: scale(1.06) !important;
+  animation: none !important;
+  cursor: grabbing;
+}
+
+.mochi-scope .apps.is-editing .app.drag-over {
+  transform: scale(1.08);
+  transition: transform 0.15s ease;
+}
+
+.mochi-scope .apps.is-editing .app.drag-over .tile {
+  box-shadow:
+    0 0 0 3px var(--acc, #ec4b97),
+    0 8px 18px rgba(0, 0, 0, 0.25);
+}
+
+/* Delete badge on homescreen app tiles while in edit mode */
+.mochi-scope .app-delete-btn {
+  position: absolute;
+  top: -4px;
+  right: calc(50% - (var(--tile) / 2) - 4px);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper-dim, #f2effa);
+  color: var(--text, #1a1025);
+  border: 1.5px solid var(--bubble-line, rgba(0, 0, 0, 0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  z-index: 10;
+  transition:
+    transform 0.14s ease,
+    background 0.14s ease;
+}
+
+/* An SVG cross rather than the "\xD7" glyph: the glyph's font metrics sit off the
+   optical centre inside a round badge, the drawn stroke does not. */
+.mochi-scope .app-delete-btn svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.mochi-scope .app-delete-btn:hover {
+  transform: scale(1.15);
+  background: #ff4d4f;
+  color: #fff;
+  border-color: #ff4d4f;
+}
+
+.mochi-scope .app-editing-done-bar {
+  display: flex;
+  justify-content: flex-end;
+  width: var(--content-w);
+  margin-inline: auto;
+  margin-bottom: -18px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.mochi-scope .app-editing-done-btn {
+  background: var(--paper, rgba(255, 255, 255, 0.9));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text, #1a1025);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--bubble-line, rgba(0, 0, 0, 0.15));
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mochi-scope .app-editing-done-btn:hover {
+  transform: scale(1.05);
+  background: var(--paper-dim, #fff);
+}
+
+/* ================= APP STORE INSIDE VIEW =================
+   Every surface here is drawn from Mochi OS theme variables so the store
+   re-tints itself with each color preset instead of fighting it. */
+.mochi-scope .app-store-window {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  color: var(--text);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: none;
+  transition: none;
+}
+
+.mochi-scope .app-store-window.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mochi-scope .app-store-window,
+  .mochi-scope .app-store-window.open {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ---- Header ----
+   Opaque rather than frosted: the header sits directly on the store's own solid
+   body, so a blur costs a full-width backdrop pass per frame on mobile GPUs and
+   buys nothing visible over a flat tint of the same surface. */
+.mochi-scope .app-store-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(14px, 4.5vw, 22px) 13px;
+  border-bottom: 1px solid var(--bubble-line);
+  background: var(--paper-dim);
+  position: relative;
+  z-index: 5;
+}
+
+.mochi-scope .app-store-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mochi-scope .app-store-back-btn,
+.mochi-scope .app-store-close-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--paper);
+  border: 1px solid var(--bubble-line);
+  transition:
+    background 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.18s,
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mochi-scope .app-store-back-btn:hover,
+.mochi-scope .app-store-close-btn:hover {
+  background: var(--acc-soft);
+  border-color: var(--acc);
+  transform: translateY(-1px);
+}
+
+.mochi-scope .app-store-back-btn:focus-visible,
+.mochi-scope .app-store-close-btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.mochi-scope .app-store-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mochi-scope .app-store-header h2 {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mochi-scope .app-store-header-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--acc) 26%, var(--paper));
+  color: var(--text);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mochi-scope .app-store-subtitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Body rhythm: tighter grouping, roomier between bands ---- */
+.mochi-scope .app-store-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px clamp(14px, 4.5vw, 22px) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---- Search ---- */
+.mochi-scope .app-store-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mochi-scope .app-store-search input {
+  width: 100%;
+  padding: 11px 42px 11px 40px;
+  border-radius: 14px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  outline: none;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+
+.mochi-scope .app-store-search input::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.mochi-scope .app-store-search input:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent);
+}
+
+.mochi-scope .app-store-search svg {
+  position: absolute;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.mochi-scope .app-store-search-clear {
+  position: absolute;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mochi-scope .app-store-search-clear:hover {
+  background: var(--paper);
+  color: var(--text);
+}
+
+/* ---- Featured spotlight ----
+   One drenched surface per theme: the ink color carries the gradient and the
+   accent tints it, so the card inverts against the paper shell and stays
+   readable instead of parking cream text on a mid-tone pastel. */
+.mochi-scope .app-store-hero {
+  position: relative;
+  border-radius: 22px;
+  padding: 20px 22px;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--acc) 62%, var(--text)) 0%,
+    color-mix(in srgb, var(--acc) 34%, var(--text)) 55%,
+    color-mix(in srgb, var(--acc) 20%, var(--text)) 100%
+  );
+  color: var(--paper);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--paper) 22%, transparent),
+    0 14px 28px -12px color-mix(in srgb, var(--text) 60%, transparent);
+  display: flex;
+  align-items: flex-end;
+  min-height: 148px;
+}
+
+/* Soft light bloom, drawn with color only so it survives every preset. */
+.mochi-scope .app-store-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -45% -18% auto auto;
+  width: 270px;
+  height: 270px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--paper) 30%, transparent) 0%, transparent 66%);
+  pointer-events: none;
+}
+
+/* Faint mochi grain, keeps the gradient from reading as flat vector fill. */
+.mochi-scope .app-store-hero::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image: radial-gradient(color-mix(in srgb, var(--paper) 24%, transparent) 1px, transparent 1px);
+  background-size: 15px 15px;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.mochi-scope .app-store-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.mochi-scope .app-store-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 11px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--paper) 22%, transparent);
+  margin-bottom: 10px;
+}
+
+.mochi-scope .app-store-sparkle {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.mochi-scope .app-store-hero h3 {
+  font-size: 21px;
+  font-weight: 900;
+  margin: 0 0 5px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.mochi-scope .app-store-hero p {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 0 0 15px;
+  opacity: 0.82;
+  max-width: 42ch;
+  line-height: 1.45;
+}
+
+.mochi-scope .app-store-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Paper action on the ink hero: the one inverted pair in the window. */
+.mochi-scope .app-store-hero-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 0 20px;
+  min-height: 38px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--text) 30%, transparent);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mochi-scope .app-store-hero-action:hover {
+  transform: translateY(-2px);
+}
+
+.mochi-scope .app-store-hero-action:active {
+  transform: translateY(0);
+}
+
+.mochi-scope .app-store-hero-action:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
+}
+
+/* Paired beside the action as the state word, never as the only signal. */
+.mochi-scope .app-store-hero-badge {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+/* ---- Category rail ---- */
+.mochi-scope .app-store-categories {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  margin: 0 calc(-1 * clamp(14px, 4.5vw, 22px));
+  padding-left: clamp(14px, 4.5vw, 22px);
+  padding-right: clamp(14px, 4.5vw, 22px);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.mochi-scope .app-store-categories::-webkit-scrollbar {
+  display: none;
+}
+
+.mochi-scope .app-store-category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  min-height: 36px;
+  border-radius: 9999px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  transition:
+    background 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.18s,
+    border-color 0.18s;
+}
+
+.mochi-scope .app-store-chip-icon {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+  transition: color 0.18s;
+}
+
+.mochi-scope .app-store-category-chip:hover {
+  border-color: var(--acc);
+}
+
+/* Active state inverts against the shell: fill flips, border clears, and the
+   chip glyph shifts. Three cues, so the selection never rests on hue alone. */
+.mochi-scope .app-store-category-chip.active {
+  background: color-mix(in srgb, var(--text) 86%, var(--acc));
+  color: var(--paper);
+  border-color: transparent;
+}
+
+.mochi-scope .app-store-category-chip.active .app-store-chip-icon {
+  color: color-mix(in srgb, var(--paper) 78%, var(--acc));
+}
+
+.mochi-scope .app-store-category-chip:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+/* ---- Catalog ---- */
+.mochi-scope .app-store-section {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.mochi-scope .app-store-section-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mochi-scope .app-store-item-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.mochi-scope .app-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(268px, 100%), 1fr));
+  gap: 10px;
+}
+
+.mochi-scope .app-store-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 18px;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.mochi-scope .app-store-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 60%, transparent);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--acc) 60%, transparent);
+}
+
+.mochi-scope .app-store-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Icon washes are per-theme color mixes, so a preset switch recolors the
+   whole catalog rather than leaving one hard-coded pink square behind. */
+.mochi-scope .app-store-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--paper);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.mochi-scope .app-store-card-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Icon washes are color mixes of the preset's own tokens pushed toward the ink
+   color, so paper-colored glyphs keep contrast in Matcha, Ocean, Plum and Peach
+   alike. The tones step light-to-dark so neighbors stay distinguishable even
+   when a preset makes every token the same hue. */
+.mochi-scope .app-store-card-icon.tone-blush {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--acc) 62%, var(--text)),
+    color-mix(in srgb, var(--acc) 40%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-iris {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-b) 54%, var(--text)),
+    color-mix(in srgb, var(--tile-b) 32%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-tide {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-a) 46%, var(--text)),
+    color-mix(in srgb, var(--tile-a) 26%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-ember {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-b) 58%, var(--text)),
+    color-mix(in srgb, var(--acc) 38%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-leaf {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-a) 36%, var(--text)),
+    color-mix(in srgb, var(--tile-a) 20%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-clay {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-b) 72%, var(--text)),
+    color-mix(in srgb, var(--acc) 44%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-dusk {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--acc) 44%, var(--tile-a)),
+    color-mix(in srgb, var(--acc) 50%, var(--text))
+  );
+}
+.mochi-scope .app-store-card-icon.tone-slate {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-b) 28%, var(--text)),
+    color-mix(in srgb, var(--tile-b) 14%, var(--text))
+  );
+}
+
+.mochi-scope .app-store-card-info {
+  min-width: 0;
+}
+
+.mochi-scope .app-store-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.mochi-scope .app-store-card-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Category reads as a word, not an uppercase shout, so it survives long
+   names on a 320px phone. */
+.mochi-scope .app-store-card-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--acc) 18%, var(--paper));
+  flex-shrink: 0;
+}
+
+.mochi-scope .app-store-card-desc {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 2px 0 0;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.mochi-scope .app-store-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+.mochi-scope .app-store-star {
+  color: var(--acc);
+  font-size: 11px;
+}
+
+.mochi-scope .app-store-meta-dot {
+  opacity: 0.5;
+}
+
+.mochi-scope .app-store-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  min-height: 36px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  transition:
+    background 0.18s,
+    color 0.18s,
+    border-color 0.18s,
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mochi-scope .app-store-card-btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+/* Installed state: outlined and word-marked, Get state: filled accent. */
+.mochi-scope .app-store-card-btn.installed {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.mochi-scope .app-store-card-btn.installed:hover {
+  background: color-mix(in srgb, var(--text) 86%, var(--acc));
+  color: var(--paper);
+  border-color: transparent;
+}
+
+.mochi-scope .app-store-card-btn.get {
+  background: color-mix(in srgb, var(--text) 86%, var(--acc));
+  color: var(--paper);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--text) 50%, transparent);
+}
+
+.mochi-scope .app-store-card-btn.get:hover {
+  transform: translateY(-1px);
+}
+
+/* ---- Empty result ---- */
+.mochi-scope .app-store-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 34px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: var(--paper-dim);
+}
+
+.mochi-scope .app-store-empty-mark {
+  font-size: 22px;
+  color: var(--acc);
+  line-height: 1;
+}
+
+.mochi-scope .app-store-empty-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 2px 0 0;
+}
+
+.mochi-scope .app-store-empty-body {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  max-width: 34ch;
+  line-height: 1.45;
+}
+
+.mochi-scope .app-store-empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 0 18px;
+  min-height: 36px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text) 86%, var(--acc));
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mochi-scope .app-store-empty-action:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.mochi-scope .app-window {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: var(--chat-bg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: none;
+  transform-origin: center center;
+  border-radius: 0;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  transition: none;
+}
+
+.mochi-scope .app-window::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='170'%20height='170'%3E%3Cg%20stroke='%23333a2e'%20stroke-width='2.4'%20stroke-linecap='round'%20opacity='0.4'%3E%3Cpath%20d='M24%2034l6-9'/%3E%3Cpath%20d='M34%2036l6-9'/%3E%3Cpath%20d='M118%2078l6-9'/%3E%3Cpath%20d='M128%2080l6-9'/%3E%3Cpath%20d='M64%20132l6-9'/%3E%3Cpath%20d='M74%20134l6-9'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.mochi-scope .app-window.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  border-radius: 0;
+  transition: none;
+}
+
+.mochi-scope .mview {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.mochi-scope #chatView {
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: none;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+.mochi-scope .app-window.chat #chatView {
+  transform: none;
+  visibility: visible;
+  transition: none;
+}
+
+.mochi-scope #listView {
+  transition: none;
+}
+
+.mochi-scope .app-window.chat #listView {
+  transform: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mochi-scope .m-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 24px 8px;
+}
+
+.mochi-scope .m-head h2 {
+  flex: 1;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--text);
+  margin: 0;
+}
+
+.mochi-scope .icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: var(--chat-item-bg);
+  color: var(--acc);
+  box-shadow: 0 2px 8px rgba(70, 90, 50, 0.12);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.mochi-scope .icon-btn svg {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 0.2s ease;
+}
+
+.mochi-scope #privateBtn.active {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+}
+
+.mochi-scope #privateIcon .eye-slash {
+  transition:
+    opacity 0.2s ease,
+    stroke-dashoffset 0.2s ease;
+}
+
+.mochi-scope #privateBtn.active #privateIcon .eye-slash {
+  opacity: 0;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+
+.mochi-scope .m-search {
+  margin: 8px 24px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--chat-item-bg);
+  border-radius: 999px;
+  padding: 11px 18px;
+  box-shadow: 0 2px 8px rgba(70, 90, 50, 0.08);
+}
+
+.mochi-scope .m-search svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--muted);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.mochi-scope .m-search input {
+  border: 0;
+  outline: 0;
+  flex: 1;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mochi-scope .stories {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 4px 24px 16px;
+  scrollbar-width: none;
+}
+
+.mochi-scope .stories::-webkit-scrollbar {
+  display: none;
+}
+
+.mochi-scope .story {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 62px;
+}
+
+.mochi-scope .s-ava {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  font-weight: 900;
+  font-size: 18px;
+  color: #fff;
+  background: var(--c, #93a87b);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--acc);
+}
+
+.mochi-scope .s-ava::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #69c57c;
+  border: 2px solid #fff;
+}
+
+.mochi-scope .story.add .s-ava {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  font-size: 26px;
+  box-shadow: 0 0 0 2px var(--acc-soft);
+  color: #fff;
+}
+
+.mochi-scope .story.add .s-ava::after {
+  display: none;
+}
+
+.mochi-scope .s-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .convo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mochi-scope .crow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--chat-item-bg);
+  box-shadow: 0 2px 8px rgba(70, 90, 50, 0.06);
+  transition: transform 0.15s;
+}
+
+.mochi-scope .crow:hover {
+  transform: scale(1.01);
+}
+
+.mochi-scope .crow .ava {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  background: var(--c);
+  box-shadow:
+    0 0 0 2px var(--chat-item-bg),
+    0 0 0 3.5px var(--acc);
+}
+
+.mochi-scope .crow .ava.on::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #69c57c;
+  border: 2px solid var(--chat-item-bg);
+}
+
+.mochi-scope .crow .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mochi-scope .crow .info b {
+  display: block;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.mochi-scope .crow .info span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mochi-scope .crow .meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.mochi-scope .crow .meta time {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .udot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--acc);
+}
+
+.mochi-scope #emptyMain {
+  flex: 1;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 12px;
+  display: flex;
+  padding-bottom: 14px;
+}
+
+.mochi-scope .m-section-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 8px 24px 4px;
+}
+
+.mochi-scope .call-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--chat-item-bg);
+  box-shadow: 0 2px 8px rgba(70, 90, 50, 0.06);
+  margin: 0 14px;
+}
+
+.mochi-scope .call-row .info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mochi-scope .call-row .info b {
+  font-size: 16px;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.mochi-scope .call-row .info span {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mochi-scope .call-row .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--acc-soft);
+  color: var(--acc);
+  display: grid;
+  place-items: center;
+}
+
+.mochi-scope .call-row .icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .call-row.missed .icon {
+  background: #fbe9e7;
+  color: #c0563e;
+}
+
+.mochi-scope.theme-dark .call-row.missed .icon {
+  background: var(--paper-dim);
+}
+
+.mochi-scope .p-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* People info dropdown toggle & details */
+.mochi-scope .mochi-person-item-wrap {
+  display: flex;
+  flex-direction: column;
+  margin: 0 14px;
+}
+
+.mochi-scope .mochi-person-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--chat-item-bg);
+  box-shadow: 0 2px 8px rgba(70, 90, 50, 0.06);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.18s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.mochi-scope .mochi-person-card:hover {
+  background: var(--paper-dim);
+  border-color: var(--bubble-line);
+}
+
+.mochi-scope .mochi-person-card.expanded {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-color: var(--bubble-line);
+}
+
+.mochi-scope .mochi-person-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mochi-scope .mochi-person-actions button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--paper-dim);
+  color: var(--text);
+  border: 1px solid var(--bubble-line);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.mochi-scope .mochi-person-actions button:hover {
+  transform: scale(1.08);
+  background: var(--acc-soft);
+  color: var(--acc);
+}
+
+.mochi-scope .mochi-person-actions button svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .mochi-person-alpha-header {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 20px 6px;
+}
+
+.mochi-scope .mochi-person-info-dropdown {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-top: none;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mochi-scope .mochi-person-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .mochi-person-info-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-person-info-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.mochi-scope .mochi-person-edit-trigger-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 5px 14px;
+  background: var(--paper);
+  border: 1px solid var(--bubble-line);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mochi-scope .mochi-person-edit-trigger-btn:hover {
+  background: var(--acc);
+  color: #fff;
+  border-color: var(--acc);
+}
+
+.mochi-scope .mochi-person-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.mochi-scope .mochi-person-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.mochi-scope .mochi-person-save-btn {
+  padding: 6px 16px;
+  background: var(--acc);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.mochi-scope .mochi-person-save-btn:hover {
+  opacity: 0.9;
+}
+
+.mochi-scope .mochi-person-cancel-btn {
+  padding: 6px 14px;
+  background: var(--paper);
+  color: var(--muted);
+  border: 1px solid var(--bubble-line);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mochi-scope .mochi-person-cancel-btn:hover {
+  background: var(--bubble-line);
+  color: var(--text);
+}
+
+/* Group Profile Header Dropdown */
+.mochi-scope .mochi-group-profile-header-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.mochi-scope .mochi-group-profile-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 10px 4px 6px;
+  border-radius: 14px;
+  transition: background 0.15s ease;
+  max-width: 100%;
+}
+
+.mochi-scope .mochi-group-profile-header-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.mochi-scope .mochi-group-info-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 49;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  animation: mochi-fade-in 0.15s ease;
+}
+
+@keyframes mochi-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mochi-scope .mochi-group-info-popup {
+  position: absolute;
+  top: 68px;
+  left: 14px;
+  right: 14px;
+  max-height: calc(100% - 84px);
+  z-index: 50;
+  background: var(--modal-bg);
+  border: 1px solid var(--bubble-line);
+  border-radius: 22px;
+  padding: 22px 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  animation: mochi-dropdown-slide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mochi-dropdown-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mochi-scope .mochi-group-info-title {
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.mochi-scope .mochi-group-info-popup .mochi-person-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .mochi-group-info-popup .mochi-person-info-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-group-info-popup .mochi-person-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+/* AI Data Generator Modal */
+.mochi-scope .mochi-ai-data-modal {
+  width: min(560px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mochi-scope .mochi-ai-data-textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.18s ease;
+}
+
+.mochi-scope .mochi-ai-data-yaml-textarea {
+  width: 100%;
+  min-height: 220px;
+  max-height: 380px;
+  border-radius: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.18s ease;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.mochi-scope .mochi-ai-data-textarea:focus,
+.mochi-scope .mochi-ai-data-yaml-textarea:focus {
+  border-color: var(--acc);
+}
+
+.mochi-scope .p-row-actions button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--paper-dim);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s;
+}
+
+.mochi-scope .p-row-actions button:hover {
+  transform: scale(1.1);
+}
+
+.mochi-scope .p-row-actions button svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 20px;
+  background: var(--chat-item-bg);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(70, 90, 50, 0.08);
+  text-align: center;
+  margin: 8px 14px 0;
+}
+
+.mochi-scope .profile-card .p-ava {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  font-size: 36px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 14px rgba(70, 90, 50, 0.2);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mochi-scope .profile-card .p-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mochi-scope .profile-card h3 {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.mochi-scope .profile-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.mochi-scope .profile-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.mochi-scope .profile-field-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  padding-left: 4px;
+}
+
+.mochi-scope .profile-field-input-wrap {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 14px;
+  padding: 4px 14px;
+  box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
+  transition: border-color 0.18s ease;
+}
+
+.mochi-scope .profile-field-input-wrap:focus-within {
+  border-color: var(--acc);
+}
+
+.mochi-scope .profile-field-input {
+  width: 100%;
+  border: none !important;
+  background: transparent !important;
+  padding: 6px 0 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--text) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.mochi-scope .profile-field-input::placeholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.mochi-scope .profile-bio-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px;
+  background: var(--chat-item-bg);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(70, 90, 50, 0.08);
+  margin: 0 14px 18px;
+  text-align: left;
+  gap: 10px;
+}
+
+.mochi-scope .profile-bio-card .profile-field-label {
+  padding-left: 2px;
+}
+
+.mochi-scope .profile-bio-textarea-wrap {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
+  transition: border-color 0.18s ease;
+}
+
+.mochi-scope .profile-bio-textarea-wrap:focus-within {
+  border-color: var(--acc);
+}
+
+.mochi-scope .profile-bio-textarea {
+  width: 100%;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+  color: var(--text) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  resize: vertical !important;
+  min-height: 160px;
+  font-family: inherit;
+}
+
+.mochi-scope .profile-bio-textarea::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.mochi-scope .profile-status-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.mochi-scope .profile-status-prefix {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.mochi-scope .profile-status-dropdown-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mochi-scope .profile-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.mochi-scope .profile-status-btn:hover {
+  background: color-mix(in srgb, var(--acc) 15%, var(--paper-dim));
+  border-color: var(--acc);
+}
+
+.mochi-scope .profile-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mochi-scope .profile-activity-container {
+  position: relative;
+  flex: 1;
+  min-width: 170px;
+  display: flex;
+  align-items: center;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
+  transition: border-color 0.18s ease;
+}
+
+.mochi-scope .profile-activity-container:focus-within {
+  border-color: var(--acc);
+}
+
+.mochi-scope .profile-activity-input {
+  width: 100%;
+  border: none !important;
+  background: transparent !important;
+  padding: 5px 4px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--text) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.mochi-scope .profile-activity-input::placeholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.mochi-scope .profile-status-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  background: var(--chat-item-bg);
+  border: 1px solid var(--bubble-line);
+  border-radius: 18px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .profile-recent-activity-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--chat-item-bg);
+  border: 1px solid var(--bubble-line);
+  border-radius: 18px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mochi-scope .profile-recent-title {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+.mochi-scope .profile-status-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+
+.mochi-scope .profile-status-option:hover {
+  background: var(--paper-dim);
+}
+
+.mochi-scope .profile-status-option.selected {
+  background: color-mix(in srgb, var(--acc) 16%, var(--paper-dim));
+}
+
+.mochi-scope .profile-status-option-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.mochi-scope .profile-status-option-desc {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mochi-scope .persona-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.mochi-scope .persona-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--paper-dim);
+  border: 2px solid transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.mochi-scope .persona-pick-item:hover {
+  background: color-mix(in srgb, var(--text) 8%, var(--paper-dim));
+  border-color: var(--line);
+}
+
+.mochi-scope .persona-pick-item.active {
+  background: color-mix(in srgb, var(--acc) 15%, var(--paper-dim));
+  border-color: var(--acc);
+}
+
+.mochi-scope .persona-pick-ava {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  font-weight: 900;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mochi-scope .persona-pick-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mochi-scope .persona-pick-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mochi-scope .persona-pick-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.mochi-scope .persona-pick-desc {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .p-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.mochi-scope .edit-profile-btn {
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 12.5px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
+  transition: all 0.18s ease;
+  flex: 0 0 auto;
+}
+
+.mochi-scope .edit-profile-btn:hover {
+  background: color-mix(in srgb, var(--acc) 15%, var(--paper-dim));
+  border-color: var(--acc);
+  transform: translateY(-1px);
+}
+
+.mochi-scope .p-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--paper-dim);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.mochi-scope .p-actions button.primary {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+}
+
+.mochi-scope .mtabs {
+  display: flex;
+  background: var(--nav-bg);
+  border-top: 1px solid var(--bubble-line);
+  padding: 10px 8px 14px;
+}
+
+.mochi-scope .mtab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  position: relative;
+  padding: 8px 4px;
+}
+
+.mochi-scope .mtab svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .mtab::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  transition: width 0.22s ease;
+}
+
+.mochi-scope .mtab.active {
+  color: var(--acc);
+}
+
+.mochi-scope .mtab.active::before {
+  width: 26px;
+}
+
+/* Chat view */
+.mochi-scope .c-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--nav-bg);
+  box-shadow: 0 2px 10px rgba(70, 90, 50, 0.08);
+  z-index: 2;
+  /* The header and the composer are fixed chrome around a scrolling thread:
+     without this they compress on a short phone screen and clip the name. */
+  flex-shrink: 0;
+}
+
+.mochi-scope .c-head .ava,
+.mochi-scope .mochi-group-profile-header-btn .ava {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+  font-size: 17px;
+  font-weight: 900;
+  color: #fff;
+  background: var(--c, var(--acc));
+  flex-shrink: 0;
+  box-shadow:
+    0 0 0 2px var(--nav-bg),
+    0 0 0 3.5px var(--acc);
+  user-select: none;
+  overflow: hidden;
+}
+
+.mochi-scope .c-head b {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--text);
+  /* A long contact name must ellipsize rather than push the call and menu
+     buttons off the edge of a phone. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mochi-scope .c-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 12px;
+}
+
+.mochi-scope .notice {
+  align-self: center;
+  background: var(--acc-soft);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 14px;
+  text-align: center;
+  max-width: 80%;
+}
+
+.mochi-scope .mrow {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-bottom: 32px;
+}
+
+.mochi-scope .mrow.out {
+  justify-content: flex-end;
+}
+
+.mochi-scope .mrow {
+  -webkit-touch-callout: none;
+  user-select: text;
+}
+
+.mochi-scope .mochi-composer {
+  background: transparent;
+}
+
+.mochi-scope .mochi-reply-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 10px 5px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--acc) 30%, var(--bubble-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--acc) 10%, var(--paper));
+  color: var(--text);
+  font-family: "Nunito", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  box-shadow: 0 2px 8px rgba(30, 10, 28, 0.08);
+  animation: mochi-reply-slide-up 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.mochi-scope .mochi-reply-mark {
+  width: 3px;
+  height: 24px;
+  align-self: center;
+  border-radius: 2px;
+  background: var(--acc);
+  flex-shrink: 0;
+}
+
+.mochi-scope .mochi-reply-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mochi-scope .mochi-reply-copy strong {
+  color: var(--acc);
+  font-size: 0.75em;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.mochi-scope .mochi-reply-copy span {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-reply-preview.outgoing .mochi-reply-copy span {
+  color: #fff;
+}
+
+.mochi-scope .mochi-reply-preview.incoming .mochi-reply-copy span {
+  color: var(--text);
+}
+
+@keyframes mochi-reply-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mochi-scope .mochi-reply-preview button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-reply-preview button:hover {
+  background: var(--paper-dim);
+  color: var(--text);
+}
+
+.mochi-scope .msg-actions-trigger {
+  position: absolute;
+  bottom: 0;
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.mochi-scope .mrow:hover .msg-actions-trigger,
+.mochi-scope .mrow:focus-within .msg-actions-trigger,
+.mochi-scope .mrow.actions-visible .msg-actions-trigger {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mochi-scope .mrow:not(.out) .msg-actions-trigger {
+  left: 36px;
+  justify-content: flex-start;
+}
+
+.mochi-scope .mrow.out .msg-actions-trigger {
+  right: 0;
+  justify-content: flex-end;
+}
+
+.mochi-scope .mochi-swipe-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 999px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.mochi-scope .mochi-swipe-trigger button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mochi-scope .mochi-swipe-trigger button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--chat-item-bg);
+}
+
+.mochi-scope .mochi-swipe-trigger button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mochi-scope .mochi-swipe-indicator {
+  padding: 0 4px;
+  min-width: 28px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-reaction-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.mochi-scope .mochi-reaction-btn:hover {
+  background: var(--chat-item-bg);
+  color: var(--text);
+  border-color: var(--acc);
+  transform: scale(1.1);
+}
+
+.mochi-scope .mochi-reaction-row {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mochi-scope .mrow.out .mochi-reaction-row {
+  justify-content: flex-end;
+}
+
+.mochi-scope .mari-message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.mochi-scope .mari-message-reactions button {
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 12px;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text);
+}
+
+.mochi-scope .mari-message-reactions button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--acc) 18%, var(--paper-dim));
+  border-color: var(--acc);
+  color: var(--text);
+}
+
+.mochi-scope .mari-message-reactions button:hover {
+  border-color: var(--acc);
+  transform: scale(1.05);
+}
+
+.mochi-scope .mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  background: var(--c);
+}
+
+.mochi-scope .b {
+  max-width: 68%;
+  padding: 11px 16px;
+  border-radius: 18px;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.45;
+  animation: mochi-pop 0.22s ease;
+}
+
+.mochi-scope .b.in {
+  background: var(--chat-bubble-in);
+  border: 1px solid var(--bubble-line);
+  color: var(--text);
+  border-bottom-left-radius: 6px;
+}
+
+.mochi-scope .b.out {
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.mochi-scope .b.mochi-message-edit {
+  box-sizing: border-box;
+  width: min(100%, 420px);
+  min-width: min(260px, 100%);
+  padding: 10px 12px;
+}
+
+.mochi-scope .b.out.mochi-message-edit {
+  border-bottom-right-radius: 6px;
+}
+
+.mochi-scope .mochi-message-edit-input {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  max-height: 180px;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--acc) 58%, var(--bubble-line));
+  border-radius: 8px;
+  outline: none;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  color: var(--text);
+  font:
+    600 13px/1.45 "Nunito",
+    system-ui,
+    sans-serif;
+}
+
+.mochi-scope .mochi-message-edit-input:focus-visible {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 24%, transparent);
+}
+
+.mochi-scope .mochi-message-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mochi-scope .mochi-message-edit-actions button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--bubble-line);
+  border-radius: 7px;
+  font:
+    800 11px/1 "Nunito",
+    system-ui,
+    sans-serif;
+}
+
+.mochi-scope .mochi-message-edit-cancel {
+  background: var(--paper-dim);
+  color: var(--text);
+}
+
+.mochi-scope .mochi-message-edit-save {
+  border-color: transparent !important;
+  background: var(--acc) !important;
+  color: #fff !important;
+}
+
+.mochi-scope .mochi-quote-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mochi-scope .mochi-quoted-message {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-bubble-in) 94%, #000 6%);
+  font-size: 0.88em;
+  line-height: 1.35;
+}
+
+.mochi-scope .b.in .mochi-quoted-message {
+  color: var(--text);
+  background: color-mix(in srgb, var(--chat-bubble-in) 94%, #000 6%);
+}
+
+.mochi-scope .b.out .mochi-quoted-message {
+  color: #fff;
+  background: color-mix(in srgb, var(--tile-a) 84%, #000 16%);
+}
+
+.mochi-scope .b.out .mochi-quoted-message strong {
+  color: var(--text);
+}
+
+.mochi-scope.theme-dark .b.in .mochi-quoted-message {
+  background: color-mix(in srgb, var(--chat-bubble-in) 88%, #000 12%);
+}
+
+.mochi-scope.theme-dark .b.out .mochi-quoted-message {
+  background: color-mix(in srgb, var(--tile-a) 76%, #000 24%);
+}
+
+.mochi-scope.theme-dark .b.out .mochi-quoted-message strong {
+  color: var(--acc);
+}
+
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto .b.in .mochi-quoted-message {
+    background: color-mix(in srgb, var(--chat-bubble-in) 88%, #000 12%);
+  }
+
+  .mochi-scope.theme-auto .b.out .mochi-quoted-message {
+    background: color-mix(in srgb, var(--tile-a) 76%, #000 24%);
+  }
+
+  .mochi-scope.theme-auto .b.out .mochi-quoted-message strong {
+    color: var(--acc);
+  }
+}
+
+.mochi-scope .mochi-quoted-message strong {
+  overflow: hidden;
+  color: var(--acc);
+  font-size: 0.95em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-quoted-message span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-reply-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Author label on a group bubble. Without it a group transcript is unreadable:
+   several people speak in one thread, so the sender has to be on the bubble.
+   It sits under the bubble beside the timestamp rather than above it, so a long
+   thread is not pushed down by a line per message and the label reads as part of
+   the message it belongs to. */
+.mochi-scope .mochi-msg-sender {
+  font-size: 11px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row the timestamp and the group author share under the message bubble.
+   The author label sits on the left side, and the timestamp stays at the far right. */
+.mochi-scope .mochi-bubble-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 3px;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.mochi-scope .mrow:not(.out) .mochi-bubble-meta {
+  align-self: stretch;
+}
+
+.mochi-scope .mochi-bubble-meta .mt {
+  margin-top: 0;
+  padding-bottom: 0;
+  margin-left: auto;
+}
+
+@keyframes mochi-pop {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+.mochi-scope .mrow .mt {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 3px;
+  align-self: flex-end;
+  padding-bottom: 2px;
+}
+
+.mochi-scope .wmsg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.mochi-scope .wmsg .b {
+  max-width: 100%;
+}
+
+.mochi-scope .mochi-chat-sticker-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(180px, 48vw);
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.mochi-scope .mrow:not(.out) .wmsg {
+  align-items: flex-start;
+}
+
+.mochi-scope .mrow:not(.out) .wmsg .mt {
+  text-align: right;
+  align-self: flex-end;
+}
+
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Transfer slip \u2014 a \`t: transfer\` item drawn as the instrument it is.
+
+   The bubble keeps its inherited surface (chat bubbles stay chat bubbles);
+   everything here is engraved-paper treatment layered on top. Direction is
+   carried by the medallion plus a word, and the outcome by a stamp plus a
+   struck figure, so neither depends on color alone.
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+.mochi-scope .mochi-transfer {
+  position: relative;
+  display: flex;
+  min-width: min(216px, 64vw);
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px 16px 12px;
+  font-weight: 800;
+  /* A fine double rule top and bottom: the engraved border of a banknote,
+     drawn with borders rather than an inset ring so the bubble radius holds. */
+  border-top: 1px solid color-mix(in srgb, var(--acc) 30%, var(--bubble-line));
+  border-bottom: 1px solid color-mix(in srgb, var(--acc) 30%, var(--bubble-line));
+}
+
+/* Guilloch\xE9 texture: a very fine diagonal weave at low opacity. Reads as
+   paper grain under the type and disappears under the figure. */
+.mochi-scope .mochi-transfer::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--acc) 7%, transparent) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--acc) 5%, transparent) 0 1px, transparent 1px 5px);
+}
+
+.mochi-scope .mochi-transfer > * {
+  position: relative;
+}
+
+/* \u2500\u2500 Denomination line \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A rule with a medallion riding on it, the way a note carries its corner
+   denomination. The label is title case, not tracked-out capitals: this is a
+   printed field label, not a system status chip. */
+.mochi-scope .mochi-transfer-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mochi-scope .mochi-transfer-legend::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, currentColor 26%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.mochi-scope .mochi-transfer-medallion {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1.5px solid color-mix(in srgb, currentColor 44%, transparent);
+  border-radius: 50%;
+}
+
+.mochi-scope .mochi-transfer-medallion svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .mochi-transfer-direction {
+  font-size: 0.7em;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+/* \u2500\u2500 The figure \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   The hero, and the one place that wants a serif: currency is engraved
+   everywhere else in the world. The whole amount stays on one baseline
+   with tabular figures so the decimal point does not drift between cards. */
+.mochi-scope .mochi-transfer-amount {
+  display: flex;
+  align-items: baseline;
+  line-height: 1;
+}
+
+.mochi-scope .mochi-transfer-figure {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 1.72em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.015em;
+}
+
+.mochi-scope .mochi-transfer-figure-fallback {
+  font-size: 0.92em;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+/* \u2500\u2500 Memo \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A labelled field, because that is what the guide's \`note\` is. The label
+   is quiet and small; the note itself is the content. */
+.mochi-scope .mochi-transfer-memo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.mochi-scope .mochi-transfer-memo-label {
+  font-size: 0.62em;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.mochi-scope .mochi-transfer-memo-text {
+  font-size: 0.84em;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.35;
+  opacity: 0.9;
+  overflow-wrap: anywhere;
+}
+
+/* \u2500\u2500 Tear-off stub \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A notched divider, the way a cheque separates from its counterfoil, so
+   the answer pair reads as part of the same object. */
+.mochi-scope .mochi-transfer-stub {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px dashed color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.mochi-scope .mochi-transfer-action {
+  flex: 1;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font:
+    800 12px/1 "Nunito",
+    system-ui,
+    sans-serif;
+  transition:
+    transform 0.14s cubic-bezier(0.2, 0, 0, 1),
+    background 0.14s ease;
+}
+
+.mochi-scope .mochi-transfer-action.is-accept {
+  border-color: transparent;
+  background: var(--acc);
+  color: #fff;
+}
+
+.mochi-scope .mochi-transfer-action.is-accept:hover {
+  background: color-mix(in srgb, var(--acc) 86%, #000 14%);
+}
+
+.mochi-scope .mochi-transfer-action.is-reject {
+  border-color: color-mix(in srgb, #d9705c 52%, transparent);
+  color: color-mix(in srgb, #c2503c 84%, currentColor);
+}
+
+.mochi-scope .mochi-transfer-action.is-reject:hover {
+  background: color-mix(in srgb, #d9705c 14%, transparent);
+}
+
+.mochi-scope .mochi-transfer-action:active {
+  transform: scale(0.965);
+}
+
+.mochi-scope .mochi-transfer-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 45%, transparent);
+}
+
+/* \u2500\u2500 The stamp \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A rubber stamp struck across the face of a settled transfer: rotated,
+   outlined, and sitting over the paper rather than replacing anything. It
+   only exists once there is an outcome, so its arrival is the feedback. */
+.mochi-scope .mochi-transfer-stamp {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+  font-size: 0.66em;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+}
+
+.mochi-scope .theme-dark .mochi-transfer-stamp,
+.mochi-scope .theme-auto .mochi-transfer-stamp {
+  mix-blend-mode: screen;
+}
+
+.mochi-scope .mochi-transfer-stamp svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* \u2500\u2500 Settled states \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A rejected transfer is voided: the figure is struck and the whole slip
+   recedes. An accepted one keeps its weight, since the money moved. */
+/* The money moved: the stamp takes the theme accent and the slip keeps its
+   full weight. */
+.mochi-scope .mochi-transfer.is-accepted .mochi-transfer-stamp {
+  color: color-mix(in srgb, var(--acc) 88%, currentColor);
+}
+
+/* Voided: the stamp is struck in red, the figure is struck through, and the
+   slip recedes. It stays legible enough to read what was refused. */
+.mochi-scope .mochi-transfer.is-rejected .mochi-transfer-stamp {
+  color: color-mix(in srgb, #c2503c 88%, currentColor);
+}
+
+.mochi-scope .mochi-transfer.is-rejected .mochi-transfer-figure {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in srgb, #c2503c 70%, currentColor);
+}
+
+.mochi-scope .mochi-transfer.is-rejected {
+  opacity: 0.68;
+}
+
+.mochi-scope .b.in.mochi-transfer {
+  border-color: color-mix(in srgb, var(--acc) 32%, var(--bubble-line));
+}
+.mochi-scope .voice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mochi-scope .voice .play {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--acc-soft);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.mochi-scope .voice .play svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--acc);
+}
+
+.mochi-scope .b.out .play {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mochi-scope .b.out .play svg {
+  fill: #fff;
+}
+
+.mochi-scope .wave {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 26px;
+}
+
+.mochi-scope .wave i {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--acc);
+  opacity: 0.85;
+}
+
+.mochi-scope .b.out .wave i {
+  background: #fff;
+  opacity: 0.9;
+}
+
+.mochi-scope .voice time {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mochi-scope .b.out .voice time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.mochi-scope .crow .ava img,
+.mochi-scope .s-ava img,
+.mochi-scope .c-head .ava img,
+.mochi-scope .mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.mochi-scope .typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.mochi-scope .typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--muted);
+  border-radius: 50%;
+  animation: mochi-typing 1.2s infinite ease-in-out;
+}
+
+.mochi-scope .typing-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.mochi-scope .typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.mochi-scope .typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes mochi-typing {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+.mochi-scope .msg-image-thumb {
+  max-width: 220px;
+  max-height: 200px;
+  border-radius: 14px;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.mochi-scope .rbtn.generating {
+  background: #f56565 !important;
+  color: #fff !important;
+}
+
+.mochi-scope .st {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* Composer */
+.mochi-scope .c-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 16px;
+  background: var(--nav-bg);
+  border-top: 1px solid var(--bubble-line);
+}
+
+.mochi-scope .rbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--acc-soft);
+  color: var(--acc);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.mochi-scope .rbtn:hover {
+  transform: scale(1.08);
+}
+
+.mochi-scope .rbtn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .c-bar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: var(--input-bg);
+  border-radius: 999px;
+  padding: 11px 18px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mochi-scope .plus-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mochi-scope .plus-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.mochi-scope .plus-menu .rbtn {
+  opacity: 0;
+  transform: translateY(16px) scale(0.4);
+  transition: all 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mochi-scope .c-bar.open .plus-menu {
+  pointer-events: auto;
+}
+
+.mochi-scope .c-bar.open .plus-menu .rbtn {
+  opacity: 1;
+  transform: none;
+}
+
+/* The menu stacks upward from the plus button, so the button nearest it opens
+   first and the topmost opens last. Keep that order in step with the DOM order
+   of #transferBtn, #stickerBtn, #micBtn, #emojiBtn. */
+.mochi-scope .c-bar.open #transferBtn {
+  transition-delay: 0s;
+}
+
+.mochi-scope .c-bar.open #stickerBtn {
+  transition-delay: 0.035s;
+}
+
+.mochi-scope .c-bar.open #micBtn {
+  transition-delay: 0.07s;
+}
+
+.mochi-scope .c-bar.open #emojiBtn {
+  transition-delay: 0.105s;
+}
+
+.mochi-scope #plusBtn svg {
+  transition: transform 0.25s;
+}
+
+.mochi-scope .c-bar.open #plusBtn {
+  transform: rotate(45deg);
+}
+
+/* Connection Switcher & Media Picker inside Mochi OS Composer */
+.mochi-scope .mochi-connection-switcher-wrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mochi-scope .mochi-connection-switcher-wrap button.rbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--acc-soft);
+  border: none;
+  color: var(--acc);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: transform 0.15s;
+}
+
+.mochi-scope .mochi-connection-switcher-wrap button.rbtn:hover {
+  transform: scale(1.08);
+  border-color: transparent;
+  color: var(--acc);
+}
+
+.mochi-scope .mochi-slash-autocomplete-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 14px;
+  right: 14px;
+  max-height: min(18rem, 45dvh);
+  overflow-y: auto;
+  background: var(--paper-dim);
+  border: 1px solid var(--bubble-line);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 40;
+}
+
+.mochi-scope .mochi-slash-autocomplete-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.mochi-scope .mochi-slash-autocomplete-item:hover,
+.mochi-scope .mochi-slash-autocomplete-item.selected {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.mochi-scope .mochi-slash-autocomplete-item .slash-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mochi-scope .mochi-slash-autocomplete-item .slash-desc {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-media-picker-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 14px;
+  z-index: 50;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Reset any global input overrides inside Emoji / Media Picker */
+.mochi-scope .mochi-media-picker-popover [data-emoji-search-shell] input,
+.mochi-scope .mochi-media-picker-popover [data-kaomoji-search-shell] input,
+.mochi-scope .mochi-media-picker-popover input[type="text"],
+.mochi-scope .mochi-media-picker-popover input[type="search"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-weight: normal !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  height: auto !important;
+  width: 100% !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 900px) {
+  .mochi-scope .apps {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .mochi-scope .apps {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   NARROW PASS
+   The Mochi OS "desktop" is clipped by \`.screen { overflow: hidden }\`, so anything sized for a
+   wide window is silently truncated rather than scrollable. These rules shrink the fixed
+   horizontal chrome of the launcher, the apps, the Messages shell and the info popups so a
+   phone or a narrow tablet gets a proportional layout instead of a cropped desktop one.
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+@media (max-width: 900px) {
+  /* A phone home screen is height-starved: 12 apps in 4 columns plus a dock is most of the
+     screen already, so the widget row shrinks to a strip instead of eating the grid. */
+  .mochi-scope .screen {
+    gap: clamp(6px, 1.6vh, 2.2vh);
+    padding: 1vh 3vw 1.4vh;
+  }
+
+  .mochi-scope .status {
+    font-size: clamp(13px, 1.7vh, 19px);
+  }
+
+  .mochi-scope .universe-bar {
+    padding: 0 clamp(10px, 3vw, 28px);
+  }
+
+  .mochi-scope .widgets {
+    gap: clamp(8px, 2.5vw, 26px);
+    margin-top: clamp(4px, 1.4vh, 4.5vh);
+  }
+
+  .mochi-scope .widget {
+    min-height: clamp(72px, 12vh, 190px);
+  }
+
+  .mochi-scope .widget .big {
+    font-size: clamp(22px, 4.2vh, 58px);
+    letter-spacing: 0;
+  }
+
+  .mochi-scope .widget .sub {
+    font-size: clamp(11px, 1.7vh, 17px);
+  }
+
+  .mochi-scope .apps {
+    gap: clamp(8px, 2vh, 44px) clamp(8px, 2.5vw, 12px);
+  }
+
+  .mochi-scope .app {
+    gap: clamp(4px, 1.2vw, 9px);
+  }
+
+  .mochi-scope .dock {
+    padding: 1vh var(--gutter) 0.8vh;
+  }
+
+  .mochi-scope .m-head {
+    padding: clamp(12px, 4vw, 22px) clamp(12px, 4vw, 24px) 8px;
+  }
+
+  .mochi-scope .m-head h2 {
+    font-size: clamp(18px, 5.2vw, 26px);
+  }
+
+  .mochi-scope .mtabs {
+    padding: 8px 6px 12px;
+  }
+
+  .mochi-scope .c-body {
+    padding: 12px 12px 10px;
+  }
+
+  .mochi-scope .stories {
+    gap: 12px;
+    padding: 4px clamp(10px, 4vw, 24px) 12px;
+  }
+
+  .mochi-scope .s-ava {
+    width: clamp(44px, 13vw, 56px);
+    height: clamp(44px, 13vw, 56px);
+  }
+
+  .mochi-scope .crow {
+    padding: clamp(8px, 3vw, 12px);
+    gap: clamp(9px, 3vw, 14px);
+  }
+
+  .mochi-scope .crow .ava {
+    width: clamp(40px, 12vw, 52px);
+    height: clamp(40px, 12vw, 52px);
+  }
+
+  .mochi-scope .profile-fields-list {
+    max-width: 100%;
+  }
+
+  .mochi-scope .profile-status-dropdown {
+    min-width: min(200px, 100%);
+  }
+
+  .mochi-scope .msg-image-thumb {
+    max-width: min(220px, 62vw);
+    max-height: min(200px, 42vh);
+  }
+
+  .mochi-scope .mochi-transfer {
+    min-width: min(216px, 72vw);
+    padding: 11px 13px 10px;
+  }
+
+  .mochi-scope .mochi-chat-sticker-image {
+    max-width: min(180px, 58vw);
+  }
+
+  .mochi-scope .mochi-ai-data-modal {
+    width: min(560px, 96vw);
+  }
+
+  .mochi-scope .mochi-group-info-popup {
+    padding: clamp(14px, 4.5vw, 22px) clamp(14px, 4.5vw, 24px);
+  }
+
+  .mochi-scope .app-store-header {
+    padding: 12px clamp(14px, 4.5vw, 22px) 11px;
+  }
+
+  .mochi-scope .app-store-body {
+    padding: 14px clamp(14px, 4.5vw, 22px) 40px;
+    gap: 16px;
+  }
+
+  .mochi-scope .app-store-hero {
+    padding: 18px;
+    min-height: 0;
+  }
+
+  .mochi-scope .app-store-hero h3 {
+    font-size: 19px;
+  }
+
+  .mochi-scope .format-guide-search-wrap {
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Long-form editors get a usable box without eating the whole phone screen. */
+  .mochi-scope .format-guide-textarea {
+    min-height: clamp(140px, 34vh, 240px);
+    max-height: 56vh;
+  }
+
+  .mochi-scope .profile-bio-textarea {
+    min-height: clamp(110px, 26vh, 160px);
+  }
+
+  .mochi-scope .preset-blocks-container {
+    max-height: 58vh;
+  }
+
+  .mochi-scope .mochi-return-roleplay-btn {
+    font-size: clamp(10px, 2.8vw, 13px);
+  }
+
+  /* The floating mascots sit behind the app grid on a wide window but land on top of the app
+     labels once the grid is tight, so a narrow screen drops the decoration, not the apps. */
+  .mochi-scope .mascot {
+    display: none;
+  }
+
+  /* \u2500\u2500 Backdrop blurs and layer promotion \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+     Phones and tablets are all mobile GPUs here, and these two are the expensive ones: the dock
+     is on screen permanently, and the modal scrim covers the whole screen behind every popup.
+     Both blurred a surface that is a flat wash with a faint dot pattern, so the effect showed
+     almost nothing while forcing a full-width backdrop pass on every frame of the window open,
+     close, drag and jiggle animations. That is the classic Android/Termux jank and glitch source.
+     Each surface stays visually equivalent by carrying a little more of its own color instead.
+
+     Neither keeps \`transform: translateZ(0)\` either. Promotion is only worth it for something that
+     animates continuously; for a static surface it splits the shell into separate composited
+     layers, and the compositor then shows the roleplay interface underneath the whole Mochi OS in
+     the strip a fresh layer has not painted yet. Flat colour keeps the desktop on one layer. */
+  .mochi-scope .dock {
+    background: color-mix(in srgb, var(--dock-bg) 75%, var(--screen));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .mochi-scope .overlay {
+    background: rgba(15, 20, 15, 0.42);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* A touch browser leaves \`:hover\` applied after a tap, so the widget's hover lift promoted a
+     layer the moment it was touched and glitched the homescreen behind it. Press feedback is the
+     only affordance a real pointer needs here. */
+  .mochi-scope .widget {
+    transition: none;
+  }
+
+  .mochi-scope .widget:hover {
+    transform: none;
+  }
+
+  .mochi-scope .app-window,
+  .mochi-scope .app-store-window {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   PHONE SCALE
+   Everything above only made the launcher *fit*. A phone home screen should also *look* like a
+   phone home screen: compact icons, small labels, a widget strip, and the dock still on screen.
+
+   These rules use width (\`vw\`) and pixels only, never \`vh\`. Android Chrome grows and shrinks
+   the layout viewport as its address bar slides away, so every \`vh\` value in a phone layout
+   re-solved mid-gesture and the whole grid visibly jumped; nothing here can move for that
+   reason. \`dvh\` would track the bar continuously instead of in steps, which is smoother but
+   still a moving layout, so it is not used either.
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   PHONE SCALE & SMALL PHONE SCREENS (e.g. 162.8mm x 77.6mm ~2.1:1 aspect ratio)
+   Tailored layout to look beautiful, spacious, touch-responsive and perfectly fitted
+   on small and tall smartphone screens.
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+@media (max-width: 700px) {
+  .mochi-scope {
+    /* 4 columns with balanced icon size and comfortable touch margins */
+    --tile: clamp(52px, 17.5vw, 68px);
+    --tile-radius: clamp(14px, 4vw, 18px);
+    --gutter: clamp(8px, 2.8vw, 16px);
+  }
+
+  .mochi-scope .screen {
+    gap: clamp(6px, 1.4vh, 10px);
+    /* \`max(...)\` keeps the home indicator clear of Android's gesture bar without adding a
+       gap on devices that do not report one. */
+    padding: max(8px, env(safe-area-inset-top, 8px)) 3.5vw max(12px, env(safe-area-inset-bottom, 12px));
+    touch-action: pan-y;
+  }
+
+  .mochi-scope .status {
+    font-size: clamp(11px, 2.8vw, 13px);
+    padding-inline: 4px;
+  }
+
+  .mochi-scope .universe-bar {
+    padding: 0 clamp(6px, 2vw, 14px);
+    margin-bottom: 2px;
+  }
+
+  .mochi-scope .universe-btn {
+    font-size: clamp(11px, 2.8vw, 13px);
+    padding: 6px 14px;
+    border-radius: 9999px;
+  }
+
+  .mochi-scope .mochi-return-roleplay-btn {
+    font-size: clamp(9px, 2.5vw, 12px);
+  }
+
+  .mochi-scope .widgets {
+    gap: clamp(8px, 2.5vw, 14px);
+    margin-top: 2px;
+    margin-bottom: 4px;
+  }
+
+  .mochi-scope .widget {
+    min-height: clamp(64px, 10.5vh, 88px);
+    padding: 8px clamp(10px, 3vw, 16px);
+    border-radius: clamp(14px, 3.8vw, 20px);
+    gap: 3px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .mochi-scope .widget .big {
+    font-size: clamp(20px, 6.5vw, 32px);
+    letter-spacing: 0;
+    line-height: 1.1;
+  }
+
+  .mochi-scope .widget .sub {
+    font-size: clamp(10px, 2.8vw, 12px);
+    line-height: 1.2;
+    opacity: 0.9;
+  }
+
+  .mochi-scope .apps {
+    align-content: space-evenly;
+    gap: clamp(8px, 1.8vh, 18px) clamp(6px, 2vw, 14px);
+    padding-block: 4px;
+  }
+
+  .mochi-scope .app {
+    gap: 5px;
+  }
+
+  .mochi-scope .label {
+    font-size: clamp(10px, 2.7vw, 12px);
+    line-height: 1.2;
+    max-width: calc(var(--tile) + 12px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mochi-scope .dock {
+    padding: 8px var(--gutter);
+    border-radius: clamp(18px, 5vw, 26px);
+    margin-top: auto;
+  }
+
+  /* \u2500\u2500 Messages \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+     The app shell was built on 18px/24px desktop gutters. On a phone those gutters plus the
+     composer's four round buttons left the text field about 100px wide, and the 68% bubble
+     cap wrapped a line of chat every four words. Everything below trims the chrome so the
+     conversation, not the decoration, gets the width. */
+  .mochi-scope .m-head {
+    gap: 8px;
+    padding: 12px 14px 8px;
+  }
+
+  .mochi-scope .m-head h2 {
+    font-size: clamp(18px, 5.5vw, 24px);
+  }
+
+  .mochi-scope .m-search {
+    margin: 4px 14px 8px;
+    padding: 8px 14px;
+    border-radius: 14px;
+  }
+
+  .mochi-scope .m-search input {
+    font-size: 16px;
+  }
+
+  .mochi-scope .stories {
+    gap: clamp(8px, 3vw, 14px);
+    padding: 4px 14px 8px;
+  }
+
+  .mochi-scope .convo-list {
+    padding: 2px 12px 14px;
+    gap: 8px;
+  }
+
+  .mochi-scope .crow {
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .mochi-scope .crow .ava {
+    width: clamp(40px, 11.5vw, 48px);
+    height: clamp(40px, 11.5vw, 48px);
+    font-size: clamp(14px, 4vw, 16px);
+  }
+
+  .mochi-scope .c-head {
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .mochi-scope .c-head .ava {
+    width: clamp(34px, 9.5vw, 38px);
+    height: clamp(34px, 9.5vw, 38px);
+    font-size: clamp(13px, 3.8vw, 15px);
+  }
+
+  .mochi-scope .c-head b {
+    font-size: clamp(14px, 4vw, 16px);
+  }
+
+  .mochi-scope .c-body {
+    gap: 10px;
+    padding: 10px 12px 8px;
+  }
+
+  /* 84% width on a phone screen provides spacious, comfortable reading without awkward wrap */
+  .mochi-scope .b {
+    max-width: 84%;
+    padding: 9px 13px;
+    font-size: clamp(13.5px, 3.8vw, 15px);
+    border-radius: 16px;
+  }
+
+  .mochi-scope .c-bar {
+    gap: 6px;
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .mochi-scope .c-bar .rbtn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+
+  .mochi-scope .c-bar input {
+    font-size: 16px;
+    padding: 8px 12px;
+    border-radius: 18px;
+  }
+
+  .mochi-scope .mtabs {
+    padding: 6px 4px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .mochi-scope .mtab {
+    gap: 3px;
+    font-size: 11px;
+    padding: 6px 4px;
+  }
+
+  /* \u2500\u2500 App Store \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+     The store is a single column on a phone, so the card's own gutters and its 46px icon are
+     what set the vertical rhythm. Trim them so more than four apps are visible at once. */
+  .mochi-scope .app-store-body {
+    padding: 10px 12px max(32px, env(safe-area-inset-bottom));
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mochi-scope .app-store-header {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .mochi-scope .app-store-header h2 {
+    font-size: clamp(16px, 4.6vw, 19px);
+  }
+
+  .mochi-scope .app-store-back-btn,
+  .mochi-scope .app-store-close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .mochi-scope .app-store-search {
+    margin-bottom: 2px;
+  }
+
+  .mochi-scope .app-store-search input {
+    font-size: 15px;
+    padding: 8px 36px 8px 34px;
+    border-radius: 14px;
+  }
+
+  .mochi-scope .app-store-hero {
+    padding: 14px 16px;
+    border-radius: 16px;
+    gap: 6px;
+  }
+
+  .mochi-scope .app-store-hero h3 {
+    font-size: clamp(16px, 4.8vw, 20px);
+  }
+
+  .mochi-scope .app-store-hero p {
+    font-size: clamp(11.5px, 3.2vw, 13px);
+    line-height: 1.35;
+  }
+
+  .mochi-scope .app-store-card {
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .mochi-scope .app-store-card-left {
+    gap: 10px;
+  }
+
+  .mochi-scope .app-store-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .mochi-scope .app-store-card-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mochi-scope .app-store-card-info h4 {
+    font-size: clamp(13px, 3.6vw, 15px);
+  }
+
+  .mochi-scope .app-store-card-info p {
+    font-size: clamp(11px, 2.9vw, 12.5px);
+  }
+
+  .mochi-scope .app-store-card-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 9999px;
+  }
+
+  .mochi-scope .app-store-item-count {
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   SHORT VIEWPORTS (a phone held sideways)
+   A landscape phone leaves roughly 320px of usable height. The widget row, an app grid and the
+   dock cannot share that, and \`.screen\` clips instead of scrolling, so the lower rows and the
+   dock were cut off with no way to reach them. The grid goes wider and shorter, and the widget
+   strip stands down, so the whole launcher including the dock still lands on screen.
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+@media (max-width: 900px) and (max-height: 520px) {
+  .mochi-scope {
+    /* \`svh\` is the height measured with the browser bar showing, so unlike \`vh\` it never
+       changes while the address bar slides away. The \`vh\` line above it is the fallback for
+       engines without \`svh\`. The tile is bounded by the short height because that, not the
+       width, is what a landscape phone runs out of. */
+    --tile: min(clamp(38px, 14vh, 64px), 18vw);
+    --tile: min(clamp(38px, 14svh, 64px), 18vw);
+    --tile-radius: clamp(10px, 2.6vw, 16px);
+  }
+
+  .mochi-scope .screen {
+    gap: 4px;
+    padding: 4px 3vw 5px;
+  }
+
+  /* Decoration and a duplicate clock yield to the apps rather than pushing them off-screen. */
+  .mochi-scope .widgets {
+    display: none;
+  }
+
+  /* Tight rows centred on a wide, short screen: the fixed 5-column grid stretched a phone's
+     landscape width into columns far wider than the icons, and the fixed 4-column one left a
+     single stranded app on a second row. Sizing the tracks to the tile packs them instead. */
+  .mochi-scope .apps {
+    grid-template-columns: repeat(auto-fit, minmax(0, var(--tile)));
+    justify-content: center;
+    align-content: center;
+    gap: 8px clamp(4px, 1.4vw, 10px);
+  }
+
+  .mochi-scope .app {
+    gap: 3px;
+  }
+
+  .mochi-scope .label {
+    font-size: clamp(9px, 1.6vw, 12px);
+  }
+
+  .mochi-scope .dock {
+    padding: 5px var(--gutter);
+  }
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   TOUCH POINTERS
+   A touch browser applies \`:hover\` on tap, and Android Chrome leaves it applied until something
+   else is tapped. Every lift-and-scale hover in the launcher therefore stuck after a single
+   tap: an app icon stayed raised, the reaction button stayed enlarged, and the home indicator
+   stayed wide, which reads as the UI glitching under the finger. With no real pointer there is
+   nothing to hover, so the rest state is restored and \`:active\` keeps the press feedback.
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+@media (hover: none) {
+  .mochi-scope .app:hover,
+  .mochi-scope .widget:hover,
+  .mochi-scope .crow:hover,
+  .mochi-scope .rbtn:hover,
+  .mochi-scope .mochi-reaction-btn:hover,
+  .mochi-scope .app-store-hero-action:hover,
+  .mochi-scope .app-store-card-btn.get:hover,
+  .mochi-scope .app-store-back-btn:hover,
+  .mochi-scope .app-store-close-btn:hover {
+    transform: none;
+  }
+
+  .mochi-scope .app-store-card:hover {
+    transform: none;
+    border-color: var(--bubble-line);
+    box-shadow: none;
+  }
+
+  .mochi-scope .app-store-card-btn.installed:hover {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--line);
+  }
+
+  .mochi-scope .mochi-home-indicator-hitarea:hover .mochi-home-indicator-bar {
+    width: clamp(72px, 15vw, 130px);
+    height: 4.5px;
+    background: color-mix(in srgb, var(--ink) 40%, #ffffff 60%);
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.28),
+      0 0 1px rgba(255, 255, 255, 0.4);
+  }
+
+  .mochi-scope .mochi-home-indicator-hitarea:hover .mochi-home-indicator-label {
+    opacity: 0.72;
+  }
+}
+`;var t=`.mochi-scope.mochi-private-widget {
+  width: min(100%, 340px);
+  margin-block: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--text);
+  font:
+    12px/1.4 "Nunito",
+    ui-rounded,
+    system-ui,
+    sans-serif;
+  box-shadow: 0 8px 24px rgb(51 64 42 / 12%);
+}
+.mochi-scope.mochi-private-widget.is-open {
+  width: min(100%, 400px);
+}
+
+/* On phones the widget fills the screen it is given instead of keeping its desktop card width. */
+@media (max-width: 600px) {
+  .mochi-scope.mochi-private-widget,
+  .mochi-scope.mochi-private-widget.is-open {
+    width: 100%;
+    margin-block: 0.5rem;
+  }
+}
+.mochi-scope.mochi-private-widget,
+.mochi-scope.mochi-private-widget * {
+  text-shadow: none;
+  -webkit-text-stroke: 0 transparent;
+}
+.mochi-private-widget button {
+  font: inherit;
+}
+.mochi-private-contact-screen {
+  padding: 8px;
+  background: var(--paper);
+}
+.mochi-private-contact-open {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px;
+  border: 1px solid transparent !important;
+  border-radius: 10px;
+  background: var(--paper) !important;
+  color: inherit !important;
+  text-align: left;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
+}
+.mochi-private-contact-open:hover {
+  border-color: var(--line) !important;
+  background: var(--acc-soft) !important;
+}
+.mochi-private-contact-open:focus-visible,
+.mochi-private-back:focus-visible {
+  outline: 3px solid var(--acc);
+  outline-offset: 3px;
+}
+.mochi-private-avatar,
+.mochi-private-mini-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-weight: 900;
+  line-height: 1;
+}
+.mochi-private-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+.mochi-private-avatar.is-small {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+.mochi-private-mini-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+.mochi-private-contact-name {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  font-weight: 900;
+}
+.mochi-private-contact-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.mochi-private-chat-view {
+  display: flex;
+  height: min(520px, 76dvh);
+  max-height: min(520px, 76dvh);
+  flex-direction: column;
+  overflow: hidden;
+  animation: mochi-private-arrive 0.28s ease-out both;
+}
+@keyframes mochi-private-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mochi-private-chat-view {
+    animation: none;
+  }
+  .mochi-private-contact-open {
+    transition: none;
+  }
+}
+.mochi-private-appbar {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.mochi-private-chat-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.mochi-private-back {
+  display: grid;
+  width: 28px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  padding: 0 !important;
+  background: transparent !important;
+  color: var(--acc) !important;
+}
+.mochi-private-appbar strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mochi-private-thread {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  margin-bottom: 0;
+  background: var(--chat-bg);
+  scrollbar-gutter: stable;
+}
+.mochi-private-day {
+  width: max-content;
+  margin: 0 auto 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.mochi-private-message {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  margin: 8px 0;
+}
+.mochi-private-message.is-user {
+  justify-content: flex-end;
+}
+.mochi-private-bubble-wrap {
+  max-width: 86%;
+  min-width: 0;
+}
+.mochi-private-bubble-wrap.is-sticker .mochi-private-bubble {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+.mochi-private-bubble {
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--bubble-line);
+  border-radius: 16px 16px 16px 5px;
+  background: var(--chat-bubble-in);
+  white-space: pre-wrap;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.mochi-private-message.is-user .mochi-private-bubble {
+  border-color: var(--line);
+  border-radius: 16px 16px 5px 16px;
+  background: var(--acc-soft);
+}
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Transfer slip (embedded widget) \u2014 the same instrument as the chat view,
+   scaled to the narrower thread. See mochi-os.css for the full treatment.
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+.mochi-private-transfer {
+  position: relative;
+  display: flex;
+  min-width: 158px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 13px 11px;
+  border: 1px solid var(--bubble-line);
+  border-radius: 16px 16px 16px 5px;
+  background: var(--chat-bubble-in);
+  font-weight: 800;
+}
+
+.mochi-private-message.is-user .mochi-private-transfer {
+  border-color: var(--line);
+  border-radius: 16px 16px 5px 16px;
+  background: var(--acc-soft);
+}
+
+/* Guilloch\xE9 paper grain, at the widget's smaller scale. */
+.mochi-private-transfer::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--acc) 7%, transparent) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--acc) 5%, transparent) 0 1px, transparent 1px 4px);
+}
+
+.mochi-private-transfer > * {
+  position: relative;
+}
+
+.mochi-private-transfer-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.mochi-private-transfer-legend::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, currentColor 30%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.mochi-private-transfer-medallion {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1.5px solid color-mix(in srgb, currentColor 50%, transparent);
+  border-radius: 50%;
+}
+
+.mochi-private-transfer-medallion svg {
+  width: 9px;
+  height: 9px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-private-transfer-direction {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.mochi-private-transfer-amount {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.015em;
+}
+
+.mochi-private-transfer-memo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mochi-private-transfer-memo-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.mochi-private-transfer-memo-text {
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  opacity: 0.88;
+}
+
+.mochi-private-transfer-stamp {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+}
+
+.mochi-scope.theme-dark .mochi-private-transfer-stamp,
+.mochi-scope.theme-auto .mochi-private-transfer-stamp {
+  mix-blend-mode: screen;
+}
+
+.mochi-private-transfer-stamp svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-private-transfer.is-accepted .mochi-private-transfer-stamp {
+  color: color-mix(in srgb, var(--acc) 88%, currentColor);
+}
+
+.mochi-private-transfer.is-rejected .mochi-private-transfer-stamp {
+  color: color-mix(in srgb, #c2503c 88%, currentColor);
+}
+
+.mochi-private-transfer.is-rejected {
+  opacity: 0.68;
+}
+
+.mochi-private-transfer.is-rejected .mochi-private-transfer-amount {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in srgb, #c2503c 70%, currentColor);
+}
+.mochi-private-time {
+  display: block;
+  margin: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+}
+.mochi-private-message .mochi-private-time {
+  text-align: right;
+  align-self: flex-end;
+}
+.mochi-private-message.is-user .mochi-private-time {
+  text-align: right;
+}
+.mochi-private-sticker {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(180px, 48vw, 100%);
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.mochi-private-environment {
+  margin-top: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--paper-dim);
+}
+.mochi-private-environment-title {
+  margin-bottom: 8px;
+  color: var(--acc);
+  font-size: 14px;
+  font-weight: 900;
+}
+.mochi-private-environment dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px 10px;
+  margin: 0;
+}
+.mochi-private-environment dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.mochi-private-environment dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 700;
+}
+.mochi-private-quoted-message {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-bubble-in) 94%, #000 6%);
+  color: var(--text);
+  font-size: 0.88em;
+  line-height: 1.35;
+}
+.mochi-private-quoted-message .mochi-private-sticker {
+  border-radius: 12px;
+}
+.mochi-private-message.is-user .mochi-private-quoted-message {
+  background: color-mix(in srgb, var(--tile-a) 84%, #000 16%);
+  color: #fff;
+}
+.mochi-private-quoted-message strong {
+  overflow: hidden;
+  color: var(--acc);
+  font-size: 0.95em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mochi-private-message.is-user .mochi-private-quoted-message strong {
+  color: var(--text);
+}
+.mochi-private-quoted-message span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mochi-scope.theme-dark .mochi-private-quoted-message {
+  background: color-mix(in srgb, var(--chat-bubble-in) 88%, #000 12%);
+}
+.mochi-scope.theme-dark .mochi-private-message.is-user .mochi-private-quoted-message {
+  background: color-mix(in srgb, var(--tile-a) 76%, #000 24%);
+}
+.mochi-scope.theme-dark .mochi-private-message.is-user .mochi-private-quoted-message strong {
+  color: var(--acc);
+}
+@media (prefers-color-scheme: dark) {
+  .mochi-scope.theme-auto .mochi-private-quoted-message {
+    background: color-mix(in srgb, var(--chat-bubble-in) 88%, #000 12%);
+  }
+  .mochi-scope.theme-auto .mochi-private-message.is-user .mochi-private-quoted-message {
+    background: color-mix(in srgb, var(--tile-a) 76%, #000 24%);
+  }
+  .mochi-scope.theme-auto .mochi-private-message.is-user .mochi-private-quoted-message strong {
+    color: var(--acc);
+  }
+}
+`;var a=`/* Group-chat transcript embedded in a roleplay message.
+   The thread, bubbles, appbar, and environment panel all reuse the private
+   widget's own classes (see mochi-private-chat-widget.css) \u2014 the only real
+   difference between the two is that a group names its author, so this file
+   holds the sender label and the member avatar stack. */
+
+.mochi-group-widget .mochi-private-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mochi-group-widget .mochi-private-message.is-user .mochi-private-bubble-wrap {
+  align-items: flex-end;
+}
+
+/* The author and the time share one row under the bubble.
+   The author label stays on the left side, and the timestamp stays at the far right. */
+.mochi-group-widget .mochi-private-bubble-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.mochi-group-widget .mochi-msg-sender {
+  margin: 0;
+}
+
+.mochi-group-widget .mochi-private-bubble-meta .mochi-private-time {
+  margin: 4px 0 0 auto;
+}
+
+.mochi-group-avatar-stack {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.mochi-group-avatar-stack .mochi-private-mini-avatar {
+  margin-left: -7px;
+  border: 2px solid var(--paper);
+}
+
+.mochi-group-avatar-stack .mochi-private-mini-avatar:first-child {
+  margin-left: 0;
+}
+
+.mochi-group-widget .mochi-private-mini-avatar.is-tiny {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+`;var p=`/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Port chrome
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Styles for the four components the port reimplements rather than copies \u2014
+   the add-reaction button, the media picker, the slash-command feedback line
+   and the connection switcher slot.
+
+   The engine styled those with Tailwind classes bound to its own chat-chrome
+   CSS variables. SillyTavern has neither, so this file does the same job with
+   the Mochi OS tokens that \`mochi-os.css\` already defines inside \`.mochi-scope\`
+   (\`--text\`, \`--muted\`, \`--acc\`, \`--acc-soft\`, \`--paper\`, \`--paper-dim\`,
+   \`--line\`, \`--modal-bg\`, \`--bubble-line\`). It is loaded after \`mochi-os.css\`
+   so it can also fill in the few gaps that file leaves \u2014 the media picker's
+   background, for instance, which the engine's own panel brought with it.
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+
+/* \u2500\u2500 Add-reaction button \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+.mochi-scope .mochi-reaction-add {
+  position: relative;
+  display: inline-flex;
+}
+
+.mochi-scope .mochi-reaction-add-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--modal-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-reaction-add-popover button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease;
+}
+
+.mochi-scope .mochi-reaction-add-popover button:hover {
+  background: var(--acc-soft);
+  transform: scale(1.15);
+}
+
+/* \u2500\u2500 Media picker \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+.mochi-scope .mochi-media-picker-popover {
+  background: var(--modal-bg);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  width: min(318px, calc(100vw - 40px));
+  max-height: min(52vh, 380px);
+}
+
+.mochi-scope .mochi-media-picker-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.mochi-scope .mochi-media-picker-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.mochi-scope .mochi-media-picker-tabs button:hover {
+  color: var(--text);
+  background: var(--acc-soft);
+}
+
+.mochi-scope .mochi-media-picker-tabs button.active {
+  background: var(--acc);
+  color: var(--ink);
+}
+
+.mochi-scope .mochi-media-picker-body {
+  padding: 8px 10px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mochi-scope .mochi-media-group + .mochi-media-group {
+  margin-top: 10px;
+}
+
+.mochi-scope .mochi-media-group-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.mochi-scope .mochi-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 1px;
+}
+
+.mochi-scope .mochi-emoji-grid button {
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.mochi-scope .mochi-emoji-grid button:hover {
+  background: var(--acc-soft);
+}
+
+.mochi-scope .mochi-kaomoji-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.mochi-scope .mochi-kaomoji-grid button {
+  border: 1px solid var(--bubble-line);
+  background: var(--paper-dim);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 6px 4px;
+  font-size: 12px;
+  line-height: 1.25;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-kaomoji-grid button:hover {
+  border-color: var(--acc);
+}
+
+.mochi-scope .mochi-gif-tab p,
+.mochi-scope .mochi-media-empty p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-gif-row {
+  display: flex;
+  gap: 6px;
+}
+
+.mochi-scope .mochi-gif-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.mochi-scope .mochi-gif-row button,
+.mochi-scope .mochi-media-empty-action {
+  border: none;
+  background: var(--acc);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.mochi-scope .mochi-gif-row button:hover,
+.mochi-scope .mochi-media-empty-action:hover {
+  transform: scale(1.03);
+}
+
+.mochi-scope .mochi-media-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 4px 6px;
+}
+
+.mochi-scope .mochi-media-empty-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-media-empty-action {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+.mochi-scope .mochi-media-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* \u2500\u2500 Slash-command feedback \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+.mochi-scope .mochi-slash-feedback {
+  margin: 0 14px 6px;
+  background: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.mochi-scope .mochi-slash-feedback-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+.mochi-scope .mochi-slash-feedback-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--acc);
+}
+
+.mochi-scope .mochi-slash-feedback-head button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mochi-scope .mochi-slash-feedback-head button:hover {
+  background: var(--acc-soft);
+  color: var(--text);
+}
+
+.mochi-scope .mochi-slash-feedback-body {
+  padding: 8px 10px 10px;
+  max-height: 190px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mochi-scope .mochi-slash-feedback-gap {
+  height: 6px;
+}
+
+.mochi-scope .mochi-slash-feedback-heading {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.mochi-scope .mochi-slash-feedback-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 2px 0;
+}
+
+.mochi-scope .mochi-slash-feedback-label {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mochi-scope .mochi-slash-feedback-detail {
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-slash-feedback-tip {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* \u2500\u2500 Reaction pills \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+/* \`mochi-os.css\` styles \`.mari-message-reactions button\`; these are the parts
+   inside the pill it leaves to the engine's Tailwind utilities. */
+.mochi-scope .mari-message-reactions button img,
+.mochi-scope .mochi-reaction-emoji-image {
+  width: 1.125rem;
+  height: 1.125rem;
+  object-fit: contain;
+}
+
+.mochi-scope .mochi-reaction-emoji {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.mochi-scope .mochi-reaction-count {
+  min-width: 0.75rem;
+  text-align: center;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The engine portalled this into \`document.body\`; here it stays in place and
+   relies on \`position: fixed\` to sit above the phone. */
+.mochi-scope .mochi-reaction-tooltip {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 18rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  background: var(--modal-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+  outline: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.mochi-scope .mochi-reaction-tooltip-image {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.mochi-scope .mochi-reaction-tooltip-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.mochi-scope .mochi-reaction-tooltip-text {
+  line-height: 1.375;
+}
+
+.mochi-scope .mochi-reaction-tooltip-name {
+  font-weight: 600;
+}
+
+/* \u2500\u2500 The engine's chat-chrome variables \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+/* Mochi OS names a few surfaces with the engine's own chat-chrome variables.
+   Mapping them onto the Mochi tokens keeps those call sites untouched. */
+.mochi-scope {
+  --card: var(--paper);
+  --foreground: var(--text);
+  --border: var(--line);
+  --border-subtle: var(--bubble-line);
+  --primary: var(--acc);
+  --secondary: var(--paper-dim);
+  --surface-layer-1: var(--paper-dim);
+  --text-secondary: var(--muted);
+}
+
+/* \u2500\u2500 The handful of Tailwind utilities Mochi OS itself uses \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+/* \`MochiOsView\` is unmodified, and it carries Tailwind classes on four spots
+   that its own stylesheet does not cover: the translation box under a bubble
+   and three hover accents on action buttons. Tailwind does not run in
+   SillyTavern, so those utilities are declared here \u2014 same names, same values,
+   scoped to \`.mochi-scope\` so they cannot reach SillyTavern's own markup. */
+
+.mochi-scope .flex {
+  display: flex;
+}
+
+.mochi-scope .flex-wrap {
+  flex-wrap: wrap;
+}
+
+.mochi-scope .items-center {
+  align-items: center;
+}
+
+.mochi-scope .shrink-0 {
+  flex-shrink: 0;
+}
+
+.mochi-scope .gap-1 {
+  gap: 0.25rem;
+}
+
+.mochi-scope .gap-2 {
+  gap: 0.5rem;
+}
+
+.mochi-scope .border {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.mochi-scope .border-\\[var\\(--border-subtle\\)\\] {
+  border-color: var(--border-subtle);
+}
+
+.mochi-scope .p-2 {
+  padding: 0.5rem;
+}
+
+.mochi-scope .mt-1 {
+  margin-top: 0.25rem;
+}
+
+.mochi-scope .rounded-md {
+  border-radius: 0.375rem;
+}
+
+.mochi-scope .rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.mochi-scope .bg-\\[var\\(--surface-layer-1\\)\\] {
+  background-color: var(--surface-layer-1);
+}
+
+.mochi-scope .text-\\[var\\(--text-secondary\\)\\] {
+  color: var(--text-secondary);
+}
+
+.mochi-scope .text-xs {
+  font-size: 0.75rem;
+  line-height: 1.3333;
+}
+
+.mochi-scope .whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.mochi-scope .text-emerald-400 {
+  color: #34d399;
+}
+
+.mochi-scope .transition-colors {
+  transition-property: color, background-color, border-color, outline-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 0.15s;
+}
+
+.mochi-scope .pointer-events-none {
+  pointer-events: none;
+}
+
+.mochi-scope .object-contain {
+  object-fit: contain;
+}
+
+.mochi-scope .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.mochi-scope .w-\\[1\\.125rem\\] {
+  width: 1.125rem;
+}
+
+.mochi-scope .h-\\[1\\.125rem\\] {
+  height: 1.125rem;
+}
+
+.mochi-scope .min-w-\\[0\\.75rem\\] {
+  min-width: 0.75rem;
+}
+
+.mochi-scope .text-\\[0\\.6875rem\\] {
+  font-size: 0.6875rem;
+}
+
+.mochi-scope .text-\\[1\\.125rem\\] {
+  font-size: 1.125rem;
+}
+
+/* Hover accents. These are written on the same element as \`.mochi-reaction-btn\`,
+   whose own \`:hover\` rule has the same specificity, so they have to come later
+   in the sheet \u2014 which they do. */
+
+.mochi-scope .hover\\:text-red-400:hover {
+  color: #f87171;
+}
+
+.mochi-scope .hover\\:border-red-400\\/40:hover {
+  border-color: rgb(248 113 113 / 0.4);
+}
+
+.mochi-scope .hover\\:text-\\[var\\(--acc\\)\\]:hover {
+  color: var(--acc);
+}
+`;var c=[i,r,t,a,p].join(`
+
+`);var o="mochi-os-styles";function C(){if(document.getElementById(o))return;let e=document.createElement("style");e.id=o,e.textContent=c,document.head.append(e)}function T(){document.getElementById(o)?.remove()}export{C as a,T as b};

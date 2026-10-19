@@ -1,15 +1,17 @@
 {
   "display_name": "Mochi OS",
-  "loading_order": 50,
+  "loading_order": 120,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
-  "author": "Marinara Engine / MochiOS Port",
+  "author": "Mochi OS port",
   "version": "1.0.0",
-  "homePage": "https://github.com/Dori719/MochiOS",
+  "homePage": "",
   "auto_update": false,
   "hooks": {
-    "activate": "init"
+    "activate": "init",
+    "enable": "onEnable",
+    "disable": "onDisable"
   }
 }

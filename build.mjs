@@ -1,75 +1,107 @@
+#!/usr/bin/env node
 /**
- * Build the extension.
+ * Bundles Mochi OS into `dist/`, and mirrors it into SillyTavern.
  *
- * SillyTavern never installs an extension's dependencies, so React, the YAML
- * parser and the icon set are bundled into `index.js` and committed. The output
- * is an ES module because SillyTavern injects an extension's `js` as
- * `<script type="module">`, which is what lets the extension import SillyTavern's
- * own modules by absolute path.
+ * SillyTavern loads an extension's `index.js` as one ES module from a static
+ * folder: it never runs a package manager there, so everything the interface
+ * needs has to be inside the bundle. This script produces that bundle, plus the
+ * two static files beside it, and then copies all three into every checkout it
+ * can find.
  *
- * The two `/scripts/*.js` specifiers are the host and stay external. The CSS
- * files load as text: the UI renders inside a Shadow Root, where a
- * document-level stylesheet cannot reach, so the stylesheets are injected into
- * the shadow tree at runtime instead.
+ *   npm run build              # build and install
+ *   npm run dev                # rebuild on change, still installed
+ *   node build.mjs --no-install
+ *
+ * The interface is a separate chunk: `index.js` is only the launchers, and the
+ * phone (React, the stylesheet, the components) is fetched the first time
+ * someone opens it.
  */
-import esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import esbuild from 'esbuild';
 
-const root = path.dirname(fileURLToPath(import.meta.url));
-const watch = process.argv.includes('--watch');
+import { installIntoAll } from './scripts/install.mjs';
 
-/** The same loaders the extension bundle uses; CSS still arrives as text. */
-export const LOADER = { '.css': 'text' };
+const ROOT = import.meta.dirname;
+const DIST = path.join(ROOT, 'dist');
+const WATCH = process.argv.includes('--watch');
+const SKIP_INSTALL = process.argv.includes('--no-install');
 
-/** SillyTavern's own modules, resolved by the browser at runtime. */
-const ST_MODULES = [
-  '/scripts/st-context.js',
-  '/scripts/script.js',
-  '/scripts/i18n.js',
-  '/scripts/slash-commands/SlashCommandParser.js',
-  '/scripts/slash-commands/SlashCommand.js',
-  '/scripts/slash-commands/SlashCommandArgument.js',
-];
-
-const options = {
-  entryPoints: [path.join(root, 'src', 'index.ts')],
-  outfile: path.join(root, 'index.js'),
-  bundle: true,
-  format: 'esm',
-  platform: 'browser',
-  target: ['es2022'],
-  jsx: 'automatic',
-  minify: !watch,
-  sourcemap: watch ? 'inline' : false,
-  legalComments: 'inline',
-  external: ST_MODULES,
-  loader: {
-    // Stylesheets are injected into the extension's Shadow Root as text.
-    '.css': 'text',
-  },
-  define: {
-    'process.env.NODE_ENV': watch ? '"development"' : '"production"',
-  },
-  logLevel: 'info',
+/**
+ * Packages the ported components were written against that SillyTavern does not
+ * have, plus the engine's own shared package, which is served from `src/shared`
+ * instead of from a monorepo.
+ */
+const alias = {
+  '@marinara-engine/shared': path.join(ROOT, 'src', 'shared', 'index.ts'),
+  clsx: path.join(ROOT, 'src', 'compat', 'clsx.ts'),
+  'tailwind-merge': path.join(ROOT, 'src', 'compat', 'tailwind-merge.ts'),
+  i18next: path.join(ROOT, 'src', 'compat', 'i18next.ts'),
+  'react-i18next': path.join(ROOT, 'src', 'compat', 'react-i18next.ts'),
+  sonner: path.join(ROOT, 'src', 'compat', 'sonner.ts'),
 };
 
-async function copyStaticAssets() {
-  // Only the launcher button and the shadow host wrapper live in the document;
-  // everything inside the panel is styled from within the Shadow Root.
-  fs.copyFileSync(path.join(root, 'src', 'st', 'launcher.css'), path.join(root, 'style.css'));
-}
+/** Copies the extension's static files next to the bundle. */
+const staticFiles = {
+  name: 'mochi-os-static',
+  setup(build) {
+    build.onEnd((result) => {
+      if (result.errors.length > 0) return;
 
-if (watch) {
-  const context = await esbuild.context(options);
-  await copyStaticAssets();
+      for (const file of ['manifest.json', 'style.css']) {
+        fs.copyFileSync(path.join(ROOT, file), path.join(DIST, file));
+      }
+
+      if (SKIP_INSTALL) return;
+      // A checkout that is not there is normal; a real failure is reported by
+      // `npm run install:st`, which treats it as an error.
+      for (const destination of installIntoAll()) {
+        console.log(`Mochi OS -> ${destination}`);
+      }
+    });
+  },
+};
+
+const options = {
+  entryPoints: [path.join(ROOT, 'src', 'index.ts')],
+  outdir: DIST,
+  entryNames: 'index',
+  chunkNames: 'chunks/[name]-[hash]',
+  assetNames: 'assets/[name]-[hash]',
+  bundle: true,
+  format: 'esm',
+  splitting: true,
+  platform: 'browser',
+  target: ['chrome120', 'firefox128', 'safari17.4'],
+  jsx: 'automatic',
+  // Stylesheets are imported as text, because the extension injects and removes
+  // them itself instead of letting a bundler append to `<head>` once.
+  loader: { '.css': 'text' },
+  alias,
+  // SillyTavern's own modules are served from its root and must stay imports.
+  external: ['/scripts/*'],
+  minify: !WATCH,
+  sourcemap: WATCH ? 'inline' : false,
+  legalComments: 'none',
+  logLevel: 'info',
+  logOverride: {
+    // The ported components still carry the engine's `import "./mochi-os.css"`.
+    // The stylesheet is read as text by `st/styles.ts` instead, so the bare
+    // import is dead — and it stays in the file, untouched, on purpose.
+    'ignored-bare-import': 'silent',
+  },
+  plugins: [staticFiles],
+};
+
+if (!WATCH) fs.rmSync(DIST, { recursive: true, force: true });
+fs.mkdirSync(DIST, { recursive: true });
+
+const context = await esbuild.context(options);
+
+if (WATCH) {
   await context.watch();
-  console.log('watching src/ …');
+  console.log('Watching src/ …');
 } else {
-  await esbuild.build(options);
-  await copyStaticAssets();
-
-  const bytes = fs.statSync(path.join(root, 'index.js')).size;
-  console.log(`built index.js (${(bytes / 1024).toFixed(0)} kB) and style.css`);
+  await context.rebuild();
+  await context.dispose();
 }

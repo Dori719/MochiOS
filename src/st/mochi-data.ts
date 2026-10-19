@@ -1,0 +1,245 @@
+/**
+ * Mochi OS phone storage and thread archiving.
+ *
+ * The engine kept a `phone_data` YAML file per chat and archived each thread
+ * turn into the roleplay transcript. Both survive here, mapped onto SillyTavern:
+ *
+ * - The phone document (contacts, groups, the user's own profile) lives in the
+ *   open chat's metadata, which SillyTavern writes into the first line of the
+ *   chat's JSONL — so a phone travels with export, import and branching.
+ * - Thread turns stay in roleplay message history, exactly as in the engine. The
+ *   Mochi OS view itself inserts them through the chat API, so nothing is
+ *   duplicated here; this module only produces the canonical turn text.
+ */
+import yaml from 'yaml';
+import type { MochiOsPhoneData, MochiOsPhoneDataResponse } from '../shared';
+import { readChatMeta, writeChatMeta } from './adapter';
+import { generateMochiOutput } from './generate';
+import {
+  cleanAndExtractRawYaml,
+  parseMochiChatResponse,
+  serializeChatHistoryYaml,
+  type MochiChatRecordType,
+} from '../components/chat/mochi-os/mochi-os.utils';
+
+const THREAD_CATEGORIES = new Set(['private_chats', 'group_chats']);
+
+interface StoredMeta {
+  phoneDataYaml?: string;
+}
+
+function isThreadCategory(category?: string): boolean {
+  return THREAD_CATEGORIES.has(String(category ?? ''));
+}
+
+function recordTypeFor(category?: string): MochiChatRecordType {
+  return category === 'group_chats' ? 'group' : 'private';
+}
+
+function storeMeta(): StoredMeta {
+  return readChatMeta() as StoredMeta;
+}
+
+/** Parse a stored phone document, tolerating a document that is only text. */
+function parsePhoneData(rawYaml: string): MochiOsPhoneData | null {
+  const document = extractDocument(rawYaml);
+  if (!document) return null;
+  try {
+    const parsed = yaml.parse(document);
+    return parsed && typeof parsed === 'object' ? (parsed as MochiOsPhoneData) : null;
+  } catch (error) {
+    console.warn('[Mochi OS] stored phone data is not valid YAML', error);
+    return null;
+  }
+}
+
+/**
+ * The document inside a raw reply.
+ *
+ * A model answers with its `<phone_data>` wrapper (the format guide asks for
+ * one), and older stored data can still carry it. The wrapper is not part of the
+ * document, so it is removed before anything parses or saves it — while the
+ * document's own comments survive, because they are what the editor shows.
+ */
+function extractDocument(rawText: string): string {
+  const cleaned = cleanAndExtractRawYaml(rawText ?? '').trim();
+  if (!cleaned) return '';
+  const tagged = cleaned.match(/<phone_data>([\s\S]*?)<\/phone_data>/i);
+  return (tagged ? tagged[1] : cleaned).trim();
+}
+
+/** `GET /mochios-data/:chatId` — the phone document for the open chat. */
+export function readPhoneData(category?: string): MochiOsPhoneDataResponse {
+  if (isThreadCategory(category)) {
+    // Thread categories are read from roleplay message history, which the Mochi
+    // OS view parses itself; there is no file to return.
+    return { phoneData: null, rawYaml: null, logYaml: null };
+  }
+  const rawYaml = typeof storeMeta().phoneDataYaml === 'string' ? (storeMeta().phoneDataYaml as string) : '';
+  return {
+    phoneData: parsePhoneData(rawYaml),
+    rawYaml: rawYaml || null,
+    logYaml: null,
+  };
+}
+
+/** `PUT /mochios-data/:chatId` — store the phone document. */
+export function savePhoneData(rawYaml: string): MochiOsPhoneDataResponse {
+  const cleaned = extractDocument(rawYaml ?? '');
+  const meta = readChatMeta();
+  writeChatMeta({ ...meta, phoneDataYaml: cleaned });
+  return { phoneData: parsePhoneData(cleaned), rawYaml: cleaned || null, logYaml: null };
+}
+
+/** `DELETE /mochios-data/:chatId` — drop the phone document. */
+export function deletePhoneData(): MochiOsPhoneDataResponse {
+  const meta = { ...readChatMeta() };
+  delete meta.phoneDataYaml;
+  writeChatMeta(meta);
+  return { phoneData: null, rawYaml: null, logYaml: null };
+}
+
+/* ------------------------------------------------------------------ *
+ * Generation
+ * ------------------------------------------------------------------ */
+
+/**
+ * The user's own lines, as the engine's server resolved them.
+ *
+ * `continuationOnly` means the user asked for another reply without typing
+ * anything, so the trailing instruction is not something they said and must not
+ * be archived. Otherwise the explicit prompt wins, falling back to the last
+ * user-role message in the assembled prompt.
+ */
+export function resolveUserMessageLines(params: {
+  userPrompt?: string;
+  messages?: Array<{ role?: string; content?: string }>;
+  continuationOnly?: boolean;
+}): string[] {
+  if (params.continuationOnly) return [];
+
+  const clean = (text: string) =>
+    text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\[Text\]\s*/i, '').trim())
+      .filter((line) => line.length > 0 && line !== '[Start Interaction]');
+
+  if (typeof params.userPrompt === 'string' && params.userPrompt.trim()) {
+    return clean(params.userPrompt);
+  }
+
+  const lastUser = [...(params.messages ?? [])].reverse().find((message) => message?.role === 'user');
+  return lastUser?.content ? clean(lastUser.content) : [];
+}
+
+function isUserItem(rawItem?: Record<string, any>): boolean {
+  const flag = rawItem?.['{{user}}'];
+  return flag === true || flag === 'true' || flag === 1 || flag === '1';
+}
+
+function nowClock(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Turn the user's resolved lines into record items, keeping quote replies. */
+function userItems(
+  lines: string[],
+  time: string,
+  userName: string | undefined,
+  recordType: MochiChatRecordType,
+): Array<Record<string, any>> {
+  const out: Array<Record<string, any>> = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const quoteMatch = /^\[Quote(?:\s+([^\]]+))?\]\s*([\s\S]*)$/i.exec(line);
+    if (quoteMatch) {
+      const next = lines[index + 1] ?? '';
+      out.push({
+        me: 1,
+        type: 'quote',
+        text: next,
+        t: time,
+        rawItem: {
+          t: 'quote',
+          quote: { ...(quoteMatch[1] ? { name: quoteMatch[1].trim() } : {}), c: quoteMatch[2].trim() },
+        },
+      });
+      index += 1;
+      continue;
+    }
+    const sender = recordType === 'group' && userName ? { sender: userName } : {};
+    if (line.startsWith('[Quote')) {
+      out.push({ me: 1, type: 'quote', text: '', t: time, rawItem: { t: 'quote' }, ...sender });
+      continue;
+    }
+    out.push({ me: 1, type: 'text', text: line, t: time, ...sender });
+  }
+  return out;
+}
+
+export interface GeneratePhoneDataInput {
+  messages: Array<{ role: 'system' | 'user' | 'assistant' | string; content: string }>;
+  userPrompt?: string;
+  category?: string;
+  contactName?: string;
+  characterName?: string;
+  userName?: string;
+  continuationOnly?: boolean;
+  signal?: AbortSignal;
+}
+
+/**
+ * `POST /mochios-data/:chatId/generate`.
+ *
+ * A data generation returns the cleaned phone document. A thread generation
+ * returns the canonical turn — the record the client then writes into roleplay
+ * history — with the user's own lines folded in when the model did not echo
+ * them, exactly as the engine's route did.
+ */
+export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<{ rawOutput: string }> {
+  const category = input.category ?? 'data_generation';
+  const signal = input.signal;
+  const raw = await generateMochiOutput(input.messages, {
+    isCancelled: () => Boolean(signal?.aborted),
+  });
+  const cleaned = cleanAndExtractRawYaml(raw);
+
+  if (!isThreadCategory(category)) return { rawOutput: cleaned || raw };
+
+  const recordType = recordTypeFor(category);
+  const targetName = (input.contactName || input.characterName || 'Character').trim();
+  const parsed = parseMochiChatResponse(cleaned, targetName);
+
+  const firstTime = parsed.find((reply) => reply.time)?.time ?? nowClock();
+  const lines = resolveUserMessageLines({
+    userPrompt: input.userPrompt,
+    messages: input.messages,
+    continuationOnly: input.continuationOnly,
+  });
+
+  const messages: Array<Record<string, any>> = [];
+  // Only fold the user's lines in when the model did not already archive them.
+  if (lines.length > 0 && !parsed.some((reply) => isUserItem(reply.rawItem))) {
+    messages.push(...userItems(lines, firstTime, input.userName, recordType));
+  }
+  for (const reply of parsed) {
+    messages.push({
+      me: isUserItem(reply.rawItem) ? 1 : 0,
+      type: reply.type,
+      text: reply.text,
+      t: reply.time,
+      dur: reply.dur,
+      sender: reply.sender,
+      rawItem: reply.rawItem,
+    });
+  }
+
+  const finalOutput = serializeChatHistoryYaml({
+    targetName,
+    recordType,
+    messages: messages as any,
+  });
+
+  return { rawOutput: finalOutput };
+}
