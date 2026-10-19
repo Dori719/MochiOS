@@ -1,7 +1,6 @@
 # Mochi OS for SillyTavern
 
-Mochi OS is the phone interface from [Dori Engine](../../OpenCodeProjects/Dori-Engine)
-— a desktop of apps, a clock and weather widget, Private Chat, Forum, Feed,
+Mochi OS is a phone interface — a desktop of apps, a clock and weather widget, Private Chat, Forum, Feed,
 Maps, Music, Photos, a Log, Settings, and a home indicator you can drag down to
 leave. This is that interface, running inside SillyTavern as a native extension.
 
