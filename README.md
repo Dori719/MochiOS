@@ -40,23 +40,47 @@ to Roleplay**.
 
 ## Installing
 
-The extension is a static folder. SillyTavern never runs a package manager, so
-the build output is committed.
+The extension is four files. That is the whole install, and copying them is all
+SillyTavern needs:
+
+```
+mochi-os/
+  manifest.json
+  index.js      the entry point SillyTavern loads
+  app.js        the phone, fetched the first time it is opened
+  style.css     the launcher's styles
+```
+
+Copy those into `SillyTavern/public/scripts/extensions/third-party/mochi-os/`
+and reload. The extension appears under **Extensions** as *Mochi OS* with no
+configuration. Installing from this repository instead:
 
 ```powershell
 npm install          # once, to build
-npm run build        # bundles, then copies into every SillyTavern it finds
-```
-
-`npm run build` looks for `SillyTavern*` next to this folder, and installs into
-`public/scripts/extensions/third-party/mochi-os`. Point it somewhere else with:
-
-```powershell
 node scripts/install.mjs --target "D:\path\to\SillyTavern"
 ```
 
-Then reload SillyTavern. The extension shows up under **Extensions** as
-*Mochi OS*; it needs no configuration to appear.
+or just `npm run build`, which builds and installs into every SillyTavern it finds
+next to this folder. Nothing is written anywhere else in the SillyTavern
+directory.
+
+### Why it is laid out this way
+
+`index.js` imports nothing but SillyTavern's own context module — everything it
+needs is inside it. SillyTavern loads that one file and reports a failure as
+`Extension "Mochi OS" failed to load: [object Event]`, which is what a browser
+returns when a **file is missing**: it is an Event, so it stringifies to nothing
+useful. A layout with `index.js` importing a folder of chunks therefore turns one
+missed file into an unreadable error. With this layout the entry cannot be broken
+that way, and if `app.js` is missing the phone says so:
+
+> Mochi OS could not be loaded (Failed to fetch dynamically imported module …/app.js).
+> Its files are probably incomplete — reinstall the whole "mochi-os" folder, not just
+> some of the files in it.
+
+If you see the `[object Event]` message on a fresh install, the folder is not
+where SillyTavern looks, or `manifest.json`/`index.js` did not arrive. Check both
+files exist at the path above.
 
 ## How it maps onto SillyTavern
 
@@ -84,8 +108,13 @@ types the interface reads. `src/compat/` does the same for `clsx`,
 ## Layout
 
 ```
+manifest.json               what SillyTavern reads first
+index.js                    built entry point — self-contained
+app.js                      built phone — fetched on demand by index.js
+style.css                   launcher styles
 src/
   index.ts                  the launchers, the event bridge, /mochi
+  app.ts                    what app.js exports: the overlay, widgets, readiness
   st/                       everything SillyTavern-specific
     adapter.ts              the one place that touches getContext()
     api.ts                  the engine's REST surface, answered from SillyTavern
@@ -98,12 +127,12 @@ src/
   components/chat/          the four pieces of the engine's app shell Mochi OS borrows
   hooks/, stores/, lib/, shared/, types/, compat/
   styles/port-chrome.css    the chrome the port had to write, plus utility generation output
-dist/                       built; this is what SillyTavern loads
 ```
 
-`src/components/chat/mochi-os/MochiOsView.tsx` and `mochi-os.css` are the engine's
-files and are edited by nobody. If a change is needed there, it belongs in the
-engine first.
+`index.js` and `app.js` are build output, committed because SillyTavern never
+runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` and
+`mochi-os.css` are the engine's files and are edited by nobody. If a change is
+needed there, it belongs in the engine first.
 
 ## Working on it
 
@@ -111,7 +140,7 @@ engine first.
 npm run typecheck    # tsc across the whole port
 npm run dev          # rebuild on save, and keep the installed copy current
 npm run build        # one build, installed
-npm run install:st   # copy dist/ without rebuilding
+npm run install:st   # copy the four files without rebuilding
 npm run tailwind     # regenerate the utility sheet (see below)
 ```
 

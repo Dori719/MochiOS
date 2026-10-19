@@ -1,18 +1,20 @@
 /**
  * Mochi OS for SillyTavern — the extension's entry point.
  *
- * SillyTavern loads this file once per page and calls the function named by
- * `manifest.json`'s `hooks.activate`. All this module does is put the launchers
- * on screen and keep track of the chat. The interface itself — React, the
- * stylesheet, the whole phone — is imported on first open, and the transcript
- * widgets are only loaded once a message in the chat actually carries a Mochi
- * record. Someone who never uses Mochi OS never pays for loading it.
+ * SillyTavern loads this one file, as an ES module, and calls the function named
+ * in `manifest.json`'s `hooks.activate`. Everything else — React, the phone, the
+ * stylesheet — lives in `app.js` beside it and is fetched the first time Mochi OS
+ * is actually needed, so someone who never opens it pays almost nothing.
+ *
+ * This file must stay self-contained. It imports nothing but SillyTavern's own
+ * context module and each other file it needs is inlined by the build: a missing
+ * piece would make SillyTavern report "failed to load" with no useful detail,
+ * because a browser hands the failure back as an Event.
  *
  * There are three ways in, on purpose: a floating bubble for reach, an entry in
  * the wand menu for discoverability, and `/mochi` for Quick Replies and scripts.
  */
-import { activeChatId, ctx, offEvent, onEvent, stReady } from './st/adapter';
-import { useChatStore } from './stores/chat.store';
+import { ctx, offEvent, onEvent, stReady } from './st/adapter';
 
 const LOG = '[Mochi OS]';
 const LAUNCHER_ID = 'mochi-os-launcher';
@@ -21,6 +23,9 @@ const WAND_ENTRY_ID = 'mochi_os_wand_entry';
 
 const QUICK_REPLY_SET = 'Mochi OS';
 const QUICK_REPLY_LABEL = 'Mochi OS';
+
+/** The rest of the extension, in the file beside this one. */
+type AppModule = typeof import('./app');
 
 /** The slice of SillyTavern's Quick Reply API this extension uses. */
 interface QuickReplyApi {
@@ -31,18 +36,11 @@ interface QuickReplyApi {
   addGlobalSet(name: string, isVisible?: boolean): void;
 }
 
-/** Host module, loaded on demand. */
-type HostModule = typeof import('./st/host');
-/** Transcript widget module, loaded on demand. */
-type InlineModule = typeof import('./st/inline');
-
 let initialized = false;
 let disabled = false;
-let hostModule: HostModule | null = null;
-let hostLoading: Promise<HostModule> | null = null;
-let inlineModule: InlineModule | null = null;
-let inlineLoading: Promise<InlineModule> | null = null;
-let inlineTimer: number | null = null;
+let appModule: AppModule | null = null;
+let appLoading: Promise<AppModule> | null = null;
+let widgetTimer: number | null = null;
 let unlisten: Array<() => void> = [];
 
 function notify(message: string, kind: 'error' | 'info' = 'error'): void {
@@ -51,33 +49,57 @@ function notify(message: string, kind: 'error' | 'info' = 'error'): void {
   else console[kind === 'error' ? 'error' : 'log'](LOG, message);
 }
 
-function loadHost(): Promise<HostModule> {
-  hostLoading ??= import('./st/host').then(
+/**
+ * `app.js` could not be fetched, or could not start.
+ *
+ * Only a failed fetch means the files are incomplete — a browser names the URL
+ * when it can (and hands back an Event that says nothing when it cannot). Any
+ * other error is our own, and claiming the install is broken would send someone
+ * re-copying files for no reason.
+ */
+function reportLoadFailure(error: unknown): void {
+  console.error(LOG, error);
+  const detail = error instanceof Error && error.message ? error.message : String(error);
+  const looksUnfetchable = /dynamically imported module|Failed to fetch|module script failed|404|not found/i.test(
+    detail,
+  );
+  notify(
+    looksUnfetchable
+      ? `Mochi OS could not be loaded (${detail}). Its files are probably incomplete — ` +
+          'reinstall the whole "mochi-os" folder, not just some of the files in it.'
+      : `Mochi OS could not start (${detail}).`,
+  );
+}
+
+function loadApp(): Promise<AppModule> {
+  appLoading ??= import('./app.js').then(
     (module) => {
-      hostModule = module;
-      return module;
+      appModule = module as AppModule;
+      return appModule;
     },
     (error: unknown) => {
       // Let a later click try again instead of caching the failure.
-      hostLoading = null;
+      appLoading = null;
       throw error;
     },
   );
-  return hostLoading;
+  return appLoading;
+}
+
+/** `app.js`, once it can read SillyTavern — it loads the context module itself. */
+async function loadAppReady(): Promise<AppModule> {
+  const module = await loadApp();
+  await module.ready;
+  return module;
 }
 
 async function toggleMochiOs(): Promise<void> {
   if (disabled) return;
   try {
-    (await loadHost()).toggleMochiOs();
+    (await loadAppReady()).toggleMochiOs();
   } catch (error) {
-    console.error(LOG, error);
-    notify('Mochi OS could not be opened. See the browser console for details.');
+    reportLoadFailure(error);
   }
-}
-
-function syncActiveChat(): void {
-  useChatStore.getState().setActiveChatId(activeChatId());
 }
 
 /* ------------------------------------------------------------------ *
@@ -237,12 +259,15 @@ async function installQuickReply(attempt = 0): Promise<void> {
  * Transcript widgets
  * ------------------------------------------------------------------ */
 
-/** Whether any message in the open chat could hold a record. */
+/**
+ * Whether any message in the open chat could hold a record.
+ *
+ * Deliberately duplicated from `app.js`: this decides whether that file is worth
+ * fetching at all, so it has to be answerable without it.
+ */
 function chatMayHoldRecords(): boolean {
   const chat = ctx().chat;
   if (!Array.isArray(chat)) return false;
-  // Copied from `st/inline` deliberately: the point of the check is to decide
-  // whether that module is worth loading at all.
   return chat.some(
     (message) =>
       typeof message?.mes === 'string' &&
@@ -260,27 +285,17 @@ function chatMayHoldRecords(): boolean {
  */
 function scheduleWidgetRefresh(): void {
   if (disabled) return;
-  if (inlineTimer !== null) window.clearTimeout(inlineTimer);
-  inlineTimer = window.setTimeout(() => {
-    inlineTimer = null;
+  if (widgetTimer !== null) window.clearTimeout(widgetTimer);
+  widgetTimer = window.setTimeout(() => {
+    widgetTimer = null;
     if (disabled) return;
+    // Loading 2 MB for a chat with no records would be waste; `app.js` is only
+    // fetched once there is something for it to draw.
+    if (!appModule && !chatMayHoldRecords()) return;
 
-    if (!inlineModule && !chatMayHoldRecords()) return;
-
-    inlineLoading ??= import('./st/inline').then(
-      (module) => {
-        inlineModule = module;
-        return module;
-      },
-      (error: unknown) => {
-        inlineLoading = null;
-        throw error;
-      },
-    );
-
-    void inlineLoading
+    void loadAppReady()
       .then((module) => module.refreshMochiWidgets())
-      .catch((error: unknown) => console.error(LOG, error));
+      .catch((error: unknown) => reportLoadFailure(error));
   }, 150);
 }
 
@@ -305,10 +320,7 @@ function listen(name: string, handler: (...args: any[]) => void): void {
 }
 
 function installEventBridge(): void {
-  listen('CHAT_CHANGED', () => {
-    syncActiveChat();
-    scheduleWidgetRefresh();
-  });
+  listen('CHAT_CHANGED', scheduleWidgetRefresh);
 
   for (const name of [
     'CHARACTER_MESSAGE_RENDERED',
@@ -342,7 +354,6 @@ export async function init(): Promise<void> {
     return;
   }
 
-  syncActiveChat();
   installLaunchers();
   installEventBridge();
   void installQuickReply();
@@ -362,21 +373,14 @@ export function onEnable(): void {
 export function onDisable(): void {
   disabled = true;
 
-  if (inlineTimer !== null) window.clearTimeout(inlineTimer);
-  inlineTimer = null;
+  if (widgetTimer !== null) window.clearTimeout(widgetTimer);
+  widgetTimer = null;
 
   for (const remove of unlisten) remove();
   unlisten = [];
   document.removeEventListener('mochios:visibility', onVisibility);
 
-  inlineModule?.disposeMochiWidgets();
-  hostModule?.closeMochiOs();
-
-  // The stylesheet only exists if something Mochi was drawn; removing it here
-  // keeps a disabled extension out of the page entirely.
-  if (hostModule || inlineModule) {
-    void import('./st/stylesheet').then((module) => module.removeMochiStyles());
-  }
+  appModule?.disposeAll();
 
   document.getElementById(LAUNCHER_ID)?.remove();
   document.getElementById(WAND_CONTAINER_ID)?.remove();

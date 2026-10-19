@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /**
- * Bundles Mochi OS into `dist/`, and mirrors it into SillyTavern.
+ * Bundles Mochi OS, and mirrors it into SillyTavern.
  *
- * SillyTavern loads an extension's `index.js` as one ES module from a static
- * folder: it never runs a package manager there, so everything the interface
- * needs has to be inside the bundle. This script produces that bundle, plus the
- * two static files beside it, and then copies all three into every checkout it
- * can find.
+ * The output is the extension itself, written next to this file:
+ *
+ *   manifest.json   what SillyTavern reads first
+ *   index.js        the entry point it loads — self-contained
+ *   app.js          the phone, fetched on demand by index.js
+ *   style.css       the launcher's styles
+ *
+ * There is deliberately no `chunks/` folder and no `dist/` hop. SillyTavern
+ * loads one module and lets the browser resolve whatever that module imports; a
+ * file that is missing from the folder therefore breaks the extension with a
+ * message that says nothing ("failed to load: [object Event]", because a browser
+ * reports it as an Event). `index.js` importing nothing but itself means a
+ * partial copy can only ever degrade the phone, which reports it properly.
  *
  *   npm run build              # build and install
  *   npm run dev                # rebuild on change, still installed
  *   node build.mjs --no-install
- *
- * The interface is a separate chunk: `index.js` is only the launchers, and the
- * phone (React, the stylesheet, the components) is fetched the first time
- * someone opens it.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,7 +27,6 @@ import esbuild from 'esbuild';
 import { installIntoAll } from './scripts/install.mjs';
 
 const ROOT = import.meta.dirname;
-const DIST = path.join(ROOT, 'dist');
 const WATCH = process.argv.includes('--watch');
 const SKIP_INSTALL = process.argv.includes('--no-install');
 
@@ -41,44 +44,18 @@ const alias = {
   sonner: path.join(ROOT, 'src', 'compat', 'sonner.ts'),
 };
 
-/** Copies the extension's static files next to the bundle. */
-const staticFiles = {
-  name: 'mochi-os-static',
-  setup(build) {
-    build.onEnd((result) => {
-      if (result.errors.length > 0) return;
-
-      for (const file of ['manifest.json', 'style.css']) {
-        fs.copyFileSync(path.join(ROOT, file), path.join(DIST, file));
-      }
-
-      if (SKIP_INSTALL) return;
-      // A checkout that is not there is normal; a real failure is reported by
-      // `npm run install:st`, which treats it as an error.
-      for (const destination of installIntoAll()) {
-        console.log(`Mochi OS -> ${destination}`);
-      }
-    });
-  },
-};
-
-const options = {
-  entryPoints: [path.join(ROOT, 'src', 'index.ts')],
-  outdir: DIST,
-  entryNames: 'index',
-  chunkNames: 'chunks/[name]-[hash]',
-  assetNames: 'assets/[name]-[hash]',
+/** Shared by both bundles. No code splitting: one file each, nothing to lose. */
+const shared = {
   bundle: true,
   format: 'esm',
-  splitting: true,
+  splitting: false,
   platform: 'browser',
   target: ['chrome120', 'firefox128', 'safari17.4'],
   jsx: 'automatic',
-  // Stylesheets are imported as text, because the extension injects and removes
-  // them itself instead of letting a bundler append to `<head>` once.
+  // Stylesheets are imported as text, because the extension injects them itself.
   loader: { '.css': 'text' },
   alias,
-  // SillyTavern's own modules are served from its root and must stay imports.
+  // SillyTavern's own module is served from its root and must stay an import.
   external: ['/scripts/*'],
   minify: !WATCH,
   sourcemap: WATCH ? 'inline' : false,
@@ -90,18 +67,75 @@ const options = {
     // import is dead — and it stays in the file, untouched, on purpose.
     'ignored-bare-import': 'silent',
   },
-  plugins: [staticFiles],
 };
 
-if (!WATCH) fs.rmSync(DIST, { recursive: true, force: true });
-fs.mkdirSync(DIST, { recursive: true });
+/**
+ * Leaves `import('./app.js')` alone.
+ *
+ * `app.js` is the other bundle's output, so it does not exist while this one is
+ * being built; it is resolved by the browser, next to `index.js`, at runtime.
+ */
+const appIsExternal = {
+  name: 'mochi-os-app-external',
+  setup(build) {
+    build.onResolve({ filter: /^\.\/app\.js$/ }, () => ({ path: './app.js', external: true }));
+  },
+};
 
-const context = await esbuild.context(options);
+/** The phone. Big, and only worth loading when it will be shown. */
+const appOptions = {
+  ...shared,
+  entryPoints: [path.join(ROOT, 'src', 'app.ts')],
+  outfile: path.join(ROOT, 'app.js'),
+};
 
-if (WATCH) {
-  await context.watch();
+/** The entry point. Must stay a single self-contained file. */
+const entryOptions = {
+  ...shared,
+  entryPoints: [path.join(ROOT, 'src', 'index.ts')],
+  outfile: path.join(ROOT, 'index.js'),
+  plugins: [appIsExternal],
+};
+
+/**
+ * Refuses to ship an entry point that depends on another file.
+ *
+ * A future change could reintroduce code splitting without anyone noticing until
+ * an install goes wrong, so the build checks the thing that actually matters.
+ */
+function assertEntryIsSelfContained() {
+  const source = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8');
+  const imported = source.match(/\bfrom\s*["']\.\/[^"']+["']|\bimport\(\s*["']\.\/[^"']+["']\s*\)/g) ?? [];
+  const parts = imported.filter((specifier) => !/["']\.\/app\.js["']/.test(specifier));
+  if (parts.length > 0) {
+    throw new Error(
+      `index.js must not import other files, but it imports ${parts.join(', ')}. ` +
+        'Keep the entry bundle free of code splitting.',
+    );
+  }
+}
+
+async function buildOnce() {
+  await esbuild.build(appOptions);
+  await esbuild.build(entryOptions);
+  assertEntryIsSelfContained();
+}
+
+async function buildWatched() {
+  const contexts = await Promise.all([esbuild.context(appOptions), esbuild.context(entryOptions)]);
+  await Promise.all(contexts.map((context) => context.watch()));
   console.log('Watching src/ …');
-} else {
-  await context.rebuild();
-  await context.dispose();
+}
+
+/** The old layout's output, which must not linger next to the new one. */
+fs.rmSync(path.join(ROOT, 'dist'), { recursive: true, force: true });
+
+await (WATCH ? buildWatched() : buildOnce());
+
+if (!WATCH && !SKIP_INSTALL) {
+  // A checkout that is not there is normal; a real failure is reported by
+  // `npm run install:st`, which treats it as an error.
+  for (const destination of installIntoAll()) {
+    console.log(`Mochi OS -> ${destination}`);
+  }
 }

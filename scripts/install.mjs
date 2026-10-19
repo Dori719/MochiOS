@@ -4,9 +4,9 @@
  *
  * SillyTavern only looks for extensions under
  * `public/scripts/extensions/third-party/<folder>`, so the build output has to be
- * copied there. This script does that, into every SillyTavern checkout it can
- * find, and refuses to delete anything that does not look like the previously
- * installed extension.
+ * copied there. The extension is four files, and all four are copied every time,
+ * so an install can never end up half-present — which is what produces
+ * "Extension failed to load: [object Event]".
  *
  *   node scripts/install.mjs                     # every checkout found
  *   node scripts/install.mjs --target D:/ST     # one specific checkout
@@ -16,10 +16,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const DIST = path.join(ROOT, 'dist');
 
 /** The folder name SillyTavern serves the extension from. */
 const FOLDER = 'mochi-os';
+
+/** Everything SillyTavern needs, named in `manifest.json`. */
+const FILES = ['manifest.json', 'index.js', 'app.js', 'style.css'];
 
 /** Third-party extension directory inside a SillyTavern checkout. */
 const THIRD_PARTY = path.join('public', 'scripts', 'extensions', 'third-party');
@@ -50,22 +52,20 @@ function candidateRoots() {
   return [...roots].filter((root) => fs.existsSync(path.join(root, THIRD_PARTY)));
 }
 
-function copyTree(from, to) {
-  fs.mkdirSync(to, { recursive: true });
-  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
-    const source = path.join(from, entry.name);
-    const destination = path.join(to, entry.name);
-    if (entry.isDirectory()) copyTree(source, destination);
-    else fs.copyFileSync(source, destination);
+/** Fails before copying anything if the build did not produce a whole extension. */
+function assertBuilt() {
+  const missing = FILES.filter((file) => !fs.existsSync(path.join(ROOT, file)));
+  if (missing.length > 0) {
+    throw new Error(`Nothing to install — ${missing.join(', ')} missing. Run "npm run build" first.`);
   }
 }
 
 /**
  * Replaces what is in `destination`.
  *
- * The previous version of this extension may be there, and it has to go — leftover
- * files would be served alongside the new ones. Only a folder that is empty or
- * holds an extension manifest is removed.
+ * The previous version of this extension may be there, and it has to go — a
+ * leftover `chunks/` from an older build would be served alongside the new files.
+ * Only a folder that is empty or holds an extension manifest is removed.
  */
 function replace(destination) {
   if (fs.existsSync(destination)) {
@@ -75,14 +75,16 @@ function replace(destination) {
     }
     fs.rmSync(destination, { recursive: true, force: true });
   }
-  copyTree(DIST, destination);
+
+  fs.mkdirSync(destination, { recursive: true });
+  for (const file of FILES) {
+    fs.copyFileSync(path.join(ROOT, file), path.join(destination, file));
+  }
 }
 
-/** Copies `dist/` into one SillyTavern checkout. Returns the installed path. */
+/** Copies the four files into one SillyTavern checkout. Returns the path written. */
 export function install(target) {
-  if (!fs.existsSync(path.join(DIST, 'index.js'))) {
-    throw new Error(`Nothing to install: ${path.join(DIST, 'index.js')} is missing. Run "npm run build" first.`);
-  }
+  assertBuilt();
   const destination = path.join(target, THIRD_PARTY, FOLDER);
   replace(destination);
   return destination;
