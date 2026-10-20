@@ -101,10 +101,9 @@
    The phone window
 
    Mochi OS is a phone, so it opens as one: a floating window with the phone's
-   proportions, dragged by its bar, never wider than SillyTavern's top bar and
-   never taller than the room below it. The bar is the only chrome the port adds
-   around the interface; it is styled from SillyTavern's own theme variables so
-   it belongs to the application it floats in.
+    proportions, dragged by its floating move button, never wider than
+    SillyTavern's top bar and never taller than the room below it. Translucent
+    close and move controls sit above the phone without a surrounding bar.
 
    `.mochi-os-frame-body` is a size container. The interface's stylesheet is
    re-pointed at it (`st/styles.ts`), so `vh`/`vw` and its media queries describe
@@ -117,91 +116,79 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    overflow: hidden;
-    border-radius: 24px;
-    background: #0a0d0a;
-    box-shadow:
-        0 30px 70px rgba(0, 0, 0, 0.45),
-        0 0 0 1px rgba(0, 0, 0, 0.6),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    overflow: visible;
+    background: transparent;
+    pointer-events: none;
 }
 
-.mochi-os-frame-bar {
-    flex: 0 0 auto;
+.mochi-os-popup-controls {
+    flex: 0 0 48px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 30px;
-    padding: 0 6px 0 10px;
-    background: var(--SmartThemeBlurTintColor, #1c1f1a);
-    color: var(--SmartThemeBodyColor, #dcdcd2);
-    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: none;
-    cursor: grab;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-bottom: 8px;
+    box-sizing: border-box;
 }
 
-#mochi-os-host.is-dragging .mochi-os-frame-bar {
+#mochi-os-host.is-dragging .mochi-os-popup-move {
     cursor: grabbing;
 }
 
-#mochi-os-host.is-dragging {
+#mochi-os-host.is-dragging .mochi-os-frame-body {
     box-shadow:
         0 40px 90px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
-.mochi-os-frame-grip {
-    flex: 0 0 auto;
-    width: 14px;
-    height: 3px;
-    border-radius: 999px;
-    background: currentColor;
-    opacity: 0.35;
-}
-
-.mochi-os-frame-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    opacity: 0.9;
-}
-
-.mochi-os-frame-close {
+.mochi-os-popup-control {
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 40px;
+    height: 40px;
     padding: 0;
     border: none;
-    border-radius: 7px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 15px;
+    border-radius: 12px;
+    background: rgba(95, 95, 95, 0.4);
+    color: #bcbcbc;
     line-height: 1;
-    opacity: 0.65;
     cursor: pointer;
+    pointer-events: auto;
     transition:
         background 120ms ease,
         color 120ms ease,
         opacity 120ms ease;
 }
 
-.mochi-os-frame-close:hover {
+.mochi-os-popup-control svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.mochi-os-popup-move {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.mochi-os-popup-control:hover {
+    background: rgba(110, 110, 110, 0.6);
+    color: #fff;
+}
+
+.mochi-os-popup-close:hover {
     background: rgba(248, 113, 113, 0.18);
     color: #f87171;
     opacity: 1;
 }
 
-.mochi-os-frame-close:focus-visible {
+.mochi-os-popup-control:focus-visible {
     outline: 2px solid var(--SmartThemeQuoteColor, #7fa061);
     outline-offset: 1px;
 }
@@ -212,6 +199,9 @@
     min-height: 0;
     overflow: hidden;
     background: #101410;
+    border-radius: 24px;
+    pointer-events: auto;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.6);
     /* The phone measures itself against this box, and fixed-position layers
        inside it (sheets, tooltips) are contained by it instead of the page. */
     container-type: size;
@@ -227,7 +217,7 @@
 }
 
 @media (max-width: 640px) {
-    #mochi-os-host {
+    .mochi-os-frame-body {
         border-radius: 20px;
     }
 }

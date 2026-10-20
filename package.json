@@ -8,6 +8,7 @@
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
+    "test": "node scripts/test-st-integration.mjs",
     "tailwind": "node scripts/gen-tailwind.mjs",
     "install:st": "node scripts/install.mjs"
   },

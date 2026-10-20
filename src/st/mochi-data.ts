@@ -46,7 +46,11 @@ function parsePhoneData(rawYaml: string): MochiOsPhoneData | null {
   if (!document) return null;
   try {
     const parsed = yaml.parse(document);
-    return parsed && typeof parsed === 'object' ? (parsed as MochiOsPhoneData) : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    // The format guide nests its document under phone_data, while the view
+    // consumes user/characters/groups directly. Keep the editor YAML untouched.
+    const phone = parsed.phone_data && typeof parsed.phone_data === 'object' ? parsed.phone_data : parsed;
+    return phone as MochiOsPhoneData;
   } catch (error) {
     console.warn('[Mochi OS] stored phone data is not valid YAML', error);
     return null;
@@ -179,6 +183,7 @@ function userItems(
 }
 
 export interface GeneratePhoneDataInput {
+  chatId: string;
   messages: Array<{ role: 'system' | 'user' | 'assistant' | string; content: string }>;
   userPrompt?: string;
   category?: string;
@@ -201,6 +206,8 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   const category = input.category ?? 'data_generation';
   const signal = input.signal;
   const raw = await generateMochiOutput(input.messages, {
+    chatId: input.chatId,
+    signal,
     isCancelled: () => Boolean(signal?.aborted),
   });
   const cleaned = cleanAndExtractRawYaml(raw);

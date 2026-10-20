@@ -101,7 +101,9 @@ function buildChat(): Record<string, any> {
   const id = st.activeChatId();
   if (!id) throw new ApiError(409, 'Mochi OS: no chat is open');
   const isGroup = st.isGroupChat();
-  const group = isGroup && context.groupId ? context.groups?.[context.groupId] : null;
+  const group = isGroup && context.groupId
+    ? context.groups?.find((item: Record<string, any>) => String(item.id) === String(context.groupId))
+    : null;
   const owner = st.activeOwner() ?? '';
   const characterIds = isGroup
     ? (Array.isArray(group?.members) ? group.members : []).map((member: string) => {
@@ -324,11 +326,13 @@ route('PUT', '/app-settings/:key', (request, params) => {
  * Mochi OS phone data
  * ------------------------------------------------------------------ */
 
-route('GET', '/mochios-data/:chatId', (request) =>
-  readPhoneData(request.query.get('category') ?? undefined),
-);
+route('GET', '/mochios-data/:chatId', (request, params) => {
+  assertCurrentChat(params.chatId);
+  return readPhoneData(request.query.get('category') ?? undefined);
+});
 
-route('PUT', '/mochios-data/:chatId', (request) => {
+route('PUT', '/mochios-data/:chatId', (request, params) => {
+  assertCurrentChat(params.chatId);
   const rawYaml = request.body?.rawYaml;
   // A targeted per-message write carries no document; the port has no server
   // file to patch, and Mochi OS edits thread messages through the chat API
@@ -337,20 +341,37 @@ route('PUT', '/mochios-data/:chatId', (request) => {
   return savePhoneData(rawYaml);
 });
 
-route('DELETE', '/mochios-data/:chatId', () => deletePhoneData());
+route('DELETE', '/mochios-data/:chatId', (_request, params) => {
+  assertCurrentChat(params.chatId);
+  return deletePhoneData();
+});
 
-route('POST', '/mochios-data/:chatId/generate', (request) =>
-  generatePhoneData({
-    messages: Array.isArray(request.body?.messages) ? request.body.messages : [],
-    userPrompt: request.body?.userPrompt,
-    category: request.body?.category,
-    contactName: request.body?.contactName,
-    characterName: request.body?.characterName,
-    userName: request.body?.userName,
-    continuationOnly: Boolean(request.body?.continuationOnly),
-    signal: request.signal,
-  }),
-);
+route('POST', '/mochios-data/:chatId/generate', async (request, params) => {
+  assertCurrentChat(params.chatId);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  st.onEvent('CHAT_CHANGED', cancel);
+  request.signal?.addEventListener('abort', cancel, { once: true });
+  if (request.signal?.aborted) cancel();
+  try {
+    const result = await generatePhoneData({
+      chatId: params.chatId,
+      messages: Array.isArray(request.body?.messages) ? request.body.messages : [],
+      userPrompt: request.body?.userPrompt,
+      category: request.body?.category,
+      contactName: request.body?.contactName,
+      characterName: request.body?.characterName,
+      userName: request.body?.userName,
+      continuationOnly: Boolean(request.body?.continuationOnly),
+      signal: controller.signal,
+    });
+    assertCurrentChat(params.chatId);
+    return result;
+  } finally {
+    st.offEvent('CHAT_CHANGED', cancel);
+    request.signal?.removeEventListener('abort', cancel);
+  }
+});
 
 /* ------------------------------------------------------------------ *
  * Translation

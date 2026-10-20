@@ -8,7 +8,7 @@
  * lands in the chat as a normal message that the Mochi OS parsers then read.
  */
 import { useCallback } from 'react';
-import { ctx, insertMessage, st } from '../st/adapter';
+import { activeChatId, ctx, insertMessage } from '../st/adapter';
 
 export interface GenerateOptions {
   chatId: string;
@@ -27,6 +27,9 @@ export interface GenerateResult {
 
 export function useGenerate() {
   const generate = useCallback(async (options: GenerateOptions): Promise<void> => {
+    if (!options.chatId || options.chatId !== activeChatId()) {
+      throw new Error('Mochi OS: the selected SillyTavern chat changed');
+    }
     const context = ctx();
     if (typeof context.generate !== 'function') return;
 
