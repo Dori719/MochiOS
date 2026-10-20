@@ -2,7 +2,7 @@
  * The window Mochi OS lives in, and the SillyTavern events that keep it current.
  *
  * Mochi OS is a phone interface, so it opens as a phone: a floating window with
- * the device's proportions, dragged by its bar, capped to the width of
+ * the device's proportions, dragged by its move button, capped to the width of
  * SillyTavern's top bar and to the room below it. `frame-layout.ts` holds the
  * arithmetic; this file owns the elements and the lifecycle.
  *
@@ -30,8 +30,8 @@ const HOST_ID = 'mochi-os-host';
  */
 const OVERLAY_Z_INDEX = '3000';
 
-/** Height of the drag bar, in px. Kept in step with `.mochi-os-frame-bar`. */
-const BAR_HEIGHT = 30;
+/** Space for the floating controls above the phone, in px. */
+const BAR_HEIGHT = 48;
 
 let host: HTMLDivElement | null = null;
 let body: HTMLDivElement | null = null;
@@ -68,7 +68,7 @@ function layout(initial: boolean): void {
   size = phoneSize(limits);
 
   host.style.width = `${Math.round(size.width)}px`;
-  // The bar is part of the window, not of the phone's proportions.
+  // The floating controls sit above the phone, outside its proportions.
   host.style.height = `${Math.round(size.height + BAR_HEIGHT)}px`;
 
   const wanted = initial ? storedPosition() : position;
@@ -84,17 +84,15 @@ function onResize(): void {
 }
 
 /**
- * Dragging by the bar.
+ * Dragging by the move button.
  *
- * Pointer capture keeps the window following the cursor even when the cursor
- * leaves the bar — which it does constantly, because the bar is thin.
+ * Pointer capture keeps the window following the cursor outside the button.
  */
-function installDrag(bar: HTMLElement): void {
+function installDrag(handle: HTMLElement): void {
   let drag: { pointerId: number; offsetX: number; offsetY: number } | null = null;
 
-  bar.addEventListener('pointerdown', (event: PointerEvent) => {
+  handle.addEventListener('pointerdown', (event: PointerEvent) => {
     if (event.button !== 0 || !host) return;
-    if ((event.target as HTMLElement).closest('.mochi-os-frame-close')) return;
 
     const rect = host.getBoundingClientRect();
     drag = {
@@ -103,11 +101,11 @@ function installDrag(bar: HTMLElement): void {
       offsetY: event.clientY - rect.top,
     };
     host.classList.add('is-dragging');
-    bar.setPointerCapture(event.pointerId);
+    handle.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
 
-  bar.addEventListener('pointermove', (event: PointerEvent) => {
+  handle.addEventListener('pointermove', (event: PointerEvent) => {
     if (!drag || !host || event.pointerId !== drag.pointerId) return;
 
     const placed = placeFrame(
@@ -125,12 +123,12 @@ function installDrag(bar: HTMLElement): void {
     if (!drag || event.pointerId !== drag.pointerId) return;
     drag = null;
     host?.classList.remove('is-dragging');
-    if (bar.hasPointerCapture(event.pointerId)) bar.releasePointerCapture(event.pointerId);
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
     persistPosition();
   };
 
-  bar.addEventListener('pointerup', end);
-  bar.addEventListener('pointercancel', end);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
 }
 
 function ensureHost(): HTMLDivElement {
@@ -143,37 +141,47 @@ function ensureHost(): HTMLDivElement {
   frame.setAttribute('role', 'dialog');
   frame.setAttribute('aria-label', 'Mochi OS');
 
-  const bar = document.createElement('div');
-  bar.className = 'mochi-os-frame-bar';
-
-  const grip = document.createElement('span');
-  grip.className = 'mochi-os-frame-grip';
-  grip.setAttribute('aria-hidden', 'true');
-
-  const title = document.createElement('span');
-  title.className = 'mochi-os-frame-title';
-  title.textContent = 'Mochi OS';
+  const controls = document.createElement('div');
+  controls.className = 'mochi-os-popup-controls';
 
   const close = document.createElement('button');
   close.type = 'button';
-  close.className = 'mochi-os-frame-close';
+  close.className = 'mochi-os-popup-control mochi-os-popup-close';
   close.title = 'Close Mochi OS';
   close.setAttribute('aria-label', 'Close Mochi OS');
-  close.textContent = '×';
+  close.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>';
   close.addEventListener('click', () => closeMochiOs());
 
-  bar.append(grip, title, close);
+  const move = document.createElement('button');
+  move.type = 'button';
+  move.className = 'mochi-os-popup-control mochi-os-popup-move';
+  move.title = 'Drag to move Mochi OS';
+  move.setAttribute('aria-label', 'Move Mochi OS');
+  move.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3" /></svg>';
+  move.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (!host || !position || !event.key.startsWith('Arrow')) return;
+    const step = event.shiftKey ? 40 : 10;
+    const left = position.left + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0);
+    const top = position.top + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0);
+    position = placeFrame(left, top, size, readLimits(BAR_HEIGHT));
+    host.style.left = `${Math.round(position.left)}px`;
+    host.style.top = `${Math.round(position.top)}px`;
+    persistPosition();
+    event.preventDefault();
+  });
+
+  controls.append(close, move);
 
   const screen = document.createElement('div');
   screen.className = 'mochi-os-frame-body';
 
-  frame.append(bar, screen);
+  frame.append(controls, screen);
   document.body.append(frame);
 
   host = frame;
   body = screen;
 
-  installDrag(bar);
+  installDrag(move);
   layout(true);
   return screen;
 }
@@ -233,6 +241,10 @@ function startEventBridge(): void {
     'CHARACTER_RENAMED',
     'PERSONA_CHANGED',
     'WORLDINFO_UPDATED',
+    'CONNECTION_PROFILE_CREATED',
+    'CONNECTION_PROFILE_UPDATED',
+    'CONNECTION_PROFILE_DELETED',
+    'CONNECTION_PROFILE_LOADED',
   ]) {
     listen(name, invalidateAll);
   }
@@ -263,8 +275,8 @@ function onKeyDown(event: KeyboardEvent): void {
 /**
  * Tells the launchers whether the window is up.
  *
- * The phone can be closed from inside itself (dragging the home indicator
- * down), so the bubble cannot simply track its own clicks.
+ * The popup can be closed by its own control or Escape, so the bubble cannot
+ * simply track its own clicks.
  */
 function announce(open: boolean): void {
   document.dispatchEvent(new CustomEvent('mochios:visibility', { detail: { open } }));
@@ -334,6 +346,12 @@ export function isMochiOsOpen(): boolean {
   return root !== null;
 }
 
+/** A chat switch starts a fresh phone UI; drafts and local threads never leak. */
+function MochiChatView() {
+  const chatId = useChatStore((state) => state.activeChatId);
+  return <MochiOsView key={chatId ?? 'no-chat'} chatId={chatId} />;
+}
+
 export function openMochiOs(): void {
   if (root) return;
 
@@ -345,7 +363,7 @@ export function openMochiOs(): void {
   root.render(
     <QueryClientProvider client={mochiQueryClient()}>
       <OverlayBoundary>
-        <MochiOsView onReturn={closeMochiOs} />
+        <MochiChatView />
       </OverlayBoundary>
     </QueryClientProvider>,
   );
@@ -373,8 +391,8 @@ export function closeMochiOs(): void {
     return;
   }
 
-  // `onReturn` is called from inside the React tree (the home-indicator drag),
-  // and React cannot unmount a root while it is rendering. Waiting one task
+  // A Close action can be called inside the React tree, and React cannot
+  // unmount a root while it is rendering. Waiting one task
   // lets the current event finish first. The stylesheet is left in place: a
   // transcript widget in a chat message may still be on screen.
   setTimeout(() => {

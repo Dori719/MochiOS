@@ -5,7 +5,7 @@ Maps, Music, Photos, a Log, Settings, and a home indicator you can drag down to
 leave. This is that interface, running inside SillyTavern as a native extension.
 
 It is a hand port, not a lookalike: the interface's own components and
-stylesheets are the engine's files, byte for byte. What is written here is the
+stylesheets come from the engine, adapted for SillyTavern. What is written here is the
 part the engine had and SillyTavern does not — the storage, the network, the
 generation, and the small bits of chat chrome Mochi OS borrowed from the engine's
 app shell.
@@ -13,7 +13,10 @@ app shell.
 ## What you get
 
 - **The whole phone.** Home screen, every app, the settings sheets, the AI data
-  editor, the drag-to-dismiss home indicator.
+  editor, and translucent close and move controls.
+- **API selection.** Settings → **API** offers the current SillyTavern connection
+  or a supported saved Connection Manager profile. This selection applies to data
+  generation, private replies, and group replies without changing the host's API.
 - **Transcripts inside messages.** A roleplay turn that carries a Mochi record
   (`<privatechat_history …>`, `<groupchat_history …>` and their `<environment>`
   block) renders as a real chat widget inside the message, with the prose around
@@ -37,8 +40,10 @@ Three ways, all of them first-class:
 Mochi OS opens as a phone-shaped window over SillyTavern, not as a full-screen
 takeover: it is never wider than SillyTavern's top bar, its height follows from
 that width (9:19.5), and it never covers the top bar or runs off the bottom. Drag
-it by its bar; the position is remembered. Escape, the bar's **×**, dragging the
-home indicator down or **Return to Roleplay** all close it.
+it by the four-arrow move button; the position is remembered. You can also focus
+that button and use arrow keys (Shift for larger steps). Escape or **×** closes it.
+Phone data and transcripts belong to the selected SillyTavern chat; switching
+chats resets the phone UI and cancels pending phone results.
 
 ## Installing
 
@@ -65,6 +70,16 @@ node scripts/install.mjs --target "D:\path\to\SillyTavern"
 or just `npm run build`, which builds and installs into every SillyTavern it finds
 next to this folder. Nothing is written anywhere else in the SillyTavern
 directory.
+
+To build without writing to any SillyTavern installation, use
+`node build.mjs --no-install`.
+
+### Offline checks
+
+`npm run typecheck` and `npm test` check types and the SillyTavern integration
+contract without touching an installation or sending API requests. After a
+build, `node scripts/preview-st.mjs` serves an isolated UI fixture at
+`http://127.0.0.1:8127`; generation is disabled there.
 
 ### Why it is laid out this way
 
@@ -96,7 +111,7 @@ has:
 | Engine message ids | Minted once into `message.extra.mochiosId`, so the UI can hold an id across a generation. |
 | `data_generation` YAML file | `chat_metadata.mochios.phoneDataYaml`, saved with the chat. |
 | Transcript turns | The roleplay messages themselves. |
-| Model provider | `generateRaw`, with `{{` escaped so SillyTavern's macros leave it alone. |
+| Model provider | Current connection via `generateRaw`, or saved profile via `ConnectionManagerRequestService`; template braces are protected. |
 | Translation endpoint | SillyTavern's own `/api/backends/translate`. |
 | Engine dialogs | SillyTavern's `callGenericPopup`. |
 | Engine toasts | `toastr`. |
@@ -122,7 +137,8 @@ src/
     api.ts                  the engine's REST surface, answered from SillyTavern
     mochi-data.ts           phone document storage, transcript generation
     generate.ts             generateRaw, and the {{ escape
-    host.tsx                the phone window: its bar, its drag, its lifecycle
+    connections.ts          saved profile selection and host request service
+    host.tsx                the phone window: floating controls, drag, lifecycle
     frame-layout.ts         how big the window is and where it sits
     inline.tsx              the transcript widgets inside messages
     styles.ts               the stylesheets, in the engine's order

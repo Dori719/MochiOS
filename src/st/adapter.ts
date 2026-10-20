@@ -55,7 +55,14 @@ let loading: Promise<void> | null = null;
 export function stReady(): Promise<void> {
   if (!loading) {
     loading = import('/scripts/st-context.js').then((mod: StRecord) => {
-      modules = mod as unknown as StModules;
+      // st-context exports getContext, not the generation/storage functions.
+      // Resolve those on its live context so all calls reach the host API.
+      modules = new Proxy(mod, {
+        get(target, key) {
+          if (key === 'getContext') return target.getContext;
+          return target.getContext()[key];
+        },
+      }) as unknown as StModules;
     });
   }
   return loading;
@@ -134,7 +141,7 @@ function characterDisplayName(character: StRecord | undefined): string {
 function chatCharacterRecords(): StRecord[] {
   const context = ctx();
   if (context.groupId) {
-    const group = context.groups?.[context.groupId];
+    const group = context.groups?.find((item: StRecord) => String(item.id) === String(context.groupId));
     const members: string[] = Array.isArray(group?.members) ? group.members : [];
     return members
       .map((avatar) => context.characters.find((character) => character.avatar === avatar))
