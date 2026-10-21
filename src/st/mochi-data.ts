@@ -15,6 +15,7 @@ import yaml from 'yaml';
 import type { MochiOsPhoneData, MochiOsPhoneDataResponse } from '../shared';
 import { readChatMeta, writeChatMeta } from './adapter';
 import { generateMochiOutput } from './generate';
+import { refreshLorebookPrompt } from './lorebooks';
 import {
   cleanAndExtractRawYaml,
   parseMochiChatResponse,
@@ -138,7 +139,7 @@ export function resolveUserMessageLines(params: {
 
 function isUserItem(rawItem?: Record<string, any>): boolean {
   const flag = rawItem?.['{{user}}'];
-  return flag === true || flag === 'true' || flag === 1 || flag === '1';
+  return flag === true || flag === 'true' || flag === 1 || flag === '1' || rawItem?.me === 1 || rawItem?.me === true || rawItem?.user === true || rawItem?.isUser === true;
 }
 
 function nowClock(): string {
@@ -156,6 +157,7 @@ function userItems(
   const out: Array<Record<string, any>> = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
+    const sender = recordType === 'group' && userName ? { sender: userName } : {};
     const quoteMatch = /^\[Quote(?:\s+([^\]]+))?\]\s*([\s\S]*)$/i.exec(line);
     if (quoteMatch) {
       const next = lines[index + 1] ?? '';
@@ -168,11 +170,11 @@ function userItems(
           t: 'quote',
           quote: { ...(quoteMatch[1] ? { name: quoteMatch[1].trim() } : {}), c: quoteMatch[2].trim() },
         },
+        ...sender,
       });
       index += 1;
       continue;
     }
-    const sender = recordType === 'group' && userName ? { sender: userName } : {};
     if (line.startsWith('[Quote')) {
       out.push({ me: 1, type: 'quote', text: '', t: time, rawItem: { t: 'quote' }, ...sender });
       continue;
@@ -205,7 +207,8 @@ export interface GeneratePhoneDataInput {
 export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<{ rawOutput: string }> {
   const category = input.category ?? 'data_generation';
   const signal = input.signal;
-  const raw = await generateMochiOutput(input.messages, {
+  const prompt = await refreshLorebookPrompt(input.messages, input.userName);
+  const raw = await generateMochiOutput(prompt, {
     chatId: input.chatId,
     signal,
     isCancelled: () => Boolean(signal?.aborted),
@@ -231,6 +234,9 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
     messages.push(...userItems(lines, firstTime, input.userName, recordType));
   }
   for (const reply of parsed) {
+    // Never archive a model-authored group line as though the user said it.
+    if (recordType === 'group' && !isUserItem(reply.rawItem) && input.userName && reply.sender?.trim().toLowerCase() === input.userName.trim().toLowerCase()) continue;
+    if (input.continuationOnly && isUserItem(reply.rawItem)) continue;
     messages.push({
       me: isUserItem(reply.rawItem) ? 1 : 0,
       type: reply.type,
@@ -242,10 +248,13 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
     });
   }
 
+  if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
+
   const finalOutput = serializeChatHistoryYaml({
     targetName,
     recordType,
     messages: messages as any,
+    environmentYaml: [...raw.matchAll(/<environment>[\s\S]*?<\/environment>/gi)].at(-1)?.[0],
   });
 
   return { rawOutput: finalOutput };

@@ -33,18 +33,27 @@ Three ways, all of them first-class:
 
 | Where | How |
 | --- | --- |
-| Floating bubble | The phone button at the bottom right of the chat. |
+| Floating bubble | The draggable phone button, initially at the bottom right of the chat. Its position is remembered and its colours follow the Mochi OS theme. |
 | Wand menu | Extensions (wand) → **Mochi OS**. |
 | Quick Reply | With Quick Replies switched **on**, a **Mochi OS** set holding one `/mochi` button is added to the bar. With them off, nothing is written at all. Delete the button and it stays deleted. |
 | Slash command | `/mochi`, also `/mochios`. |
 
-Mochi OS opens as a phone-shaped window over SillyTavern, not as a full-screen
-takeover: it is never wider than SillyTavern's top bar, its height follows from
-that width (9:19.5), and it never covers the top bar or runs off the bottom. Drag
-it by the four-arrow move button; the position is remembered. You can also focus
+Mochi OS opens centred below SillyTavern's top settings bar. It is never wider
+than that bar, but you can move it across the visible screen. It prefers phone
+proportions (9:19.5); on mobile, opening the keyboard reduces its height without
+shrinking its reading width. Conversations and editors scroll within the phone,
+and the popup stays inside the visible viewport, including browser panning and
+safe-area insets. Drag it by the four-arrow move button; the position is remembered
+across opening, closing and page reloads. Temporary keyboard adjustments do not
+overwrite your saved position. You can also focus
 that button and use arrow keys (Shift for larger steps). Escape or **×** closes it.
 Phone data and transcripts belong to the selected SillyTavern chat; switching
 chats resets the phone UI and cancels pending phone results.
+
+Under **Extensions → Mochi OS**, the inline settings drawer has a **Show floating
+bubble** checkbox. Hiding it leaves the wand menu, Quick Reply and slash command
+available. Drag the bubble directly, or focus it and use **Alt + arrow keys**
+(**Shift** for larger steps).
 
 ## Installing
 
@@ -60,8 +69,8 @@ mochi-os/
 ```
 
 Copy those into `SillyTavern/public/scripts/extensions/third-party/mochi-os/`
-and reload. The extension appears under **Extensions** as *Mochi OS* with no
-configuration. Installing from this repository instead:
+and reload. The extension appears under **Extensions** as *Mochi OS*, with a
+floating-bubble toggle in its settings drawer. Installing from this repository instead:
 
 ```powershell
 npm install          # once, to build
@@ -112,6 +121,8 @@ has:
 | Engine message ids | Minted once into `message.extra.mochiosId`, so the UI can hold an id across a generation. |
 | `data_generation` YAML file | `chat_metadata.mochios.phoneDataYaml`, saved with the chat. |
 | Transcript turns | The roleplay messages themselves. |
+| Incoming private/group replies | Each phone bubble is rendered and saved in SillyTavern with its character name and avatar. Group sender aliases resolve through phone contacts; unknown NPCs retain their own name. Mochi groups physical messages into logical turns for editing and regeneration. |
+| Lorebook assignments | Only explicitly configured global, chat, persona or character books (including group members and embedded card entries). Installed but unattached books are never activated; assignments are checked again before sending. |
 | Model provider | Current connection via `generateRaw`, or saved profile via `ConnectionManagerRequestService`; template braces are protected. |
 | Translation endpoint | SillyTavern's own `/api/backends/translate`. |
 | Engine dialogs | SillyTavern's `callGenericPopup`. |

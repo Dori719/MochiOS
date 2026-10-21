@@ -10,10 +10,11 @@ import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import type { ActiveLorebookScan, Lorebook, LorebookEntry } from '../shared';
 import { api } from '../lib/api-client';
+import { useChatStore } from '../stores/chat.store';
 
 export const lorebookKeys = {
   all: ['lorebooks'] as const,
-  list: () => ['lorebooks', 'list'] as const,
+  list: (chatId?: string | null) => ['lorebooks', 'list', chatId ?? ''] as const,
   detail: (id: string) => ['lorebooks', 'detail', id] as const,
   entries: (id: string) => ['lorebooks', 'entries', id] as const,
   scan: (chatId: string | null | undefined) => ['lorebooks', 'scan', chatId ?? ''] as const,
@@ -21,8 +22,9 @@ export const lorebookKeys = {
 
 /** Every world info book SillyTavern has. */
 export function useLorebooks() {
+  const chatId = useChatStore((state) => state.activeChatId);
   return useQuery<Lorebook[]>({
-    queryKey: lorebookKeys.list(),
+    queryKey: lorebookKeys.list(chatId),
     queryFn: () => api.get<Lorebook[]>('/lorebooks'),
     staleTime: 5 * 60_000,
   });
@@ -51,7 +53,7 @@ export function useEntriesAcrossLorebooks(ids: string[]) {
 
   // A new array each render would re-run every consumer's prompt assembly, so
   // the flattened list is keyed off the query results themselves.
-  const signature = results.map((result) => result.dataUpdatedAt).join('|');
+  const signature = ids.map((id, index) => `${id}:${results[index]?.dataUpdatedAt}`).join('|');
   const entries = useMemo(
     () => results.flatMap((result) => result.data?.entries ?? []),
     // eslint-disable-next-line react-hooks/exhaustive-deps

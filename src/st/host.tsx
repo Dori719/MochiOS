@@ -20,6 +20,7 @@ import { activeChatId, offEvent, onEvent, readChatSettings, writeChatSettings } 
 import { defaultPlace, phoneSize, placeFrame, readLimits, type FrameSize } from './frame-layout';
 import { mochiQueryClient } from './query-client';
 import { ensureMochiStyles } from './stylesheet';
+import { setFloatingPosition, watchViewport } from './viewport';
 
 const HOST_ID = 'mochi-os-host';
 
@@ -41,17 +42,23 @@ let unlisten: Array<() => void> = [];
 /** The phone's size, and where it sits, in viewport pixels. */
 let size: FrameSize = { width: 0, height: 0 };
 let position: { left: number; top: number } | null = null;
+/** Temporary keyboard/resize clamping never overwrites where the user left it. */
+let preferredPosition: { left: number; top: number } | null = null;
+let stopViewport: (() => void) | null = null;
+let topbarObserver: ResizeObserver | null = null;
+let stopDrag: (() => void) | null = null;
 
 /** Where the window was last left, from the extension's settings. */
 function storedPosition(): { left: number; top: number } | null {
   const stored = readChatSettings().window as { left?: unknown; top?: unknown } | undefined;
-  if (!stored || typeof stored.left !== 'number' || typeof stored.top !== 'number') return null;
+  if (!stored || typeof stored.left !== 'number' || typeof stored.top !== 'number' || !Number.isFinite(stored.left) || !Number.isFinite(stored.top)) return null;
   return { left: stored.left, top: stored.top };
 }
 
 /** Remembers the window's position, but only once the user has moved it. */
 function persistPosition(): void {
   if (!position) return;
+  preferredPosition = { ...position };
   writeChatSettings({ window: { left: Math.round(position.left), top: Math.round(position.top) } });
 }
 
@@ -71,16 +78,26 @@ function layout(initial: boolean): void {
   // The floating controls sit above the phone, outside its proportions.
   host.style.height = `${Math.round(size.height + BAR_HEIGHT)}px`;
 
-  const wanted = initial ? storedPosition() : position;
+  if (initial) preferredPosition = storedPosition();
+  const wanted = preferredPosition;
   const placed = wanted ? placeFrame(wanted.left, wanted.top, size, limits) : defaultPlace(size, limits);
   position = placed;
 
-  host.style.left = `${Math.round(placed.left)}px`;
-  host.style.top = `${Math.round(placed.top)}px`;
+  setFloatingPosition(host, placed);
 }
 
 function onResize(): void {
   layout(false);
+  // Scroll an editor's own panel, never the page or the phone root sideways.
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement) || !host?.contains(focused)) return;
+  for (let panel = focused.parentElement; panel && panel !== host; panel = panel.parentElement) {
+    if (!/auto|scroll/.test(getComputedStyle(panel).overflowY)) continue;
+    const field = focused.getBoundingClientRect();
+    const bounds = panel.getBoundingClientRect();
+    if (field.bottom > bounds.bottom) panel.scrollTop += field.bottom - bounds.bottom;
+    else if (field.top < bounds.top) panel.scrollTop -= bounds.top - field.top;
+  }
 }
 
 /**
@@ -89,24 +106,29 @@ function onResize(): void {
  * Pointer capture keeps the window following the cursor outside the button.
  */
 function installDrag(handle: HTMLElement): void {
-  let drag: { pointerId: number; offsetX: number; offsetY: number } | null = null;
+  let drag: { pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean } | null = null;
 
   handle.addEventListener('pointerdown', (event: PointerEvent) => {
-    if (event.button !== 0 || !host) return;
+    if (event.button !== 0 || event.isPrimary === false || !host) return;
 
     const rect = host.getBoundingClientRect();
     drag = {
       pointerId: event.pointerId,
       offsetX: event.clientX - rect.left,
       offsetY: event.clientY - rect.top,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
     };
     host.classList.add('is-dragging');
-    handle.setPointerCapture(event.pointerId);
+    try { handle.setPointerCapture(event.pointerId); } catch { /* Some embedded browsers do not support capture. */ }
     event.preventDefault();
   });
 
-  handle.addEventListener('pointermove', (event: PointerEvent) => {
+  const move = (event: PointerEvent): void => {
     if (!drag || !host || event.pointerId !== drag.pointerId) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 4) return;
+    drag.moved = true;
 
     const placed = placeFrame(
       event.clientX - drag.offsetX,
@@ -115,20 +137,28 @@ function installDrag(handle: HTMLElement): void {
       readLimits(BAR_HEIGHT),
     );
     position = placed;
-    host.style.left = `${Math.round(placed.left)}px`;
-    host.style.top = `${Math.round(placed.top)}px`;
-  });
+    setFloatingPosition(host, placed);
+  };
 
   const end = (event: PointerEvent): void => {
     if (!drag || event.pointerId !== drag.pointerId) return;
+    const moved = drag.moved;
     drag = null;
     host?.classList.remove('is-dragging');
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
-    persistPosition();
+    if (moved) persistPosition();
   };
 
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+  handle.addEventListener('lostpointercapture', end);
+  stopDrag = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    drag = null;
+  };
 }
 
 function ensureHost(): HTMLDivElement {
@@ -164,8 +194,7 @@ function ensureHost(): HTMLDivElement {
     const left = position.left + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0);
     const top = position.top + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0);
     position = placeFrame(left, top, size, readLimits(BAR_HEIGHT));
-    host.style.left = `${Math.round(position.left)}px`;
-    host.style.top = `${Math.round(position.top)}px`;
+    setFloatingPosition(host, position);
     persistPosition();
     event.preventDefault();
   });
@@ -229,10 +258,21 @@ function startEventBridge(): void {
     'MESSAGE_SENT',
     'MESSAGE_RECEIVED',
     'MESSAGE_EDITED',
+    'MESSAGE_UPDATED',
     'MESSAGE_DELETED',
     'MESSAGE_SWIPED',
     'USER_MESSAGE_RENDERED',
     'CHARACTER_MESSAGE_RENDERED',
+  ]) {
+    listen(name, (_index: unknown, source?: string) => {
+      // The phone's mutation caller refreshes its own cache after persistence.
+      // Refetching during awaited ST receive/render hooks hydrates the new
+      // bubbles before that caller appends them, creating a duplicate reply.
+      if (source !== 'mochios') invalidateAll();
+    });
+  }
+
+  for (const name of [
     'CHAT_CREATED',
     'CHAT_DELETED',
     'GROUP_UPDATED',
@@ -241,6 +281,8 @@ function startEventBridge(): void {
     'CHARACTER_RENAMED',
     'PERSONA_CHANGED',
     'WORLDINFO_UPDATED',
+    'WORLDINFO_SETTINGS_UPDATED',
+    'SETTINGS_UPDATED',
     'CONNECTION_PROFILE_CREATED',
     'CONNECTION_PROFILE_UPDATED',
     'CONNECTION_PROFILE_DELETED',
@@ -356,6 +398,7 @@ export function openMochiOs(): void {
   if (root) return;
 
   ensureMochiStyles();
+  invalidateAll();
   startEventBridge();
   syncActiveChat();
 
@@ -368,14 +411,24 @@ export function openMochiOs(): void {
     </QueryClientProvider>,
   );
 
-  window.addEventListener('resize', onResize);
+  stopViewport = watchViewport(onResize);
+  const topbar = document.getElementById('top-bar');
+  if (topbar && typeof ResizeObserver !== 'undefined') {
+    topbarObserver = new ResizeObserver(onResize);
+    topbarObserver.observe(topbar);
+  }
   // Capture phase, so SillyTavern's own handlers never see the key.
   document.addEventListener('keydown', onKeyDown, true);
   announce(true);
 }
 
 export function closeMochiOs(): void {
-  window.removeEventListener('resize', onResize);
+  stopViewport?.();
+  stopViewport = null;
+  topbarObserver?.disconnect();
+  topbarObserver = null;
+  stopDrag?.();
+  stopDrag = null;
   document.removeEventListener('keydown', onKeyDown, true);
   stopEventBridge();
   announce(false);

@@ -7,6 +7,7 @@ import {
   type MochiOsSettings,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { readChatSettings } from "../st/adapter";
 
 export const mochiOsKeys = {
   settings: ["app-settings", MOCHI_OS_SETTINGS_KEY] as const,
@@ -14,6 +15,10 @@ export const mochiOsKeys = {
 
 function readLocalFallback(): MochiOsSettings {
   if (typeof window === "undefined") return DEFAULT_MOCHI_OS_SETTINGS;
+  try {
+    const stored = readChatSettings()[MOCHI_OS_SETTINGS_KEY];
+    if (stored) return normalizeMochiOsSettings(stored);
+  } catch { /* The context is not loaded until the phone is opened. */ }
   try {
     const raw = window.localStorage.getItem(MOCHI_OS_SETTINGS_KEY);
     if (!raw) return DEFAULT_MOCHI_OS_SETTINGS;

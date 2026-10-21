@@ -7,3 +7,4 @@
  * the small surface it relies on in `StModules`.
  */
 declare module '*/st-context.js';
+declare module '*/world-info.js';

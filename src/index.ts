@@ -15,9 +15,10 @@
  * the wand menu for discoverability, and `/mochi` for Quick Replies and scripts.
  */
 import { ctx, offEvent, onEvent, stReady } from './st/adapter';
+import { disposeLauncher, installLauncher, LAUNCHER_ID, updateLauncherTheme } from './st/launcher';
+import { disposeExtensionSettings, installExtensionSettings } from './st/extension-settings';
 
 const LOG = '[Mochi OS]';
-const LAUNCHER_ID = 'mochi-os-launcher';
 const WAND_CONTAINER_ID = 'mochi_os_wand_container';
 const WAND_ENTRY_ID = 'mochi_os_wand_entry';
 
@@ -106,24 +107,10 @@ async function toggleMochiOs(): Promise<void> {
  * The floating bubble
  * ------------------------------------------------------------------ */
 
-function installLauncher(): void {
-  if (document.getElementById(LAUNCHER_ID)) return;
-
-  const button = document.createElement('button');
-  button.id = LAUNCHER_ID;
-  button.type = 'button';
-  button.className = 'mochi-os-launcher';
-  button.title = 'Mochi OS';
-  button.setAttribute('aria-label', 'Mochi OS');
-  button.setAttribute('aria-pressed', 'false');
-  button.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
-    '<rect x="6.1" y="2.3" width="11.8" height="19.4" rx="3.3" />' +
-    '<path d="M10.1 4.9h3.8" />' +
-    '<circle cx="12" cy="18.2" r="1.1" />' +
-    '</svg>';
-  button.addEventListener('click', () => void toggleMochiOs());
-  document.body.append(button);
+function syncLauncher(): void {
+  if (disabled) return;
+  installLauncher(() => void toggleMochiOs());
+  setOpenState(appModule?.isMochiOsOpen() ?? false);
 }
 
 /* ------------------------------------------------------------------ *
@@ -312,6 +299,12 @@ function setOpenState(open: boolean): void {
 
 function onVisibility(event: Event): void {
   setOpenState(Boolean((event as CustomEvent<{ open?: boolean }>).detail?.open));
+  requestAnimationFrame(updateLauncherTheme);
+}
+
+function onSettings(): void {
+  // React commits the phone's new palette after the settings event returns.
+  requestAnimationFrame(updateLauncherTheme);
 }
 
 function listen(name: string, handler: (...args: any[]) => void): void {
@@ -320,12 +313,20 @@ function listen(name: string, handler: (...args: any[]) => void): void {
 }
 
 function installEventBridge(): void {
+  if (unlisten.length > 0) return;
   listen('CHAT_CHANGED', scheduleWidgetRefresh);
+  for (const name of ['SETTINGS_UPDATED', 'EXTENSION_SETTINGS_LOADED', 'SETTINGS_LOADED_AFTER']) {
+    listen(name, () => {
+      syncLauncher();
+      installExtensionSettings(syncLauncher);
+    });
+  }
 
   for (const name of [
     'CHARACTER_MESSAGE_RENDERED',
     'USER_MESSAGE_RENDERED',
     'MESSAGE_EDITED',
+    'MESSAGE_UPDATED',
     'MESSAGE_DELETED',
     'MESSAGE_SWIPED',
     'MORE_MESSAGES_LOADED',
@@ -334,10 +335,12 @@ function installEventBridge(): void {
   }
 
   document.addEventListener('mochios:visibility', onVisibility);
+  document.addEventListener('mochios:settings', onSettings);
 }
 
 function installLaunchers(): void {
-  installLauncher();
+  syncLauncher();
+  installExtensionSettings(syncLauncher);
   installWandEntry();
   registerCommand();
 }
@@ -366,6 +369,7 @@ export function onEnable(): void {
   disabled = false;
   if (!initialized) return;
   installLaunchers();
+  installEventBridge();
   scheduleWidgetRefresh();
 }
 
@@ -379,10 +383,12 @@ export function onDisable(): void {
   for (const remove of unlisten) remove();
   unlisten = [];
   document.removeEventListener('mochios:visibility', onVisibility);
+  document.removeEventListener('mochios:settings', onSettings);
 
   appModule?.disposeAll();
 
-  document.getElementById(LAUNCHER_ID)?.remove();
+  disposeLauncher();
+  disposeExtensionSettings();
   document.getElementById(WAND_CONTAINER_ID)?.remove();
   setOpenState(false);
 }
