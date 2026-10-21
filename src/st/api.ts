@@ -13,6 +13,7 @@
  */
 import * as st from './adapter';
 import { deletePhoneData, generatePhoneData, readPhoneData, savePhoneData } from './mochi-data';
+import { listLorebooks, readLorebookEntries, scanLorebooks } from './lorebooks';
 
 export class ApiError extends Error {
   status: number;
@@ -40,6 +41,7 @@ interface Route {
   pattern: RegExp;
   keys: string[];
   handler: Handler;
+  specificity: number;
 }
 
 const routes: Route[] = [];
@@ -55,7 +57,10 @@ function route(method: string, path: string, handler: Handler): void {
       return '(.+?)';
     })
     .join('/');
-  routes.push({ method, pattern: new RegExp(`^${source}$`), keys, handler });
+  routes.push({ method, pattern: new RegExp(`^${source}$`), keys, handler, specificity: path.replace(/:[^/]+/g, '').length });
+  // Phone callers use both encoded and raw owner/chat ids, so parameters can
+  // span slashes. Specific suffixes must win over /chats/:chatId itself.
+  routes.sort((a, b) => b.specificity - a.specificity);
 }
 
 function splitPath(path: string): { pathname: string; query: URLSearchParams } {
@@ -122,7 +127,13 @@ function buildChat(): Record<string, any> {
   return {
     id,
     name,
-    metadata: context.chatMetadata ?? {},
+    metadata: {
+      ...(context.chatMetadata ?? {}),
+      activeLorebookIds: [...new Set([
+        ...(Array.isArray(context.chatMetadata?.activeLorebookIds) ? context.chatMetadata.activeLorebookIds : []),
+        ...(typeof context.chatMetadata?.world_info === 'string' && context.chatMetadata.world_info ? [context.chatMetadata.world_info] : []),
+      ])],
+    },
     characterIds,
     characterId: characterIds[0] ?? null,
     personaId: st.activePersonaId(),
@@ -155,9 +166,9 @@ route('POST', '/chats/:chatId/messages', (request, params) => {
   });
 });
 
-route('DELETE', '/chats/:chatId/messages/:messageId', (_request, params) => {
+route('DELETE', '/chats/:chatId/messages/:messageId', async (_request, params) => {
   assertCurrentChat(params.chatId);
-  return { deleted: st.deleteMessage(params.messageId) };
+  return { deleted: await st.deleteMessage(params.messageId) };
 });
 
 route('PATCH', '/chats/:chatId/messages/:messageId/extra', (request, params) => {
@@ -187,11 +198,6 @@ route('PUT', '/chats/:chatId/messages/:messageId', (request, params) => {
   return st.updateMessageContent(params.messageId, String(request.body?.content ?? ''));
 });
 
-route('PUT', '/chats/:chatId/messages/:messageId', (request, params) => {
-  assertCurrentChat(params.chatId);
-  return st.updateMessageContent(params.messageId, String(request.body?.content ?? ''));
-});
-
 /**
  * Branch the chat at a message.
  *
@@ -202,7 +208,7 @@ route('PUT', '/chats/:chatId/messages/:messageId', (request, params) => {
 route('POST', '/chats/:chatId/branch', async (request, params) => {
   assertCurrentChat(params.chatId);
   const upToMessageId = request.body?.upToMessageId;
-  const index = upToMessageId ? st.messageIndexOf(String(upToMessageId)) : -1;
+  const index = upToMessageId ? st.messageEndIndexOf(String(upToMessageId)) : -1;
   const target = index >= 0 ? index : st.ctx().chat.length - 1;
   await st.st().executeSlashCommandsWithOptions(`/branch-create ${target}`);
   return buildChat();
@@ -224,52 +230,10 @@ route('PATCH', '/characters/personas/:id', (request, params) =>
  * Lorebooks (SillyTavern world info)
  * ------------------------------------------------------------------ */
 
-interface StWorldEntry {
-  uid?: number | string;
-  key?: string[];
-  content?: string;
-  disable?: boolean;
-  comment?: string;
-}
-
-interface StWorldBook {
-  entries?: Record<string, StWorldEntry>;
-}
-
-function worldEntryToLorebookEntry(bookName: string, uid: string, entry: StWorldEntry) {
-  return {
-    id: `${bookName}:${uid}`,
-    lorebookId: bookName,
-    keys: Array.isArray(entry.key) ? entry.key : [],
-    content: String(entry.content ?? ''),
-    enabled: !entry.disable,
-    comment: entry.comment ?? '',
-  };
-}
-
-route('GET', '/lorebooks', () => {
-  const names: string[] = st.ctx().getWorldInfoNames?.() ?? [];
-  return names.map((name) => ({
-    id: name,
-    name,
-    description: '',
-    enabled: true,
-    isGlobal: true,
-    hiddenFromLibrary: false,
-    scope: { mode: 'all', chatIds: [] },
-    characterIds: [],
-    personaIds: [],
-    sourceAgentId: null,
-    entries: [],
-  }));
-});
+route('GET', '/lorebooks', () => listLorebooks());
 
 route('GET', '/lorebooks/:id/entries', async (_request, params) => {
-  const book = (await st.ctx().loadWorldInfo?.(params.id)) as StWorldBook | null;
-  const entries = Object.entries(book?.entries ?? {}).map(([uid, entry]) =>
-    worldEntryToLorebookEntry(params.id, uid, entry),
-  );
-  return { entries };
+  return { entries: await readLorebookEntries(params.id) };
 });
 
 /**
@@ -280,26 +244,11 @@ route('GET', '/lorebooks/:id/entries', async (_request, params) => {
  * match, because Mochi OS asks for the chat's lore, not for a keyword scan of a
  * specific prompt.
  */
-route('GET', '/lorebooks/scan/:chatId', async () => {
-  const context = st.ctx();
-  const names = new Set<string>();
-  const selected = context.chatMetadata?.world_info;
-  if (selected) names.add(String(selected));
-  const owner = st.activeOwner();
-  if (owner && !owner.startsWith('group:')) {
-    const character = context.characters.find((item) => String(item.avatar) === owner);
-    const embedded = character?.data?.character_book?.name;
-    if (embedded) names.add(String(embedded));
-  }
-  const entries: Array<Record<string, any>> = [];
-  for (const name of names) {
-    const book = (await context.loadWorldInfo?.(name)) as StWorldBook | null;
-    for (const [uid, entry] of Object.entries(book?.entries ?? {})) {
-      if (entry.disable) continue;
-      entries.push(worldEntryToLorebookEntry(name, uid, entry));
-    }
-  }
-  return { entries, lorebookIds: [...names] };
+route('GET', '/lorebooks/scan/:chatId', async (_request, params) => {
+  assertCurrentChat(params.chatId);
+  const result = await scanLorebooks();
+  assertCurrentChat(params.chatId);
+  return result;
 });
 
 /* ------------------------------------------------------------------ *
@@ -319,6 +268,7 @@ route('PUT', '/app-settings/:key', (request, params) => {
   const value = request.body?.value;
   const parsed = typeof value === 'string' ? JSON.parse(value) : value;
   st.writeChatSettings({ [params.key]: parsed });
+  if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('mochios:settings', { detail: { key: params.key } }));
   return { key: params.key, value: typeof value === 'string' ? value : JSON.stringify(value) };
 });
 

@@ -220,7 +220,9 @@ export function parseMochiChatResponse(rawText: string, defaultSenderName?: stri
 
   // 3. Try parsing with YAML parser first
   try {
-    const parsedObj = yaml.parse(text);
+    // The canonical transcript deliberately writes this marker unquoted, while
+    // YAML requires it to be a string key. Normalize before parsing replies too.
+    const parsedObj = yaml.parse(text.replace(/^(\s*)\{\{user\}\}:/gm, '$1"{{user}}":'));
     if (parsedObj && typeof parsedObj === "object") {
       const messagesList = Array.isArray(parsedObj.messages)
         ? parsedObj.messages
@@ -1576,6 +1578,7 @@ export function selectMochiThreadContact<T>(contacts: Record<string, T>, threadI
 /** Merge separate archived turns into one thread's chronological message history. */
 export function mergeMochiChatHistoryBlocks<
   T extends {
+    type?: string;
     target?: string;
     name?: string;
     date?: string;
@@ -1586,7 +1589,7 @@ export function mergeMochiChatHistoryBlocks<
 >(blocks: T[]): T[] {
   const merged = new Map<string, T>();
   for (const block of blocks) {
-    const key = (block.target || block.name || "Character").trim().toLowerCase();
+    const key = `${block.type || "private"}:${(block.target || block.name || "Character").trim().toLowerCase()}`;
     const existing = merged.get(key);
     if (existing) {
       existing.messages.push(...block.messages);

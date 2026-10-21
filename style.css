@@ -1,14 +1,19 @@
 /* ==========================================================================
    Mochi OS — the launchers.
    --------------------------------------------------------------------------
-   Only these two things live outside the Mochi OS scope: the floating bubble
-   that opens it and the wand menu entry. The interface's own stylesheet is
+   The floating bubble, wand entry and native settings drawer live outside the
+   Mochi OS scope. The interface's own stylesheet is
    injected with the overlay, so nothing here is needed once it is closed.
 
-   The palette is Mochi's own light theme (`mochi-os.css`): flower-green accents
-   on cream paper. It is deliberately fixed rather than derived from the
-   SillyTavern theme, so the button reads as Mochi OS whatever theme is in use.
+   The launcher follows the active Mochi palette, independently of the host theme.
    ========================================================================== */
+
+:root {
+    --mochi-safe-top: env(safe-area-inset-top, 0px);
+    --mochi-safe-right: env(safe-area-inset-right, 0px);
+    --mochi-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --mochi-safe-left: env(safe-area-inset-left, 0px);
+}
 
 #mochi-os-launcher {
     position: fixed;
@@ -28,14 +33,17 @@
     height: 52px;
     padding: 0;
 
-    border: 1px solid #c8d8ab;
+    border: 1px solid color-mix(in srgb, var(--mochi-launcher-accent, #7fa061) 60%, var(--mochi-launcher-paper, #f2f8df));
     border-radius: 18px;
-    background: linear-gradient(160deg, #f2f8df 0%, #dff0bb 55%, #cfe79f 100%);
-    color: #4b6a3a;
+    background: linear-gradient(160deg, var(--mochi-launcher-paper, #f2f8df), color-mix(in srgb, var(--mochi-launcher-accent, #7fa061) 55%, var(--mochi-launcher-paper, #f2f8df)));
+    color: var(--mochi-launcher-text, #33402a);
     box-shadow:
         0 10px 22px rgba(51, 64, 42, 0.26),
         inset 0 1px 0 rgba(255, 255, 255, 0.85);
     cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition:
         transform 140ms ease,
@@ -56,7 +64,7 @@
 }
 
 #mochi-os-launcher:focus-visible {
-    outline: 2px solid #7fa061;
+    outline: 2px solid var(--mochi-launcher-accent, #7fa061);
     outline-offset: 3px;
 }
 
@@ -80,6 +88,18 @@
    for anyone reading the DOM, and for the moment the overlay is fading out. */
 #mochi-os-launcher.is-open {
     filter: saturate(1.15);
+}
+
+#mochi-os-launcher.is-dragging {
+    cursor: grabbing;
+    transform: none;
+    transition: none;
+}
+
+#mochi_os_settings .mochi-os-settings-hint {
+    display: block;
+    margin-top: 6px;
+    opacity: 0.7;
 }
 
 @media (max-width: 640px) {
@@ -197,6 +217,7 @@
     position: relative;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
     background: #101410;
     border-radius: 24px;

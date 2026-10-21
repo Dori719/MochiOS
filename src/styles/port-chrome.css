@@ -556,3 +556,181 @@
 .mochi-scope .hover\:text-\[var\(--acc\)\]:hover {
   color: var(--acc);
 }
+
+/* ── Responsive phone shell ───────────────────────────────────────────── */
+
+/* The keyboard takes height from the conversation, not width from every app.
+   Flex children must be allowed to shrink vertically so the composer stays visible. */
+#mochi-os-host .mochi-scope :is(.mview, .c-body, .convo-list, .settings-split-body, .settings-split-content) {
+  min-height: 0;
+  min-width: 0;
+}
+
+#mochi-os-host .mochi-scope :is(.c-head, .m-head, .m-search, .stories, .mtabs, .mochi-composer, .c-bar, .dock, .status) {
+  flex-shrink: 0;
+}
+
+/* The Chats list wraps its search/stories/list in a plain div in the engine.
+   Give that wrapper the remaining height, rather than letting it push navigation offscreen. */
+#mochi-os-host .mochi-scope #listView > div:not(.m-head) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#mochi-os-host .mochi-scope :is(.c-body, .convo-list, .settings-split-content) {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+#mochi-os-host .mochi-scope .apps {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+#mochi-os-host .mochi-scope .modal {
+  max-width: calc(100cqw - 16px);
+  max-height: calc(100cqh - 16px);
+  overflow-x: hidden;
+}
+
+#mochi-os-host .mochi-scope .overlay:not(.show) {
+  visibility: hidden;
+}
+
+/* Prevent iOS focus zoom. Editors scroll inside their panels instead of reducing
+   the entire phone to the keyboard's aspect ratio. */
+#mochi-os-host .mochi-scope :is(input:not([type="checkbox"]):not([type="range"]):not([type="color"]), textarea, select) {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px !important;
+}
+
+/* ── Conversations stay within their device ───────────────────────────── */
+
+.mochi-scope :is(.c-body, .mochi-private-thread) {
+  overflow-x: hidden;
+}
+
+.mochi-scope :is(.mrow, .mochi-private-message) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mochi-scope .wmsg {
+  min-width: 0;
+  max-width: calc(100% - 36px);
+  flex: 0 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.mochi-scope .mrow.out .wmsg {
+  max-width: 90%;
+}
+
+.mochi-scope :is(.b, .wmsg .b, .mochi-private-bubble, .mochi-private-transfer) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.mochi-scope .mochi-transfer {
+  width: min(216px, 100%);
+  min-width: 0;
+}
+
+.mochi-scope :is(.mochi-message-edit, .mochi-private-bubble-wrap) {
+  min-width: 0;
+  max-width: calc(100% - 34px);
+}
+
+.mochi-scope .wmsg .mochi-message-edit {
+  max-width: 100%;
+}
+
+.mochi-scope :is(.msg-image-thumb, .mochi-chat-sticker-image, .mochi-private-sticker) {
+  max-width: 100%;
+  height: auto;
+}
+
+.mochi-scope :is(.mochi-bubble-meta, .mochi-private-bubble-meta, .mochi-private-appbar strong) {
+  min-width: 0;
+}
+
+.mochi-scope .msg-actions-trigger {
+  position: static;
+  display: none;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin-top: 4px;
+}
+
+.mochi-scope .mrow {
+  padding-bottom: 0;
+}
+
+.mochi-scope .mrow:is(:hover, :focus-within, .actions-visible) .msg-actions-trigger {
+  display: flex;
+}
+
+.mochi-scope .mrow.out .msg-actions-trigger {
+  max-width: 100%;
+}
+
+.mochi-scope :is(.mochi-transfer-amount, .mochi-private-transfer-amount, .notice, .mochi-private-day) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.mochi-scope.mochi-private-widget {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@container (max-height: 520px) {
+  #mochi-os-host .mochi-scope .stories {
+    display: none;
+  }
+  #mochi-os-host .mochi-scope .apps {
+    align-content: start;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #mochi-os-host .mochi-scope .c-head {
+    padding-block: 6px;
+  }
+
+  #mochi-os-host .mochi-scope .c-bar {
+    padding-block: 6px;
+  }
+
+  #mochi-os-host .mochi-scope .mtabs {
+    padding-block: 2px;
+  }
+
+  #mochi-os-host .mochi-scope .c-body {
+    padding-block: 6px;
+  }
+}
+
+@container (max-width: 320px) {
+  #mochi-os-host .mochi-scope .c-bar {
+    gap: 4px;
+    padding-inline: 6px;
+    flex-wrap: wrap;
+  }
+
+  #mochi-os-host .mochi-scope .c-bar input {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  #mochi-os-host .mochi-scope .c-bar .rbtn {
+    width: 40px;
+    height: 40px;
+  }
+}

@@ -42,7 +42,8 @@ export function useGenerate() {
     }
 
     if (options.userMessage) {
-      insertMessage({ role: 'user', content: String(options.userMessage) });
+      await insertMessage({ role: 'user', content: String(options.userMessage) });
+      if (options.chatId !== activeChatId()) throw new Error('Mochi OS: the chat changed');
     }
     await context.generate('normal');
   }, []);

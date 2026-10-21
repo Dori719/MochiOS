@@ -17,6 +17,8 @@
  *    assigning to the snapshot's property would only touch the copy.
  */
 
+import { combinePhoneTranscript, resolvePhoneCharacter, splitPhoneTranscript, transcriptBlock } from './phone-transcript';
+
 type StRecord = Record<string, any>;
 
 interface StContext extends StRecord {
@@ -138,7 +140,7 @@ function characterDisplayName(character: StRecord | undefined): string {
 }
 
 /** The characters in the open chat, in chat order. */
-function chatCharacterRecords(): StRecord[] {
+export function chatCharacterRecords(): StRecord[] {
   const context = ctx();
   if (context.groupId) {
     const group = context.groups?.find((item: StRecord) => String(item.id) === String(context.groupId));
@@ -174,6 +176,17 @@ export function mapCharacter(character: StRecord): Record<string, any> {
 /** Every character card SillyTavern knows about. */
 export function listCharacters(): Array<Record<string, any>> {
   return (ctx().characters ?? []).map(mapCharacter);
+}
+
+/** These are selections, unlike getWorldInfoNames(), which is only the installed library. */
+export async function worldInfoSelection(): Promise<{ globalSelect: string[]; charLore: StRecord[] }> {
+  const worldInfo = await import('/scripts/world-info.js');
+  const settings = worldInfo.getWorldInfoSettings?.().world_info ?? worldInfo.world_info ?? {};
+  const selected = worldInfo.selected_world_info ?? settings.globalSelect;
+  return {
+    globalSelect: Array.isArray(selected) ? selected.filter((name): name is string => typeof name === 'string' && Boolean(name.trim())) : [],
+    charLore: Array.isArray(settings.charLore) ? settings.charLore : [],
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -317,9 +330,15 @@ export function ensureMessageId(index: number): string | null {
 export function messageIndexOf(id: string): number {
   const chat = ctx().chat ?? [];
   for (let index = 0; index < chat.length; index += 1) {
-    if (ensureMessageId(index) === id) return index;
+    if (ensureMessageId(index) === id || chat[index].extra?.mochiosTurnId === id) return index;
   }
   return -1;
+}
+
+/** Branches must include the complete turn, not just its first physical message. */
+export function messageEndIndexOf(id: string): number {
+  const index = messageIndexOf(id);
+  return index < 0 ? -1 : turnIndices(index).at(-1) ?? index;
 }
 
 function matchCharacterId(name: string): string | null {
@@ -327,7 +346,8 @@ function matchCharacterId(name: string): string | null {
   const records = chatCharacterRecords();
   const match = records.find((character) => characterDisplayName(character).toLowerCase() === name.toLowerCase());
   if (match) return String(match.avatar ?? '');
-  return records.length === 1 ? String(records[0].avatar ?? '') : null;
+  const other = ctx().characters.find((character) => characterDisplayName(character).toLowerCase() === name.toLowerCase());
+  return other ? String(other.avatar ?? '') : null;
 }
 
 /**
@@ -352,7 +372,13 @@ export function mapMessage(index: number): Record<string, any> | null {
     chatId: activeChatId() ?? undefined,
     role,
     content: typeof message.mes === 'string' ? message.mes : '',
-    characterId: role === 'assistant' ? matchCharacterId(String(message.name ?? '')) : null,
+    characterId: role === 'assistant'
+      ? typeof message.original_avatar === 'string' && ctx().characters.some((character) => character.avatar === message.original_avatar)
+        ? message.original_avatar
+        : Object.hasOwn(message.extra ?? {}, 'mochiosCharacterId')
+          ? message.extra.mochiosCharacterId
+          : matchCharacterId(String(message.name ?? ''))
+      : null,
     personaId: null,
     createdAt: new Date(BASE_TIME + index * 1000).toISOString(),
     swipeCount: Array.isArray(message.swipes) && message.swipes.length > 0 ? message.swipes.length : 1,
@@ -363,21 +389,53 @@ export function mapMessage(index: number): Record<string, any> | null {
   };
 }
 
-/** Chronological window of the chat's messages, oldest first. */
+function turnIndices(index: number): number[] {
+  const chat = ctx().chat;
+  const turnId = chat[index]?.extra?.mochiosTurnId;
+  return turnId
+    ? chat.flatMap((message, position) => message.extra?.mochiosTurnId === turnId ? [position] : [])
+    : [index];
+}
+
+/** Mochi edits/regenerates a whole turn; ST stores and displays each incoming bubble separately. */
+function mapTurn(index: number): Record<string, any> | null {
+  const indices = turnIndices(index);
+  const first = indices[0];
+  const mapped = mapMessage(first);
+  if (!mapped || !ctx().chat[first]?.extra?.mochiosTurnId) return mapped;
+  const anchor = ctx().chat[first];
+  const content = combinePhoneTranscript(indices.map((position) => String(ctx().chat[position].mes ?? '')));
+  const swipes = Array.isArray(anchor.extra.mochiosTurnSwipes) ? [...anchor.extra.mochiosTurnSwipes] : [content];
+  const swipeId = Number(anchor.extra.mochiosTurnSwipeId ?? 0);
+  // A native ST edit changes the real messages, so keep the active phone swipe honest.
+  swipes[swipeId] = content;
+  return {
+    ...mapped, id: anchor.extra.mochiosTurnId, role: 'assistant', characterId: transcriptBlock(content)?.type === 'private'
+      ? indices.map((position) => mapMessage(position)).find((message) => message?.role === 'assistant')?.characterId ?? null
+      : null, content,
+    swipeCount: swipes.length, activeSwipeIndex: swipeId, swipes,
+  };
+}
+
+/** Chronological window of logical turns, oldest first. */
 export function listMessages(limit = 0, beforeId?: string | null): Array<Record<string, any>> {
   const chat = ctx().chat ?? [];
-  let end = chat.length;
-  if (beforeId) {
-    const index = messageIndexOf(beforeId);
-    if (index >= 0) end = index;
+  const indices: number[] = [];
+  const seen = new Set<string>();
+  const beforeIndex = beforeId ? messageIndexOf(beforeId) : -1;
+  for (let index = 0; index < chat.length; index += 1) {
+    if (index === beforeIndex) break;
+    const turnId = chat[index].extra?.mochiosTurnId;
+    if (turnId && seen.has(turnId)) continue;
+    if (turnId) seen.add(turnId);
+    indices.push(index);
   }
-  const start = limit > 0 ? Math.max(0, end - limit) : 0;
-  const out: Array<Record<string, any>> = [];
-  for (let index = start; index < end; index += 1) {
-    const mapped = mapMessage(index);
-    if (mapped) out.push(mapped);
-  }
-  return out;
+  // Only parse the requested page; a long ST chat must not reparse every old
+  // transcript each time a new phone message arrives.
+  return (limit > 0 ? indices.slice(-limit) : indices).flatMap((index) => {
+    const mapped = mapTurn(index);
+    return mapped ? [mapped] : [];
+  });
 }
 
 export function saveChat(): void {
@@ -393,56 +451,162 @@ export interface InsertMessageInput {
   characterId?: string | null;
   content?: string;
   name?: string;
+  extra?: StRecord;
 }
 
-/** Append a roleplay message, as Mochi OS does when a thread turn is produced. */
-export function insertMessage(input: InsertMessageInput, atIndex?: number): Record<string, any> {
+function makeMessages(input: InsertMessageInput, stableId?: string): StRecord[] {
   const context = ctx();
-  const chat = context.chat;
   const role = input.role ?? 'assistant';
-  const characterId = input.characterId ?? null;
-  const character = characterId
-    ? context.characters.find((item) => String(item.avatar) === String(characterId))
-    : undefined;
-  const name =
-    input.name ||
-    (role === 'user'
-      ? String(context.name1 ?? 'User')
-      : characterDisplayName(character) || String(context.name2 ?? 'Character'));
-  const message: StRecord = {
-    name,
-    is_user: role === 'user',
-    is_system: role === 'system',
-    send_date: new Date().toISOString(),
-    mes: input.content ?? '',
-    extra: {},
-  };
-  const index = atIndex === undefined ? chat.length : atIndex;
-  chat.splice(index, 0, message);
-  ensureMessageId(index);
-  saveChat();
-  return mapMessage(index)!;
+  const content = input.content ?? '';
+  const block = role === 'assistant' ? transcriptBlock(content) : null;
+  const parts = role === 'assistant' ? splitPhoneTranscript(content) : null;
+  const turnId = parts ? stableId || nextMessageId() : undefined;
+  return (parts ?? [{ content, name: input.name || (block?.target ?? ''), characterId: input.characterId ?? undefined, isUser: role === 'user' }]).map((part, partIndex) => {
+    const isPhone = Boolean(block);
+    const character = isPhone
+      ? parts && part.characterId
+        ? context.characters.find((item) => String(item.avatar) === part.characterId)
+        : resolvePhoneCharacter(part.name, part.characterId, context.characters, context.chatMetadata?.mochios?.phoneDataYaml)
+      : context.characters.find((item) => input.characterId && String(item.avatar) === String(input.characterId));
+    const name = part.isUser ? context.name1 || 'User'
+      : characterDisplayName(character) || part.name || (isPhone ? 'Unknown sender' : context.name2 || 'Character');
+    const extra: StRecord = { ...input.extra };
+    for (const key of ['mochiosId', 'mochiosTurnId', 'mochiosTurnPart', 'mochiosTurnSwipes', 'mochiosTurnSwipeId']) delete extra[key];
+    if (isPhone) extra.mochiosCharacterId = character ? String(character.avatar) : null;
+    if (turnId) {
+      extra.mochiosTurnId = turnId;
+      extra.mochiosTurnPart = partIndex;
+      if (partIndex === 0) {
+        extra.mochiosId = turnId;
+        extra.mochiosTurnSwipes = [content];
+        extra.mochiosTurnSwipeId = 0;
+      }
+    } else if (stableId) extra.mochiosId = stableId;
+    return {
+      name, is_user: part.isUser, is_system: role === 'system', send_date: new Date().toISOString(),
+      mes: part.content, extra,
+      ...(!part.isUser && character ? {
+        original_avatar: character.avatar,
+        force_avatar: context.getThumbnailUrl?.('avatar', character.avatar) || `/characters/${encodeURIComponent(character.avatar)}`,
+      } : !part.isUser && isPhone ? { force_avatar: '/img/ai4.png' } : {}),
+    };
+  });
 }
 
-export function updateMessageContent(id: string, content: string): Record<string, any> | null {
+async function emitMessage(context: StContext, name: string, index: number): Promise<void> {
+  const type = context.eventTypes?.[name] ?? name;
+  await context.eventSource?.emit?.(type, index, 'mochios');
+}
+
+function assertMessageChat(chat: StRecord[], chatId: string | null): void {
+  if (ctx().chat !== chat || activeChatId() !== chatId) throw new Error('Mochi OS: the chat changed');
+}
+
+/** Repaint the host without reloading its chat file or emitting a false CHAT_CHANGED. */
+async function repaintChat(context: StContext): Promise<void> {
+  if (typeof context.printMessages !== 'function') return;
+  if (typeof document !== 'undefined') document.getElementById('chat')?.querySelectorAll('.mes, #show_more_messages').forEach((element) => element.remove());
+  await context.printMessages();
+}
+
+/** Follow ST's received → render → rendered → save lifecycle, including group avatars. */
+export async function insertMessage(input: InsertMessageInput, atIndex?: number): Promise<Record<string, any>> {
+  const context = ctx();
+  const chatId = activeChatId();
+  const chat = context.chat;
+  const index = atIndex === undefined ? chat.length : Math.max(0, Math.min(atIndex, chat.length));
+  const appended = index === chat.length;
+  const messages = makeMessages(input);
+  chat.splice(index, 0, ...messages);
+  messages.forEach((_message, offset) => ensureMessageId(index + offset));
+  const result = mapTurn(index)!;
+  for (let offset = 0; offset < messages.length; offset += 1) {
+    const message = messages[offset];
+    await emitMessage(context, message.is_user ? 'MESSAGE_SENT' : 'MESSAGE_RECEIVED', index + offset);
+    assertMessageChat(chat, chatId);
+    if (appended) context.addOneMessage?.(message);
+    else if (offset === 0) await repaintChat(context);
+    assertMessageChat(chat, chatId);
+    await emitMessage(context, message.is_user ? 'USER_MESSAGE_RENDERED' : 'CHARACTER_MESSAGE_RENDERED', index + offset);
+    assertMessageChat(chat, chatId);
+  }
+  await context.saveChat?.();
+  return result;
+}
+
+async function replaceTurn(id: string, content: string, swipes?: string[], swipeId = 0): Promise<Record<string, any> | null> {
   const index = messageIndexOf(id);
   if (index < 0) return null;
-  const message = ctx().chat[index];
+  const context = ctx();
+  const chatId = activeChatId();
+  const chat = context.chat;
+  const indices = turnIndices(index);
+  const first = indices[0];
+  const previous = chat[first];
+  const messages = makeMessages({ role: 'assistant', characterId: mapMessage(first)?.characterId, name: previous.is_user ? undefined : previous.name, content, extra: previous.extra }, ensureMessageId(first)!);
+  if (previous.extra?.mochiosTurnId) {
+    messages[0].extra.mochiosId = previous.extra.mochiosTurnId;
+    messages.forEach((message, part) => {
+      message.extra.mochiosTurnId = previous.extra.mochiosTurnId;
+      message.extra.mochiosTurnPart = part;
+    });
+  }
+  for (const position of [...indices].reverse()) chat.splice(position, 1);
+  chat.splice(first, 0, ...messages);
+  messages.forEach((message, offset) => {
+    if (offset === 0) message.send_date = previous.send_date;
+    ensureMessageId(first + offset);
+  });
+  if (swipes && messages[0].extra.mochiosTurnId) {
+    messages[0].extra.mochiosTurnSwipes = swipes;
+    messages[0].extra.mochiosTurnSwipeId = swipeId;
+  }
+  await repaintChat(context);
+  assertMessageChat(chat, chatId);
+  await emitMessage(context, 'MESSAGE_UPDATED', first);
+  assertMessageChat(chat, chatId);
+  await context.saveChat?.();
+  return mapTurn(first);
+}
+
+export async function updateMessageContent(id: string, content: string): Promise<Record<string, any> | null> {
+  const index = messageIndexOf(id);
+  if (index < 0) return null;
+  const context = ctx();
+  const chatId = activeChatId();
+  const message = context.chat[index];
+  if (message.extra?.mochiosTurnId || splitPhoneTranscript(content)) {
+    const turn = mapTurn(index)!;
+    const swipes = turn.swipes?.length ? [...turn.swipes] : [turn.content];
+    swipes[turn.activeSwipeIndex] = content;
+    return replaceTurn(id, content, swipes, turn.activeSwipeIndex);
+  }
   const isSwipe = Array.isArray(message.swipes) && message.swipes.length > 0;
   if (isSwipe) {
     const swipeIndex = Number(message.swipe_id ?? 0);
     message.swipes[swipeIndex] = content;
   }
   message.mes = content;
-  saveChat();
-  return mapMessage(index);
+  context.updateMessageBlock?.(index, message);
+  await emitMessage(context, 'MESSAGE_EDITED', index);
+  assertMessageChat(context.chat, chatId);
+  await emitMessage(context, 'MESSAGE_UPDATED', index);
+  assertMessageChat(context.chat, chatId);
+  await context.saveChat?.();
+  return mapTurn(index);
 }
 
-export function deleteMessage(id: string): boolean {
+export async function deleteMessage(id: string): Promise<boolean> {
   const index = messageIndexOf(id);
   if (index < 0) return false;
-  ctx().chat.splice(index, 1);
-  saveChat();
+  const context = ctx();
+  const chatId = activeChatId();
+  for (const position of turnIndices(index).reverse()) context.chat.splice(position, 1);
+  await repaintChat(context);
+  assertMessageChat(context.chat, chatId);
+  await emitMessage(context, 'MESSAGE_DELETED', context.chat.length);
+  assertMessageChat(context.chat, chatId);
+  await context.saveChat?.();
   return true;
 }
 
@@ -453,34 +617,55 @@ export function mergeMessageExtra(id: string, patch: Record<string, any>): Recor
   if (!message.extra || typeof message.extra !== 'object') message.extra = {};
   Object.assign(message.extra, patch);
   saveChat();
-  return mapMessage(index);
+  return mapTurn(index);
 }
 
-export function appendSwipe(id: string, content: string): Record<string, any> | null {
+export async function appendSwipe(id: string, content: string): Promise<Record<string, any> | null> {
   const index = messageIndexOf(id);
   if (index < 0) return null;
   const message = ctx().chat[index];
+  if (message.extra?.mochiosTurnId || splitPhoneTranscript(content)) {
+    const turn = mapTurn(index)!;
+    const swipes = [...(turn.swipes?.length ? turn.swipes : [turn.content]), content];
+    return replaceTurn(id, content, swipes, swipes.length - 1);
+  }
   if (!Array.isArray(message.swipes) || message.swipes.length === 0) {
     message.swipes = [message.mes ?? ''];
   }
   message.swipes.push(content);
   message.swipe_id = message.swipes.length - 1;
   message.mes = content;
-  saveChat();
+  const context = ctx();
+  const chatId = activeChatId();
+  context.addOneMessage?.(message, { type: 'swipe', forceId: index, scroll: false });
+  await emitMessage(context, 'MESSAGE_SWIPED', index);
+  assertMessageChat(context.chat, chatId);
+  await context.saveChat?.();
   return mapMessage(index);
 }
 
-export function setActiveSwipe(id: string, swipeIndex: number): Record<string, any> | null {
+export async function setActiveSwipe(id: string, swipeIndex: number): Promise<Record<string, any> | null> {
   const index = messageIndexOf(id);
   if (index < 0) return null;
   const message = ctx().chat[index];
+  if (message.extra?.mochiosTurnId || splitPhoneTranscript(message.swipes?.[swipeIndex] ?? message.mes)) {
+    const turn = mapTurn(index)!;
+    const swipes = turn.swipes?.length ? turn.swipes : [turn.content];
+    const next = Math.max(0, Math.min(Number.isFinite(swipeIndex) ? Math.floor(swipeIndex) : 0, swipes.length - 1));
+    return replaceTurn(id, swipes[next], swipes, next);
+  }
   if (!Array.isArray(message.swipes) || message.swipes.length === 0) {
     message.swipes = [message.mes ?? ''];
   }
-  const clamped = Math.max(0, Math.min(swipeIndex, message.swipes.length - 1));
+  const clamped = Math.max(0, Math.min(Number.isFinite(swipeIndex) ? Math.floor(swipeIndex) : 0, message.swipes.length - 1));
   message.swipe_id = clamped;
   message.mes = message.swipes[clamped] ?? message.mes;
-  saveChat();
+  const context = ctx();
+  const chatId = activeChatId();
+  context.addOneMessage?.(message, { type: 'swipe', forceId: index, scroll: false });
+  await emitMessage(context, 'MESSAGE_SWIPED', index);
+  assertMessageChat(context.chat, chatId);
+  await context.saveChat?.();
   return mapMessage(index);
 }
 
