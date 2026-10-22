@@ -1,25 +1,12 @@
-/**
- * Custom stickers for the open conversation.
- *
- * The engine let a chat carry its own sticker pack. SillyTavern has no per-chat
- * sticker set, so the pack is empty: sticker messages still render as text, and
- * the picker simply offers none. The shape is kept so the widgets and the picker
- * need no changes if a pack is ever wired up.
- */
-import { useMemo } from 'react';
+/** The historical hook name remains, but the library belongs to Mochi, not a chat. */
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { getStickerSnapshot, loadMochiStickers, subscribeStickers, type MochiSticker } from '../st/stickers';
 
-export interface ConversationSticker {
-  id?: string;
-  name: string;
-  url?: string;
-}
+export type ConversationSticker = MochiSticker;
 
-const EMPTY_LIST: ConversationSticker[] = [];
-
-export function useConversationCustomStickers(): {
-  list: ConversationSticker[];
-  map: Map<string, string>;
-} {
-  const map = useMemo(() => new Map<string, string>(), []);
-  return useMemo(() => ({ list: EMPTY_LIST, map }), [map]);
+export function useConversationCustomStickers() {
+  const snapshot = useSyncExternalStore(subscribeStickers, getStickerSnapshot, getStickerSnapshot);
+  useEffect(() => { void loadMochiStickers().catch(() => {}); }, []);
+  const map = useMemo(() => new Map(snapshot.list.map((sticker) => [sticker.name, sticker.url])), [snapshot.list]);
+  return useMemo(() => ({ ...snapshot, map }), [snapshot, map]);
 }

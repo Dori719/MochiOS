@@ -37,15 +37,14 @@ import {
   fmtDur,
   cleanAndExtractRawYaml,
   extractPhoneDataEditorYaml,
-  parseMochiChatResponse,
   formatFriendInfo,
   formatUserMsgForAi,
   parseChatHistoryBlocks,
   selectMochiThreadContact,
   serializeChatHistoryYaml,
   stripMochiThreadRecordsFromContent,
-  restoreAnsweredUserMessages,
   mergeMochiChatHistoryBlocks,
+  reconcileMochiContactHistory,
   parseEnvironmentYaml,
   formatMochiTransferAmount,
   formatMochiTransferDisplay,
@@ -61,8 +60,8 @@ import {
   isMochiTransferType,
   findPendingMochiTransfer,
   locateMochiMessageInRoleplay,
+  mochiRoleplayBubbleId,
   resolveMochiRegenerationTurn,
-  resolveMochiReplacementTurns,
   mochiRegenerationVisibleMessageCount,
   removeMochiThreadMessage,
   MOCHI_TRANSFER_ACCEPTED_TYPE,
@@ -93,7 +92,6 @@ import { getChatDisplayName, parseChatMetadata } from "../../../lib/chat-display
 import { estimateTextTokens } from "../../../lib/character-token-count";
 import { usePresets } from "../../../hooks/use-presets";
 import { useGenerate } from "../../../hooks/use-generate";
-import { useUIStore } from "../../../stores/ui.store";
 import { useChatStore } from "../../../stores/chat.store";
 import { getAvatarCropStyle } from "../../../lib/utils";
 import { MessageReactions } from "../MessageReactions";
@@ -111,6 +109,10 @@ import { SlashCommandFeedback } from "../SlashCommandFeedback";
 import { matchSlashCommand, getSlashCompletions, type SlashCommandContext } from "../../../lib/slash-commands";
 import { useInstalledCapabilityPackages } from "../../../hooks/use-capability-packages";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
+import { useMochiMessageActions, type MochiReplyTarget } from "../../../hooks/use-mochi-message-actions";
+import { MochiMessageIdentity } from "./MochiMessageIdentity";
+import { MochiSettingsSplit } from "./MochiSettingsSplit";
+import { stickerName } from "../../../st/stickers";
 import { toggleReaction, removeCharacterReaction, reactionTargetOf, USER_REACTOR } from "../../../lib/reactions";
 import { api } from "../../../lib/api-client";
 import {
@@ -132,7 +134,6 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Languages,
   GitBranch,
   CornerUpLeft,
   ChevronLeft,
@@ -146,10 +147,7 @@ import yaml from "yaml";
 const HOMESCREEN_ORDER_STORAGE_KEY = "mochi_os_app_order";
 
 function MochiStickerName(value: string): string {
-  return value
-    .trim()
-    .replace(/^\[Sticker\]\s*/i, "")
-    .replace(/^sticker:([a-z0-9_]+):$/i, "$1");
+  return stickerName(value);
 }
 
 /**
@@ -612,57 +610,6 @@ export function MochiOsView({
   const { data: persistedSettings } = useMochiOsSettings();
   const updateSettingsMutation = useUpdateMochiOsSettings();
 
-  // TopBar / User Status & Activity
-  const userStatus = useUIStore((s) => s.userStatus);
-  const userActivity = useUIStore((s) => s.userActivity);
-  const recentUserActivities = useUIStore((s) => s.recentUserActivities);
-  const setUserStatusManual = useUIStore((s) => s.setUserStatusManual);
-  const setUserActivity = useUIStore((s) => s.setUserActivity);
-  const rememberUserActivity = useUIStore((s) => s.rememberUserActivity);
-
-  const [profileStatusMenuOpen, setProfileStatusMenuOpen] = useState(false);
-  const [profileActivityDraft, setProfileActivityDraft] = useState(userActivity);
-  const [profileActivityFocused, setProfileActivityFocused] = useState(false);
-  const profileStatusDropdownWrapRef = useRef<HTMLDivElement | null>(null);
-  const profileActivityContainerRef = useRef<HTMLDivElement | null>(null);
-
-  // Sync draft activity when global userActivity changes
-  useEffect(() => {
-    setProfileActivityDraft(userActivity);
-  }, [userActivity]);
-
-  // Recent activity suggestions
-  const recentActivitySuggestions = useMemo(() => {
-    const currentActivity = userActivity.replace(/\s+/g, " ").trim().toLowerCase();
-    return recentUserActivities
-      .filter((activity) => activity.trim() && activity.trim().toLowerCase() !== currentActivity)
-      .slice(0, 3);
-  }, [recentUserActivities, userActivity]);
-
-  // Close profile status dropdown when clicked outside
-  useEffect(() => {
-    if (!profileStatusMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (profileStatusDropdownWrapRef.current && !profileStatusDropdownWrapRef.current.contains(e.target as Node)) {
-        setProfileStatusMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [profileStatusMenuOpen]);
-
-  // Close recent activity suggestions dropdown when clicked outside
-  useEffect(() => {
-    if (!profileActivityFocused) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (profileActivityContainerRef.current && !profileActivityContainerRef.current.contains(e.target as Node)) {
-        setProfileActivityFocused(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [profileActivityFocused]);
-
   // Personas
   const { data: allPersonas = [] } = usePersonas();
   const updatePersonaMutation = useUpdatePersona();
@@ -734,26 +681,9 @@ export function MochiOsView({
   // Conversation Media Picker & Slash Commands State
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
-  const mediaPickerContainerRef = useRef<HTMLDivElement | null>(null);
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
   const [slashCompletions, setSlashCompletions] = useState<any[]>([]);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
-
-  // Close media picker when clicked outside
-  useEffect(() => {
-    if (!mediaPickerOpen) return;
-    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
-      if (mediaPickerContainerRef.current && !mediaPickerContainerRef.current.contains(e.target as Node)) {
-        setMediaPickerOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [mediaPickerOpen]);
 
   const { data: installedCapabilityPackages } = useInstalledCapabilityPackages();
   const availableCapabilityIds = useMemo(() => {
@@ -1007,13 +937,14 @@ export function MochiOsView({
   const { entries: chatLorebookAllEntries = [] } = useEntriesAcrossLorebooks(derivedChatLorebookIds);
 
   // Messages for active selected chat
-  const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   // Phone threads are not separate ST chats. Their replies are generated by
   // handleTriggerAiGeneration and archived into activeChatId; enabling the
   // engine's separate-chat branch would also send a duplicate roleplay request.
   const effectiveChatId: string | null = null;
   const { data: chatMessagesData } = useChatMessages(effectiveChatId, 50, !!effectiveChatId);
-  const { data: activeChatMessagesData } = useChatMessages(activeChatId ?? null, messagesPerPage, !!activeChatId);
+  // ST already holds the full history locally. A roleplay page boundary must not
+  // hide a contact's surviving older turn when its latest record is deleted.
+  const { data: activeChatMessagesData } = useChatMessages(activeChatId ?? null, 0, !!activeChatId);
   const realChatMessages = useMemo(() => {
     if (!chatMessagesData?.pages) return [];
     const flattened = [...chatMessagesData.pages].reverse().flat();
@@ -1357,19 +1288,19 @@ export function MochiOsView({
   const deletingContactRef = useRef<Set<string>>(new Set());
   // Track environment metadata YAML block per contact if received
   const lastEnvironmentYamlRef = useRef<{ [contactId: string]: string }>({});
-  // Last private-chat YAML already applied to state, per chat. A refetch that
-  // was already in flight when a delete was saved can resolve with the YAML as
-  // it was *before* that delete. React Query hands back a fresh object for it, so
-  // without comparing content the hydrate effect would run and put the deleted
-  // message straight back. Identical content means there is nothing new to apply.
   // User bubbles being answered by an in-flight generation. The archive does not
   // contain them until the response is archived, so hydration must keep showing
   // them instead of rebuilding the contact from the truncated file.
   const regeneratingUserMsgsRef = useRef<{ [contactId: string]: MochiMessage[] }>({});
 
-  // Handle reaction on demo contacts
+  const persistMochiReactionRef = useRef<(msgIdx: number, reactions: MessageReaction[]) => void>(() => {});
+
+  // Update locally, then persist to the exact bubble in its SillyTavern record.
   const handleDemoReaction = useCallback(
     (msgIdx: number, emoji: string, imageUrl: string | null) => {
+      const contact = (isPrivateMode ? privateContactsRef.current : contactsRef.current)[activeContactId];
+      const reactions = toggleReaction(contact?.msgs[msgIdx]?.reactions ?? [], emoji, USER_REACTOR, imageUrl);
+      persistMochiReactionRef.current(msgIdx, reactions);
       const setter = isPrivateMode ? setPrivateContacts : setContacts;
       setter((prev) => {
         const contact = prev[activeContactId];
@@ -1388,6 +1319,8 @@ export function MochiOsView({
 
   const handleToggleDemoReactionEntry = useCallback(
     (msgIdx: number, reaction: MessageReaction) => {
+      const contact = (isPrivateMode ? privateContactsRef.current : contactsRef.current)[activeContactId];
+      persistMochiReactionRef.current(msgIdx, toggleReaction(contact?.msgs[msgIdx]?.reactions ?? [], reaction.emoji, USER_REACTOR, reaction.imageUrl ?? null, reactionTargetOf(reaction)));
       const setter = isPrivateMode ? setPrivateContacts : setContacts;
       setter((prev) => {
         const contact = prev[activeContactId];
@@ -1412,6 +1345,8 @@ export function MochiOsView({
 
   const handleRemoveDemoCharacterReaction = useCallback(
     (msgIdx: number, reaction: MessageReaction) => {
+      const contact = (isPrivateMode ? privateContactsRef.current : contactsRef.current)[activeContactId];
+      persistMochiReactionRef.current(msgIdx, removeCharacterReaction(contact?.msgs[msgIdx]?.reactions ?? [], reaction));
       const setter = isPrivateMode ? setPrivateContacts : setContacts;
       setter((prev) => {
         const contact = prev[activeContactId];
@@ -1438,11 +1373,16 @@ export function MochiOsView({
       .filter(
         (message) =>
           message.role === "assistant" &&
-          /<(?:chat_history|privatechat_history)\s+target="[^"]+"\s+type="(?:private|group)"[^>]*>/i.test(
+          /<(?:chat_history|privatechat_history|groupchat_history|group_message)\b/i.test(
             message.content,
           ),
       )
-      .flatMap((message) => parseChatHistoryBlocks(message.content, personaName))
+      .flatMap((message) => parseChatHistoryBlocks(message.content, personaName).map((block, recordIndex) => ({
+        ...block,
+        messages: block.messages.map((item, itemIndex) => ({
+          ...item, id: mochiRoleplayBubbleId(message.id, recordIndex, itemIndex),
+        })),
+      })))
       .filter((block) => block.messages.length > 0);
     if (parsedBlocks.length === 0) {
       return { contacts: {} as MochiContactsMap, privateContacts: {} as MochiContactsMap };
@@ -1490,6 +1430,7 @@ export function MochiOsView({
           d: m.date || parsedChat.date || "Today",
           sender: m.sender,
           rawItem: m.rawItem,
+          reactions: m.reactions,
           ...(existingMsg?.swipes ? { swipes: existingMsg.swipes } : {}),
           ...(existingMsg?.activeSwipeIndex !== undefined ? { activeSwipeIndex: existingMsg.activeSwipeIndex } : {}),
         };
@@ -1537,10 +1478,34 @@ export function MochiOsView({
     return { ...base, ...local };
   }, [isPrivateMode, hydratedContactMaps, privateContacts, contacts]);
 
+  persistMochiReactionRef.current = (msgIdx, reactions) => {
+    if (!activeChatId) return;
+    const contact = currentContactsMap[activeThreadId];
+    if (!contact) return;
+    const target = contact.msgs[msgIdx];
+    const location = locateMochiMessageInRoleplay({
+      roleplayMessages: activeChatRoleplayMessages, userName: userScreenName, targetName: contact.name,
+      recordType: activeRecordType, threadIndex: msgIdx, threadMessageId: target?.id,
+    });
+    if (!location) {
+      const pending = pendingUserMsgsQueueRef.current[activeThreadId]?.find((message) => message.id === target?.id);
+      if (pending) pending.reactions = reactions;
+      return;
+    }
+    void api.patch(`/chats/${activeChatId}/messages/${location.roleplayMessageId}/phone-reactions`, {
+      recordType: activeRecordType, targetName: location.targetName, recordIndex: location.recordIndex,
+      itemIndex: location.indexInRecord, itemId: target?.rawItem?.id, reactions,
+    }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not save reaction"))
+      .finally(() => { void qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) }); });
+  };
+
   // Message actions in Mochi OS chats (copy, edit, delete)
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
   const [editingMsgText, setEditingMsgText] = useState("");
+  const savingMochiMessageRef = useRef(false);
+  const editingThreadRef = useRef(activeThreadId);
+  editingThreadRef.current = activeThreadId;
 
   const handleCopyMochiMessage = useCallback(async (msgIdx: number, text: string) => {
     try {
@@ -1563,76 +1528,74 @@ export function MochiOsView({
   }, []);
 
   const handleSaveEditMochiMessage = useCallback(
-    (msgIdx: number, targetMsgId?: string) => {
+    async (msgIdx: number, targetMsgId?: string) => {
       const trimmed = editingMsgText.trim();
-      if (!trimmed) return;
+      if (!trimmed || savingMochiMessageRef.current) return;
       const targetId = activeThreadId;
       const currentContacts = currentContactsMap;
       const contact = currentContacts[targetId];
       if (!contact) return;
       const msgs = [...contact.msgs];
-      // Match by message ID first so a bubble remains tied to the same YAML item.
-      const resolvedIdx = targetMsgId ? msgs.findIndex((m) => m.id === targetMsgId) : msgIdx;
-      const actualIdx = resolvedIdx !== -1 ? resolvedIdx : msgIdx;
+      // The selected position wins when imported ids repeat. Hydrated bubbles
+      // have unique runtime keys, but those keys never enter the transcript.
+      const resolvedIdx = !targetMsgId || msgs[msgIdx]?.id === targetMsgId ? msgIdx : msgs.findIndex((m) => m.id === targetMsgId);
+      const actualIdx = resolvedIdx;
       const target = msgs[actualIdx];
       if (!target) return;
-      msgs[actualIdx] = { ...target, text: trimmed };
-      const updatedContact = { ...contact, msgs };
-
-      const setter = isPrivateMode ? setPrivateContacts : setContacts;
-      setter((prev) => ({ ...prev, [targetId]: updatedContact }));
-
-      if (activeChatId) {
-        // Same record resolution as delete: the thread is the concatenation of
-        // every record for this contact, so the index must be mapped back to the
-        // roleplay message that actually holds the bubble.
-        const location = locateMochiMessageInRoleplay({
-          roleplayMessages: activeChatRoleplayMessages,
-          userName: activeLinkedPersona?.name || "User",
-          targetName: contact.name || "",
-          recordType: activeRecordType,
-          threadIndex: actualIdx,
-          threadMessageId: targetMsgId,
-        });
-        const roleplayMessage = location
-          ? activeChatRoleplayMessages.find((message) => message.id === location.roleplayMessageId)
-          : undefined;
-        if (roleplayMessage && location) {
-          const parsed = parseChatHistoryBlocks(roleplayMessage.content, activeLinkedPersona?.name || "User", {
+      const pending = pendingUserMsgsQueueRef.current[targetId]?.find((message) => message.id === target.id);
+      savingMochiMessageRef.current = true;
+      try {
+        if (activeChatId && !pending) {
+          const location = locateMochiMessageInRoleplay({
+            roleplayMessages: activeChatRoleplayMessages,
+            userName: activeLinkedPersona?.name || "User",
+            targetName: contact.name || "",
             recordType: activeRecordType,
-          }).find((block) => block.target?.toLowerCase() === (contact.name || "").toLowerCase());
-          const editedMessage = parsed?.messages[location.indexInRecord];
-          if (parsed && editedMessage) {
-            editedMessage.text = trimmed;
-            editedMessage.rawItem = { ...editedMessage.rawItem, c: trimmed };
-            delete editedMessage.rawItem.id;
-            const environment = roleplayMessage.content.match(/<environment>[\s\S]*?<\/environment>/i)?.[0];
-            void updateRoleplayMessage.mutateAsync({
-              messageId: roleplayMessage.id,
-              content: `${serializeChatHistoryYaml({
-                targetName: contact.name || "Character",
-                messages: parsed.messages,
-                recordType: activeRecordType,
-                members: activeGroupMemberNames.length || undefined,
-              })}${environment ? `\n${environment}` : ""}`,
-            });
-          }
+            threadIndex: actualIdx,
+            threadMessageId: target.id,
+          });
+          if (!location) throw new Error("Could not find this bubble in the connected roleplay chat.");
+          const saved = await api.patch<Message>(`/chats/${activeChatId}/messages/${location.roleplayMessageId}/phone-message`, {
+            recordType: activeRecordType, targetName: location.targetName, recordIndex: location.recordIndex,
+            itemIndex: location.indexInRecord, itemId: target.rawItem?.id, content: trimmed,
+            expectedContent: activeChatRoleplayMessages.find((message) => message.id === location.roleplayMessageId)?.content,
+          });
+          if (!saved || saved.id !== location.roleplayMessageId) throw new Error("The connected roleplay message could not be updated.");
         }
+        if (useChatStore.getState().activeChatId !== activeChatId) return;
+        if (pending) {
+          pending.text = trimmed;
+          if (pending.rawItem) pending.rawItem = { ...pending.rawItem, c: trimmed };
+        }
+        const setter = isPrivateMode ? setPrivateContacts : setContacts;
+        setter((prev) => {
+          const current = prev[targetId] || contact;
+          const nextMsgs = current.msgs.map((message, index) => (target.id ? message.id === target.id : index === actualIdx)
+            ? { ...message, text: trimmed, rawItem: { ...message.rawItem, c: trimmed } }
+            : message);
+          return { ...prev, [targetId]: { ...current, msgs: nextMsgs, preview: mochiMessagePreview(nextMsgs.at(-1)) } };
+        });
+        if (editingThreadRef.current === targetId) {
+          setEditingMsgIdx(null);
+          setEditingMsgText("");
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not save edit");
+      } finally {
+        savingMochiMessageRef.current = false;
+        if (activeChatId) void qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
       }
-      setEditingMsgIdx(null);
-      setEditingMsgText("");
     },
     [
       activeThreadId,
       activeRecordType,
-      activeGroupMemberNames,
       editingMsgText,
       isPrivateMode,
       activeChatId,
       currentContactsMap,
       activeChatRoleplayMessages,
       activeLinkedPersona,
-      updateRoleplayMessage,
+      qc,
     ],
   );
 
@@ -1645,6 +1608,8 @@ export function MochiOsView({
       if (!contact) return;
       const targetMessage = contact.msgs[msgIdx];
       if (!targetMessage) return;
+      pendingUserMsgsQueueRef.current[targetId] = (pendingUserMsgsQueueRef.current[targetId] || [])
+        .filter((message) => message.id !== targetMessage.id);
       const targetOccurrence = targetMsgId
         ? contact.msgs.slice(0, msgIdx).filter((message) => message.id === targetMsgId).length
         : 0;
@@ -1692,37 +1657,12 @@ export function MochiOsView({
           threadIndex: msgIdx,
           threadMessageId: targetMsgId,
         });
-        const roleplayMessage = location
-          ? activeChatRoleplayMessages.find((message) => message.id === location.roleplayMessageId)
-          : undefined;
-        if (roleplayMessage && location) {
-          const parsed = parseChatHistoryBlocks(roleplayMessage.content, activeLinkedPersona?.name || "User", {
-            recordType: activeRecordType,
-          }).find((block) => (block.target || block.name || "").toLowerCase() === targetName.toLowerCase());
-          if (parsed) {
-            const nextMessages = removeMochiThreadMessage(parsed.messages, location.indexInRecord);
-            if (nextMessages.length < parsed.messages.length) {
-              const environment = roleplayMessage.content.match(/<environment>[\s\S]*?<\/environment>/i)?.[0];
-              if (nextMessages.length > 0) {
-                const nextContent = `${serializeChatHistoryYaml({
-                  targetName,
-                  messages: nextMessages,
-                  recordType: activeRecordType,
-                  members: activeGroupMemberNames.length || undefined,
-                })}${environment ? `\n${environment}` : ""}`;
-                void updateRoleplayMessage.mutateAsync({
-                  messageId: roleplayMessage.id,
-                  content: nextContent,
-                });
-              } else {
-                // The record held only this turn, so the roleplay message that
-                // exists to carry it goes too.
-                void api.delete(`/chats/${activeChatId}/messages/${roleplayMessage.id}`).then(() => {
-                  qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
-                });
-              }
-            }
-          }
+        if (location) {
+          void api.patch(`/chats/${activeChatId}/messages/${location.roleplayMessageId}/phone-message`, {
+            recordType: activeRecordType, targetName: location.targetName, recordIndex: location.recordIndex, itemIndex: location.indexInRecord,
+            itemId: targetMessage.rawItem?.id, delete: true,
+          }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not delete message"))
+            .finally(() => { void qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) }); });
         }
       }
       if (editingMsgIdx === msgIdx) {
@@ -1742,35 +1682,8 @@ export function MochiOsView({
       currentContactsMap,
       activeChatRoleplayMessages,
       activeLinkedPersona?.name,
-      updateRoleplayMessage,
       qc,
     ],
-  );
-
-  const [translatedMochiMsgs, setTranslatedMochiMsgs] = useState<Record<number, string>>({});
-
-  const handleTranslateMochiMessage = useCallback(
-    async (msgIdx: number, text: string) => {
-      if (translatedMochiMsgs[msgIdx]) {
-        setTranslatedMochiMsgs((prev) => {
-          const next = { ...prev };
-          delete next[msgIdx];
-          return next;
-        });
-        return;
-      }
-      try {
-        const res = await api.post<{ translated: string }>("/translation/translate", {
-          text,
-        });
-        if (res?.translated) {
-          setTranslatedMochiMsgs((prev) => ({ ...prev, [msgIdx]: res.translated }));
-        }
-      } catch {
-        toast.error(localizeUi("ui.chat.chatmessage.translateFailed", "Translation failed"));
-      }
-    },
-    [translatedMochiMsgs, localizeUi],
   );
 
   const handleRegenerateMochiMessage = useCallback(
@@ -1884,7 +1797,7 @@ export function MochiOsView({
           if (message.role !== "assistant") return false;
           const block = parseChatHistoryBlocks(message.content, activeLinkedPersona?.name || "User", {
             recordType: activeRecordType,
-          }).find((entry) => (entry.target || entry.name || "").toLowerCase() === targetName.toLowerCase());
+          }).find((entry) => [entry.target, entry.contactname, entry.name].some((name) => name?.trim().toLowerCase() === targetName.trim().toLowerCase()));
           return block?.type === activeRecordType;
         });
         // Replace only from the record that actually holds this turn. Falling back to
@@ -2033,22 +1946,17 @@ export function MochiOsView({
   const handleBranchMochiMessage = useCallback(
     async (msgIdx: number) => {
       if (!activeChatId || branchChat.isPending || branchPendingRef.current) return;
-      const contact = (isPrivateMode ? privateContacts : contacts)[activeContactId];
-      const targetName = contact?.name?.toLowerCase();
-      let messageOffset = 0;
-      let upToMessageId: string | undefined;
-      for (const message of activeChatRoleplayMessages) {
-        if (message.role !== "assistant") continue;
-        const block = parseChatHistoryBlocks(message.content, activeLinkedPersona?.name || "User", {
-          recordType: activeRecordType,
-        }).find((entry) => entry.target?.toLowerCase() === targetName);
-        if (!block) continue;
-        if (msgIdx < messageOffset + block.messages.length) {
-          upToMessageId = message.id;
-          break;
-        }
-        messageOffset += block.messages.length;
-      }
+      const contact = currentContactsMap[activeThreadId];
+      if (!contact) return;
+      const location = locateMochiMessageInRoleplay({
+        roleplayMessages: activeChatRoleplayMessages,
+        userName: activeLinkedPersona?.name || "User",
+        targetName: contact.name,
+        recordType: activeRecordType,
+        threadIndex: msgIdx,
+        threadMessageId: contact.msgs[msgIdx]?.id,
+      });
+      const upToMessageId = location?.roleplayMessageId;
       if (!upToMessageId) return;
       branchPendingRef.current = true;
       const confirmed = await showConfirmDialog({
@@ -2086,14 +1994,12 @@ export function MochiOsView({
     },
     [
       activeChatId,
-      activeContactId,
+      activeThreadId,
       activeRecordType,
       activeChatRoleplayMessages,
       activeLinkedPersona?.name,
       branchChat,
-      contacts,
-      isPrivateMode,
-      privateContacts,
+      currentContactsMap,
       localizeUi,
     ],
   );
@@ -2103,48 +2009,27 @@ export function MochiOsView({
   const [callsSearchText, setCallsSearchText] = useState("");
   const [peopleSearchText, setPeopleSearchText] = useState("");
   const [msgInputText, setMsgInputText] = useState("");
-  const [replyingToMochiMessage, setReplyingToMochiMessage] = useState<{
-    author: string;
-    text: string;
-    isOutgoing: boolean;
-  } | null>(null);
+  const [replyingToMochiMessage, setReplyingToMochiMessage] = useState<MochiReplyTarget | null>(null);
   const [composerPlusOpen, setComposerPlusOpen] = useState(false);
-  const [activeMochiMsgActionId, setActiveMochiMsgActionId] = useState<string | number | null>(null);
-  const messageHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const messageHoldTriggeredRef = useRef(false);
-
-  const beginMochiMessageHold = useCallback((author: string, text: string, isOutgoing: boolean) => {
-    messageHoldTriggeredRef.current = false;
-    if (messageHoldTimerRef.current) clearTimeout(messageHoldTimerRef.current);
-    messageHoldTimerRef.current = setTimeout(() => {
-      messageHoldTriggeredRef.current = true;
-      setReplyingToMochiMessage({ author, text, isOutgoing });
-    }, 500);
-  }, []);
-  const endMochiMessageHold = useCallback(() => {
-    if (messageHoldTimerRef.current) clearTimeout(messageHoldTimerRef.current);
-    messageHoldTimerRef.current = null;
-  }, []);
-  useEffect(() => () => endMochiMessageHold(), [endMochiMessageHold]);
-
-  // Dismiss actions on outside tap/touch just like roleplay
+  const { activeId: activeMochiMsgActionId, interaction: mochiMessageInteraction, dismiss: dismissMochiMessageActions } = useMochiMessageActions(
+    setReplyingToMochiMessage, `${activeChatId}:${activeThreadId}:${isPrivateMode}`,
+  );
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    if (activeMochiMsgActionId == null) return;
-    const handleTouch = (e: TouchEvent) => {
-      if (
-        e.target instanceof Element &&
-        e.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-chat-floating-panel]')
-      ) {
-        return;
-      }
-      const activeEl = document.querySelector(".mochi-scope .mrow.actions-visible");
-      if (activeEl && !activeEl.contains(e.target as Node)) {
-        setActiveMochiMsgActionId(null);
-      }
+    setReplyingToMochiMessage(null);
+    setMediaPickerOpen(false);
+    setComposerPlusOpen(false);
+    setEditingMsgIdx(null);
+    setEditingMsgText("");
+  }, [activeChatId, activeThreadId, isPrivateMode, inChatView]);
+  useEffect(() => {
+    if (!composerPlusOpen) return;
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Element && !event.target.closest('.mochi-composer')) setComposerPlusOpen(false);
     };
-    document.addEventListener("touchstart", handleTouch);
-    return () => document.removeEventListener("touchstart", handleTouch);
-  }, [activeMochiMsgActionId]);
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [composerPlusOpen]);
 
   // Images Modal sub-state
   const [imgFile, setImgFile] = useState<File | null>(null);
@@ -2226,155 +2111,16 @@ export function MochiOsView({
   }, [activeChatRoleplayMessages, applyEnvironmentUpdate]);
 
   useEffect(() => {
-    const personaName = activeLinkedPersona?.name?.trim() || "User";
-    const groups = (savedPhoneDataResponse?.phoneData?.groups as MochiOsGroupData[] | undefined) || [];
-    const groupKeyByName = new Map(groups.map((group) => [group.id, group.name?.trim().toLowerCase() || ""]));
-    const parsedBlocks = activeChatRoleplayMessages
-      .filter(
-        (message) =>
-          message.role === "assistant" &&
-          /<(?:chat_history|privatechat_history)\s+target="[^"]+"\s+type="(?:private|group)"[^>]*>/i.test(
-            message.content,
-          ),
-      )
-      .flatMap((message) => parseChatHistoryBlocks(message.content, personaName))
-      .filter((block) => block.messages.length > 0);
-    if (parsedBlocks.length === 0) return;
-    const contactBlocks = mergeMochiChatHistoryBlocks(parsedBlocks);
-    const restoreOne = (prev: MochiContactsMap, parsedChat: (typeof contactBlocks)[number]) => {
-      const targetName = parsedChat.target || parsedChat.name || primaryRoleplayCharName || "Character";
-      // A group record is identified by its group name, so it belongs under that
-      // group's `group_<id>` key. Without this lookup a group's messages would be
-      // rehydrated into a contact named after the group instead of the group
-      // thread the user actually opened.
-      const groupEntry = Array.from(groupKeyByName.entries()).find(([, name]) => name === targetName.toLowerCase());
-      if (parsedChat.type === "group" && !groupEntry) {
-        // Group chat whose group definition is not found in phoneData.groups
-        // Skip or do not hydrate into private contacts!
-        return prev;
-      }
-      const targetContactKey = parsedChat.type === "group" && groupEntry ? `group_${groupEntry[0]}` : "";
-      if (parsedChat.type === "group" && !targetContactKey) {
-        return prev;
-      }
-      const resolvedKey =
-        targetContactKey ||
-        Object.keys(privateContactsRef.current).find(
-          (k) =>
-            !k.startsWith("group_") &&
-            (k.toLowerCase() === targetName.toLowerCase() ||
-              privateContactsRef.current[k]?.name?.toLowerCase() === targetName.toLowerCase()),
-        ) ||
-        Object.keys(contactsRef.current).find(
-          (k) =>
-            !k.startsWith("group_") &&
-            (k.toLowerCase() === targetName.toLowerCase() ||
-              contactsRef.current[k]?.name?.toLowerCase() === targetName.toLowerCase()),
-        ) ||
-        targetName;
-
-      const prevMsgs = (prev[resolvedKey]?.msgs ??
-        (isPrivateMode ? privateContactsRef.current : contactsRef.current)[resolvedKey]?.msgs ??
-        []) as MochiMessage[];
-      const restoredMsgs: MochiMessage[] = parsedChat.messages.map((m, idx) => {
-        const resolvedId = m.id || `local_${resolvedKey}_${idx}`;
-        const existingMsg = prevMsgs.find((pm, pIdx) => (pm.id && pm.id === resolvedId) || pIdx === idx);
-        return {
-          id: resolvedId,
-          me: m.me,
-          type: m.type as any,
-          text: m.text,
-          dur: m.dur,
-          t: m.time || "12:00 PM",
-          d: m.date || parsedChat.date || "Today",
-          sender: m.sender,
-          rawItem: m.rawItem,
-          ...(existingMsg?.swipes ? { swipes: existingMsg.swipes } : {}),
-          ...(existingMsg?.activeSwipeIndex !== undefined ? { activeSwipeIndex: existingMsg.activeSwipeIndex } : {}),
-        };
-      });
-
-      // A regeneration in flight has already removed its turn from the archive, so
-      // re-appending the archived records would make its user bubbles disappear
-      // until the response arrives. Keep them visible.
-      const inFlightUserMsgs = regeneratingUserMsgsRef.current[resolvedKey] || [];
-      if (inFlightUserMsgs.length > 0) {
-        const knownIds = new Set(restoredMsgs.map((message) => message.id));
-        for (const pending of inFlightUserMsgs) {
-          if (pending.id && knownIds.has(pending.id)) continue;
-          restoredMsgs.push(pending);
-        }
-      }
-
-      const lastMsg = restoredMsgs[restoredMsgs.length - 1];
-      const preview = mochiMessagePreview(lastMsg);
-
-      const charInPhoneData = (
-        (savedPhoneDataResponse?.phoneData?.characters as MochiOsCharacterData[] | undefined) || []
-      ).find(
-        (c) =>
-          c.name?.toLowerCase() === targetName.toLowerCase() ||
-          c.contactname?.toLowerCase() === targetName.toLowerCase() ||
-          (c.id && c.id.toLowerCase() === targetName.toLowerCase()),
-      );
-      // The record names the contact itself, so a thread whose phone_data entry is
-      // gone still labels itself. phone_data stays authoritative when it agrees.
-      const effectiveContactDisplayName =
-        charInPhoneData?.contactname?.trim() || parsedChat.contactname?.trim() || targetName;
-
-      const updateMap = (prev: MochiContactsMap): MochiContactsMap => {
-        const existing = prev[resolvedKey];
-        if (
-          existing &&
-          existing.msgs &&
-          existing.msgs.length === restoredMsgs.length &&
-          existing.msgs.every((message, index) => {
-            const restored = restoredMsgs[index];
-            return (
-              message.me === restored?.me &&
-              message.id === restored?.id &&
-              message.type === restored?.type &&
-              message.text === restored?.text &&
-              message.t === restored?.t &&
-              message.sender === restored?.sender
-            );
-          })
-        ) {
-          if (existing.name !== effectiveContactDisplayName) {
-            return {
-              ...prev,
-              [resolvedKey]: {
-                ...existing,
-                name: effectiveContactDisplayName,
-              },
-            };
-          }
-          return prev;
-        }
-        return {
-          ...prev,
-          [resolvedKey]: {
-            name: effectiveContactDisplayName,
-            color: existing?.color || "var(--acc)",
-            online: true,
-            story: false,
-            unread: 0,
-            started: parsedChat.date || existing?.started || "Today",
-            preview,
-            msgs: restoredMsgs,
-          },
-        };
-      };
-
-      return updateMap(prev);
-    };
-
-    // Group chat records must only be hydrated into contacts, not privateContacts (which represents private chats mode).
-    // Private chats are hydrated into both normal contacts and privateContacts.
-    setContacts((prev) => contactBlocks.reduce((acc, block) => restoreOne(acc, block), prev));
-    const privateBlocks = contactBlocks.filter((block) => block.type !== "group");
-    setPrivateContacts((prev) => privateBlocks.reduce((acc, block) => restoreOne(acc, block), prev));
-  }, [activeChatRoleplayMessages, activeLinkedPersona, isPrivateMode, primaryRoleplayCharName, savedPhoneDataResponse]);
+    if (!activeChatMessagesData) return;
+    const reconcile = (local: MochiContactsMap, archived: MochiContactsMap) => reconcileMochiContactHistory({
+      local, archived, pendingUserMessages: pendingUserMsgsQueueRef.current,
+      regeneratingThreadIds: regeneratingContactRef.current,
+    });
+    // Replace rather than only merge: a thread's last record can disappear while
+    // other contacts still have records, or the entire roleplay chat can be empty.
+    setContacts((prev) => reconcile(prev, hydratedContactMaps.contacts));
+    setPrivateContacts((prev) => reconcile(prev, hydratedContactMaps.privateContacts));
+  }, [activeChatMessagesData, hydratedContactMaps]);
   const [dragOverBlockIdx, setDragOverBlockIdx] = useState<number | null>(null);
 
   // Voice Note Recording State
@@ -2510,62 +2256,103 @@ export function MochiOsView({
 
   // Close top modal or back out of chat on Escape
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+    const handleKeyDown = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.type === "mochios:escape" || e instanceof KeyboardEvent) {
+        const consume = (action: () => void) => {
+          e.preventDefault();
+          e.stopPropagation();
+          action();
+        };
+        if (mediaPickerOpen) {
+          consume(() => setMediaPickerOpen(false));
+          return;
+        }
+        if (composerPlusOpen) {
+          consume(() => setComposerPlusOpen(false));
+          return;
+        }
+        if (editingMsgIdx !== null) {
+          consume(handleCancelEditMochiMessage);
+          return;
+        }
+        if (activeMochiMsgActionId !== null) {
+          consume(dismissMochiMessageActions);
+          return;
+        }
+        if (replyingToMochiMessage) {
+          consume(() => setReplyingToMochiMessage(null));
+          return;
+        }
         if (aiDataModalOpen) {
-          handleCloseAiDataModal();
+          consume(handleCloseAiDataModal);
           return;
         }
         if (voiceModalOpen) {
-          resetVoice();
-          setVoiceModalOpen(false);
+          consume(() => { resetVoice(); setVoiceModalOpen(false); });
           return;
         }
         if (imagesModalOpen) {
-          setImagesModalOpen(false);
+          consume(() => setImagesModalOpen(false));
+          return;
+        }
+        if (transferModalOpen) {
+          consume(() => setTransferModalOpen(false));
           return;
         }
         if (clockModalOpen) {
-          setClockModalOpen(false);
+          consume(() => setClockModalOpen(false));
           return;
         }
         if (wxModalOpen) {
-          setWxModalOpen(false);
+          consume(() => setWxModalOpen(false));
           return;
         }
         if (settingsModalOpen) {
-          setSettingsModalOpen(false);
+          consume(() => setSettingsModalOpen(false));
           return;
         }
         if (groupInfoOpen) {
-          setGroupInfoOpen(false);
+          consume(() => setGroupInfoOpen(false));
           return;
         }
         if (inChatView) {
-          handleExitChatView();
+          consume(handleExitChatView);
           return;
         }
         if (messagesAppOpen) {
-          setMessagesAppOpen(false);
+          consume(() => setMessagesAppOpen(false));
           return;
         }
         if (appStoreOpen) {
-          setAppStoreOpen(false);
+          consume(() => setAppStoreOpen(false));
           return;
         }
         if (isAppEditingMode) {
-          setIsAppEditingMode(false);
+          consume(() => setIsAppEditingMode(false));
           return;
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("mochios:escape", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("mochios:escape", handleKeyDown);
+    };
   }, [
+    mediaPickerOpen,
+    composerPlusOpen,
+    editingMsgIdx,
+    handleCancelEditMochiMessage,
+    activeMochiMsgActionId,
+    dismissMochiMessageActions,
+    replyingToMochiMessage,
     aiDataModalOpen,
     handleCloseAiDataModal,
     voiceModalOpen,
     imagesModalOpen,
+    transferModalOpen,
     clockModalOpen,
     wxModalOpen,
     settingsModalOpen,
@@ -2811,7 +2598,7 @@ export function MochiOsView({
   const pushMessageToCurrentContact = useCallback(
     (msg: MochiMessage) => {
       const targetId = activeThreadId;
-      const currentContacts = isPrivateMode ? privateContacts : contacts;
+      const currentContacts = currentContactsMap;
       const existingContact = currentContacts[targetId];
       const lastMsg = existingContact?.msgs?.[existingContact.msgs.length - 1];
 
@@ -2840,8 +2627,7 @@ export function MochiOsView({
         ? aiDecidedTime || liveTime || (lastMsg?.t ? lastMsg.t : fmtTime(new Date(), isHour12))
         : liveTime || fmtTime(new Date(), isHour12);
 
-      const userMsgCount = existingContact?.msgs?.length ?? 0;
-      const assignedId = msg.id || `msg_${String(userMsgCount + 1).padStart(3, "0")}`;
+      const assignedId = msg.id || `phone_${crypto.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
 
       // In a group, the user's own messages are attributed too, so the transcript
       // reads the same whoever is looking at it.
@@ -2863,7 +2649,7 @@ export function MochiOsView({
 
       const setter = isPrivateMode ? setPrivateContacts : setContacts;
       setter((prev) => {
-        const contact = prev[targetId] || {
+        const contact = prev[targetId] || currentContactsMap[targetId] || {
           name: isGroupThread ? groupThreadName : "Contact",
           color: "var(--acc)",
           online: true,
@@ -2900,6 +2686,7 @@ export function MochiOsView({
       liveTime,
       privateContacts,
       contacts,
+      currentContactsMap,
     ],
   );
 
@@ -3580,6 +3367,8 @@ export function MochiOsView({
       return;
     }
 
+    // A saved sticker token sends an actual sticker bubble, not unrendered text.
+    const selectedSticker = /^:([^:]+):$/.exec(trimmed)?.[1];
     // Add the message to the active contact / group, BUT DO NOT GENERATE AI
     const userMsgItem: MochiMessage = replyingToMochiMessage
       ? {
@@ -3597,8 +3386,8 @@ export function MochiOsView({
         }
       : {
           me: 1,
-          type: "text",
-          text: trimmed,
+          type: selectedSticker && conversationStickerMap.has(selectedSticker) ? "sticker" : "text",
+          text: selectedSticker && conversationStickerMap.has(selectedSticker) ? selectedSticker : trimmed,
         };
 
     // Check if we already have an ongoing chat
@@ -4122,6 +3911,8 @@ export function MochiOsView({
         characterName: targetCharName,
         contactName: targetContactName,
         userName: userScreenName,
+        userPrompt: combinedUserPrompt,
+        userMessages: pendingUserMsgs,
         continuationOnly,
         signal: abortController.signal,
       });
@@ -4141,37 +3932,18 @@ export function MochiOsView({
       }
 
       const taggedTurn = res.rawOutput;
-      // Which roleplay record, if any, this generation replaces in place. A
-      // regeneration deleted the records it replaces first, so their ids arrive
-      // here and the replacement is appended rather than written into a record
-      // that is already gone.
-      const replacedRoleplayTurns = resolveMochiReplacementTurns({
-        roleplayMessages: activeChatRoleplayMessages,
-        userName: screenName,
-        targetName: targetCharName,
-        recordType: activeRecordType,
-        deletedRecordIds: excludedRoleplayMessageIds,
-        contactMessageIds: (contactMessages || []).map((entry) => entry.id),
-      });
+      let savedTurn: Message;
+      // Regeneration explicitly names its record. A normal send/continuation
+      // always appends; matching history ids here would overwrite an older turn.
       if (appendSwipeToMessageId) {
-        await api.post(`/chats/${activeChatId}/messages/${appendSwipeToMessageId}/swipes`, {
+        savedTurn = await api.post<Message>(`/chats/${activeChatId}/messages/${appendSwipeToMessageId}/swipes`, {
           content: taggedTurn,
         });
-      } else if (replacedRoleplayTurns.length > 0) {
-        const firstReplacedTurn = replacedRoleplayTurns[0]!;
-        await updateRoleplayMessage.mutateAsync({ messageId: firstReplacedTurn.id, content: taggedTurn });
-        await Promise.all(
-          replacedRoleplayTurns.slice(1).map((message) => api.delete(`/chats/${activeChatId}/messages/${message.id}`)),
-        );
       } else {
-        await api.post(`/chats/${activeChatId}/messages`, {
+        savedTurn = await api.post<Message>(`/chats/${activeChatId}/messages`, {
           role: "assistant",
-          // A group turn has no single author, so the record belongs to the chat's
-          // first character rather than to the group name, which no character has.
-          characterId:
-            (isGroupThread
-              ? undefined
-              : getChatCharacterIds(activeChatData).find((id) => {
+          // Group authors live inside the transcript, never on an unrelated card.
+          characterId: isGroupThread ? null : getChatCharacterIds(activeChatData).find((id) => {
                   const character = characterLookup.get(id);
                   const characterData = character ? parseCharacterMacroData(character) : null;
                   return (
@@ -4182,19 +3954,13 @@ export function MochiOsView({
                       ""
                     ).toLowerCase() === targetCharName.toLowerCase()
                   );
-                })) ||
-            getChatCharacterIds(activeChatData)[0] ||
-            null,
+                }) || null,
           content: taggedTurn,
         });
       }
 
+      if (!savedTurn?.id) throw new Error("The connected roleplay message could not be saved.");
       if (res.rawOutput) {
-        // Invalidate the shared roleplay history after the tagged character turn is inserted.
-        if (activeChatId) {
-          qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
-        }
-
         // Extract latest environment block if present to preserve as metadata and update clock/weather widgets
         const allEnvMatches = Array.from(taggedTurn.matchAll(/<environment>([\s\S]*?)<\/environment>/gi));
         const envMatch = allEnvMatches.length > 0 ? allEnvMatches[allEnvMatches.length - 1] : null;
@@ -4203,167 +3969,29 @@ export function MochiOsView({
           applyEnvironmentUpdate(envMatch[0]);
         }
 
-        const parsedReplies = parseMochiChatResponse(taggedTurn, targetCharName).filter((reply) => {
-          const rawItem = reply.rawItem;
-          if (!rawItem) return true;
-          const userFlag = rawItem["{{user}}"];
-          return !(
-            userFlag === true ||
-            userFlag === "true" ||
-            userFlag === 1 ||
-            rawItem.me === 1 ||
-            rawItem.me === true ||
-            rawItem.user === true ||
-            rawItem.isUser === true ||
-            // The guide forbids speaking for the user; a group reply that names
-            // them as sender is the model answering as them, so it is dropped
-            // rather than shown as something the user said.
-            (isGroupThread && reply.sender?.trim().toLowerCase() === userScreenName.trim().toLowerCase())
-          );
-        });
-        if (parsedReplies.length === 0) {
-          throw new Error("Mochi OS returned no chat messages");
-        }
-        const replyTime = new Date();
-        const dateFormatted =
-          clockAiDecide && (parseEnvironmentYaml(res.rawOutput)?.date || aiDecidedDate)
-            ? parseEnvironmentYaml(res.rawOutput)?.date || aiDecidedDate
-            : replyTime.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        const record = parseChatHistoryBlocks(taggedTurn, screenName, { recordType: activeRecordType })[0];
+        if (!record?.messages.some((message) => message.me !== 1)) throw new Error("Mochi OS returned no chat messages");
+        const answeredIds = new Set(pendingUserMsgs.map((message) => message.id));
+        pendingUserMsgsQueueRef.current[activeThreadId] = (pendingUserMsgsQueueRef.current[activeThreadId] || [])
+          .filter((message) => !answeredIds.has(message.id));
+        delete regeneratingUserMsgsRef.current[activeThreadId];
+        const canonicalMsgs: MochiMessage[] = record.messages.map((message, itemIndex) => ({
+          ...message, id: mochiRoleplayBubbleId(savedTurn.id, 0, itemIndex),
+          t: message.time || record.time, d: message.date || record.date,
+        }));
+        const historyBefore = (historyOverride || targetContactObj?.msgs || []).filter((message) => !answeredIds.has(message.id));
         const setter = isPrivateMode ? setPrivateContacts : setContacts;
-
-        if (parsedReplies.length > 0) {
-          // Identify which user messages were answered in this turn so they are not wiped if new ones were typed concurrently
-          const answeredUserMsgs = [...pendingUserMsgs];
-          pendingUserMsgsQueueRef.current[activeThreadId] = (
-            pendingUserMsgsQueueRef.current[activeThreadId] || []
-          ).filter((m) => !answeredUserMsgs.includes(m));
-
-          setter((prev) => {
-            const contact = prev[activeThreadId] ||
-              currentContactsMap[activeThreadId] || {
-                name: targetCharName,
-                color: "var(--acc)",
-                online: true,
-                story: false,
-                unread: 0,
-                started: dateFormatted,
-                preview: "",
-                msgs: [],
-              };
-
-            const baseMsgCount = contact.msgs?.length ?? 0;
-            const matchedExistingReplies = new Set<number>();
-            const newMsgs: MochiMessage[] = parsedReplies.map((r, rIdx) => {
-              // Reuse the identity of the bubble this replaces. The sender is part
-              // of that identity: in a group, two members saying the same thing are
-              // different messages, and matching on text alone would swap authors.
-              const existingIndex = (contact.msgs || []).findIndex(
-                (message, index) =>
-                  message.me !== 1 &&
-                  !matchedExistingReplies.has(index) &&
-                  message.type === r.type &&
-                  message.text === r.text &&
-                  message.sender === (r.sender || undefined),
-              );
-              const existing = existingIndex >= 0 ? contact.msgs[existingIndex] : undefined;
-              if (existingIndex >= 0) matchedExistingReplies.add(existingIndex);
-              return {
-                id: r.id || existing?.id || `msg_${String(baseMsgCount + rIdx + 1).padStart(3, "0")}`,
-                me: 0,
-                type: r.type as any,
-                text: r.text,
-                dur: r.dur,
-                t: r.time || existing?.t || fmtTime(replyTime, isHour12),
-                d: existing?.d || dateFormatted,
-                ...(isGroupThread ? { sender: r.sender || groupThreadName } : {}),
-                rawItem: r.rawItem,
-              };
-            });
-
-            // Compute user message timestamp ONLY if starting with a fresh/new chat (or user message time is empty)
-            const isFreshChat = !contact.msgs || contact.msgs.filter((m) => m.me !== 1).length === 0;
-            const firstCharTime = newMsgs[0]?.t || "";
-            let calculatedUserTime = "";
-            if (isFreshChat && firstCharTime) {
-              const m = firstCharTime.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
-              if (m) {
-                let h = parseInt(m[1]!, 10);
-                let min = parseInt(m[2]!, 10);
-                const is12 = Boolean(m[3]);
-                const ampm = m[3]?.toUpperCase();
-                if (is12) {
-                  if (ampm === "PM" && h < 12) h += 12;
-                  if (ampm === "AM" && h === 12) h = 0;
-                }
-                min -= 1;
-                if (min < 0) {
-                  min = 59;
-                  h = (h - 1 + 24) % 24;
-                }
-                if (is12) {
-                  const nextAmpm = h < 12 ? "AM" : "PM";
-                  const dh = h % 12 || 12;
-                  const dm = min < 10 ? `0${min}` : `${min}`;
-                  calculatedUserTime = `${dh}:${dm} ${nextAmpm}`;
-                } else {
-                  const dh = h < 10 ? `0${h}` : `${h}`;
-                  const dm = min < 10 ? `0${min}` : `${min}`;
-                  calculatedUserTime = `${dh}:${dm}`;
-                }
-              }
-            } else if (!isFreshChat && firstCharTime) {
-              // Not fresh chat: user message matches current time/last known time
-              calculatedUserTime = firstCharTime;
-            }
-
-            // Update user messages: ensure user message date & time match environment/first reply if empty, fresh chat, or Let AI Decide
-            const existingMsgs = restoreAnsweredUserMessages(contact.msgs || [], answeredUserMsgs).map((m) => {
-              if (m.me === 1) {
-                const needsTimeUpdate = !m.t || (clockAiDecide && calculatedUserTime);
-                const needsDateUpdate = !m.d || (clockAiDecide && dateFormatted);
-                if (needsTimeUpdate || needsDateUpdate) {
-                  return {
-                    ...m,
-                    t: needsTimeUpdate && calculatedUserTime ? calculatedUserTime : m.t,
-                    d: needsDateUpdate && dateFormatted ? dateFormatted : m.d,
-                  };
-                }
-              }
-              return m;
-            });
-            let insertIdx = -1;
-            if (answeredUserMsgs.length > 0) {
-              const lastAnswered = answeredUserMsgs[answeredUserMsgs.length - 1];
-              insertIdx = existingMsgs.lastIndexOf(lastAnswered);
-            }
-
-            let combinedMsgs: MochiMessage[];
-            if (insertIdx !== -1 && insertIdx < existingMsgs.length - 1) {
-              // Concurrently added messages exist after the answered ones
-              combinedMsgs = [
-                ...existingMsgs.slice(0, insertIdx + 1),
-                ...newMsgs,
-                ...existingMsgs.slice(insertIdx + 1),
-              ];
-            } else {
-              combinedMsgs = [...existingMsgs, ...newMsgs];
-            }
-
-            const lastReply = combinedMsgs[combinedMsgs.length - 1];
-            const preview = mochiMessagePreview(lastReply);
-
-            const updatedContact = {
-              ...contact,
-              preview,
-              msgs: combinedMsgs,
-            };
-
-            return {
-              ...prev,
-              [activeThreadId]: updatedContact,
-            };
-          });
-        }
+        setter((prev) => {
+          const contact = prev[activeThreadId] || targetContactObj;
+          if (!contact) return prev;
+          // Use the saved canonical turn, not a second append racing the host's
+          // hydration. Keep new user bubbles queued while this reply was pending.
+          const knownIds = new Set([...historyBefore, ...canonicalMsgs].map((message) => message.id));
+          const newerInputs = (pendingUserMsgsQueueRef.current[activeThreadId] || []).filter((message) => !knownIds.has(message.id));
+          const msgs = [...historyBefore, ...canonicalMsgs, ...newerInputs];
+          return { ...prev, [activeThreadId]: { ...contact, msgs, preview: mochiMessagePreview(msgs.at(-1)) } };
+        });
+        await qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
       }
     } catch (err: any) {
       const isAborted =
@@ -4996,7 +4624,7 @@ export function MochiOsView({
                     );
                   })}
 
-                {!savedPhoneDataResponse?.phoneData?.groups?.length && Object.keys(currentContactsMap).length === 0 && (
+                {!savedPhoneDataResponse?.phoneData?.groups?.length && !Object.values(currentContactsMap).some((contact) => contact.msgs.length || contact.preview) && (
                   <div className="notice" style={{ marginTop: 40, textAlign: "center" }}>
                     {localizeUi("ui.chat.mochiosview.noMessagesYet")}
                   </div>
@@ -5480,145 +5108,6 @@ export function MochiOsView({
                   </div>
                 </div>
 
-                {/* Status Section: "Status: " + activity status + custom activity */}
-                <div className="profile-status-section">
-                  <span className="profile-status-prefix">{localizeUi("ui.modals.modeldownloadmodal.status")}</span>
-
-                  {/* Activity status button and dropdown */}
-                  <div className="profile-status-dropdown-wrap" ref={profileStatusDropdownWrapRef}>
-                    <button
-                      type="button"
-                      className="profile-status-btn"
-                      onClick={() => setProfileStatusMenuOpen((prev) => !prev)}
-                      title={localizeUi("ui.layout.userstatusfooter.changeActivityStatus")}
-                    >
-                      <span
-                        className="profile-status-dot"
-                        style={{
-                          background:
-                            userStatus === "active"
-                              ? "#48bb78"
-                              : userStatus === "idle"
-                                ? "#ecc94b"
-                                : userStatus === "dnd"
-                                  ? "#f56565"
-                                  : "#a0aec0",
-                        }}
-                      />
-                      <span>
-                        {userStatus === "active"
-                          ? localizeUi("ui.characters.lorebooktab.active")
-                          : userStatus === "idle"
-                            ? localizeUi("ui.chat.mochiosview.idle")
-                            : userStatus === "dnd"
-                              ? localizeUi("ui.chat.mochiosview.doNotDisturb")
-                              : localizeUi("ui.chat.mochiosview.invisible")}
-                      </span>
-                    </button>
-
-                    {profileStatusMenuOpen && (
-                      <div className="profile-status-dropdown">
-                        {[
-                          {
-                            value: "active" as const,
-                            label: "Active",
-                            description: "You're online and available",
-                            color: "#48bb78",
-                          },
-                          {
-                            value: "idle" as const,
-                            label: "Idle",
-                            description: "Automatic when you're away",
-                            color: "#ecc94b",
-                          },
-                          {
-                            value: "dnd" as const,
-                            label: "Do Not Disturb",
-                            description: "Suppress auto messages",
-                            color: "#f56565",
-                          },
-                          {
-                            value: "invisible" as const,
-                            label: "Invisible",
-                            description: "Hide your status from models",
-                            color: "#a0aec0",
-                          },
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`profile-status-option ${userStatus === opt.value ? "selected" : ""}`}
-                            onClick={() => {
-                              setUserStatusManual(opt.value);
-                              setProfileStatusMenuOpen(false);
-                            }}
-                          >
-                            <span className="profile-status-dot" style={{ background: opt.color }} />
-                            <div>
-                              <div className="profile-status-option-label">{opt.label}</div>
-                              <div className="profile-status-option-desc">{opt.description}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Custom activity input with separate container & Recent Status dropdown */}
-                  <div className="profile-activity-container" ref={profileActivityContainerRef}>
-                    <input
-                      type="text"
-                      className="profile-activity-input"
-                      value={profileActivityDraft}
-                      placeholder={localizeUi("ui.layout.userstatusfooter.whatAreYouDoing")}
-                      onFocus={() => setProfileActivityFocused(true)}
-                      onChange={(e) => {
-                        setProfileActivityDraft(e.target.value);
-                        setUserActivity(e.target.value);
-                      }}
-                      onBlur={() => {
-                        const trimmed = profileActivityDraft.replace(/\s+/g, " ").trim().slice(0, 120);
-                        setUserActivity(trimmed);
-                        setProfileActivityDraft(trimmed);
-                        if (trimmed) rememberUserActivity(trimmed);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === "Escape") {
-                          setProfileActivityFocused(false);
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      maxLength={120}
-                    />
-
-                    {profileActivityFocused && recentActivitySuggestions.length > 0 && (
-                      <div className="profile-recent-activity-dropdown">
-                        <div className="profile-recent-title">
-                          {localizeUi("ui.layout.userstatusfooter.recentStatus")}
-                        </div>
-                        {recentActivitySuggestions.map((activity) => (
-                          <button
-                            key={activity}
-                            type="button"
-                            className="profile-status-option"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setUserActivity(activity);
-                              setProfileActivityDraft(activity);
-                              rememberUserActivity(activity);
-                              setProfileActivityFocused(false);
-                            }}
-                          >
-                            <span className="profile-status-option-label" style={{ fontWeight: 700 }}>
-                              {activity}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 <div className="p-actions">
                   <button
                     type="button"
@@ -5801,21 +5290,7 @@ export function MochiOsView({
                                   {isUser ? (
                                     <div
                                       className={`mrow out${activeMochiMsgActionId === (msg.id || idx) ? " actions-visible" : ""}`}
-                                      onClick={(e) => {
-                                        if (matchMedia("(pointer: coarse)").matches) {
-                                          const target = e.target as HTMLElement;
-                                          if (target.closest("button, a, textarea, input")) return;
-                                          setActiveMochiMsgActionId((prev) =>
-                                            prev === (msg.id || idx) ? null : msg.id || idx,
-                                          );
-                                        }
-                                      }}
-                                      onMouseDown={() => beginMochiMessageHold("You", msg.content, true)}
-                                      onMouseUp={endMochiMessageHold}
-                                      onMouseLeave={endMochiMessageHold}
-                                      onTouchStart={() => beginMochiMessageHold("You", msg.content, true)}
-                                      onTouchEnd={endMochiMessageHold}
-                                      onTouchMove={endMochiMessageHold}
+                                      {...mochiMessageInteraction({ id: msg.id || idx, author: userScreenName, text: msg.content, isOutgoing: true })}
                                     >
                                       <span className="wmsg">
                                         {isVoice ? (
@@ -5858,7 +5333,7 @@ export function MochiOsView({
                                           </div>
                                         )}
                                         <span className="mt">{ts}</span>
-                                        <div className="msg-actions-trigger">
+                                        <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
                                             onPick={(emoji, imageUrl) => {
@@ -5886,31 +5361,9 @@ export function MochiOsView({
                                   ) : (
                                     <div
                                       className={`mrow${activeMochiMsgActionId === (msg.id || idx) ? " actions-visible" : ""}`}
-                                      onClick={(e) => {
-                                        if (matchMedia("(pointer: coarse)").matches) {
-                                          const target = e.target as HTMLElement;
-                                          if (target.closest("button, a, textarea, input")) return;
-                                          setActiveMochiMsgActionId((prev) =>
-                                            prev === (msg.id || idx) ? null : msg.id || idx,
-                                          );
-                                        }
-                                      }}
-                                      onMouseDown={() => beginMochiMessageHold(chatDisplayName, msg.content, false)}
-                                      onMouseUp={endMochiMessageHold}
-                                      onMouseLeave={endMochiMessageHold}
-                                      onTouchStart={() => beginMochiMessageHold(chatDisplayName, msg.content, false)}
-                                      onTouchEnd={endMochiMessageHold}
-                                      onTouchMove={endMochiMessageHold}
+                                      {...mochiMessageInteraction({ id: msg.id || idx, author: chatDisplayName, text: msg.content, isOutgoing: false })}
                                     >
-                                      <span
-                                        className="mini"
-                                        style={{
-                                          overflow: "hidden",
-                                          background: chatNameColor,
-                                        }}
-                                      >
-                                        {chatDisplayName[0]?.toUpperCase()}
-                                      </span>
+                                      <MochiMessageIdentity name={chatDisplayName} color={chatNameColor} />
                                       <span className="wmsg">
                                         {isVoice ? (
                                           <div className="b in voice">
@@ -5952,7 +5405,7 @@ export function MochiOsView({
                                           </div>
                                         )}
                                         <span className="mt">{ts}</span>
-                                        <div className="msg-actions-trigger">
+                                        <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
                                             onPick={(emoji, imageUrl) => {
@@ -5974,8 +5427,9 @@ export function MochiOsView({
                                           >
                                             <CornerUpLeft size={13} />
                                           </button>
+                                        </div>
                                           {((msg.swipeCount ?? 0) > 1 || idx === realChatMessages.length - 1) && (
-                                            <div className="mochi-swipe-trigger">
+                                            <div className="mochi-swipe-trigger" inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                               <button
                                                 type="button"
                                                 disabled={(msg.activeSwipeIndex ?? 0) <= 0}
@@ -6033,7 +5487,6 @@ export function MochiOsView({
                                               </button>
                                             </div>
                                           )}
-                                        </div>
                                       </span>
                                     </div>
                                   )}
@@ -6091,7 +5544,7 @@ export function MochiOsView({
                         {localizeUi("ui.chat.mochiosview.noMessagesYet")}
                       </div>
                     )
-                  ) : currentActiveContact ? (
+                  ) : currentActiveContact?.msgs.length ? (
                     // Demo contact message list fallback
                     (() => {
                       let lastDate = "";
@@ -6111,7 +5564,15 @@ export function MochiOsView({
                         // reader is the single contact, so the contact stands in.
                         const bubbleSender = isGroupThread ? m.sender?.trim() || "" : "";
                         const bubbleAuthor = bubbleSender || currentActiveContact.name;
-                        const bubbleInitial = bubbleSender ? bubbleSender[0] : currentActiveContact.name[0];
+                        const identityName = m.me === 1 ? userScreenName : bubbleAuthor;
+                        const identityCharacter = m.me === 1 ? undefined : realCharacters.find((character) => {
+                          const names = [character.data?.name, character.name, character.comment];
+                          if (names.some((name) => typeof name === "string" && name.toLowerCase() === bubbleAuthor.toLowerCase())) return true;
+                          const contact = savedPhoneDataResponse?.phoneData?.characters?.find((entry) =>
+                            [entry.name, entry.contactname, entry.nickname, entry.id].some((name) => name?.toLowerCase() === bubbleAuthor.toLowerCase()),
+                          );
+                          return Boolean(contact && (character.id === contact.id || character.data?.name === contact.name));
+                        });
 
                         const rpLocation =
                           m.me !== 1 && activeChatId
@@ -6152,27 +5613,15 @@ export function MochiOsView({
                               <div
                                 className={`mrow out${activeMochiMsgActionId === msgBubbleId ? " actions-visible" : ""}`}
                                 data-msg-id={msgBubbleId}
-                                onClick={(e) => {
-                                  if (matchMedia("(pointer: coarse)").matches) {
-                                    const target = e.target as HTMLElement;
-                                    if (target.closest("button, a, textarea, input")) return;
-                                    setActiveMochiMsgActionId((prev) => (prev === msgBubbleId ? null : msgBubbleId));
-                                  }
-                                }}
-                                onMouseDown={() => beginMochiMessageHold("You", m.text || "", true)}
-                                onMouseUp={endMochiMessageHold}
-                                onMouseLeave={endMochiMessageHold}
-                                onTouchStart={() => beginMochiMessageHold("You", m.text || "", true)}
-                                onTouchEnd={endMochiMessageHold}
-                                onTouchMove={endMochiMessageHold}
+                                {...mochiMessageInteraction({ id: msgBubbleId, author: identityName, text: m.text || mochiMessagePreview(m), isOutgoing: true })}
                               >
                                 <span className="wmsg">
                                   {m.type === "sticker" ? (
                                     <span className="sticker">
-                                      {conversationStickerMap.get(m.text || "") ? (
+                                      {conversationStickerMap.get(MochiStickerName(m.text || "")) ? (
                                         <img
                                           className="mochi-chat-sticker-image"
-                                          src={conversationStickerMap.get(m.text || "")}
+                                          src={conversationStickerMap.get(MochiStickerName(m.text || ""))}
                                           alt={m.text || "Sticker"}
                                         />
                                       ) : (
@@ -6240,11 +5689,6 @@ export function MochiOsView({
                                         direction="out"
                                         stickerMap={conversationStickerMap}
                                       />
-                                      {translatedMochiMsgs[idx] && (
-                                        <div className="mt-1 p-2 rounded-lg bg-[var(--surface-layer-1)] text-xs text-[var(--text-secondary)] border border-[var(--border-subtle)] whitespace-pre-wrap">
-                                          {translatedMochiMsgs[idx]}
-                                        </div>
-                                      )}
                                     </>
                                   )}
                                   {demoReactions.length > 0 && (
@@ -6260,7 +5704,7 @@ export function MochiOsView({
                                     </div>
                                   )}
                                   <span className="mt">{ts}</span>
-                                  <div className="msg-actions-trigger">
+                                  <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
                                       onPick={(emoji, imageUrl) => handleDemoReaction(idx, emoji, imageUrl)}
@@ -6279,18 +5723,6 @@ export function MochiOsView({
                                     </button>
                                     {m.type !== "sticker" && m.type !== "voice" && !isMochiTransferType(m.type) && (
                                       <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleTranslateMochiMessage(idx, m.text || "")}
-                                          title={
-                                            translatedMochiMsgs[idx]
-                                              ? localizeUi("ui.chat.chatmessage.hideTranslation")
-                                              : localizeUi("ui.chat.chatmessage.translate")
-                                          }
-                                          className={`mochi-reaction-btn ${translatedMochiMsgs[idx] ? "text-[var(--acc)]" : ""}`}
-                                        >
-                                          <Languages size={13} />
-                                        </button>
                                         <button
                                           type="button"
                                           onClick={() => handleStartEditMochiMessage(idx, m.text || "")}
@@ -6338,40 +5770,16 @@ export function MochiOsView({
                               <div
                                 className={`mrow${activeMochiMsgActionId === msgBubbleId ? " actions-visible" : ""}`}
                                 data-msg-id={msgBubbleId}
-                                onClick={(e) => {
-                                  if (matchMedia("(pointer: coarse)").matches) {
-                                    const target = e.target as HTMLElement;
-                                    if (target.closest("button, a, textarea, input")) return;
-                                    setActiveMochiMsgActionId((prev) => (prev === msgBubbleId ? null : msgBubbleId));
-                                  }
-                                }}
-                                onMouseDown={() => beginMochiMessageHold(bubbleAuthor, m.text || "", false)}
-                                onMouseUp={endMochiMessageHold}
-                                onMouseLeave={endMochiMessageHold}
-                                onTouchStart={() => beginMochiMessageHold(bubbleAuthor, m.text || "", false)}
-                                onTouchEnd={endMochiMessageHold}
-                                onTouchMove={endMochiMessageHold}
+                                {...mochiMessageInteraction({ id: msgBubbleId, author: identityName, text: m.text || mochiMessagePreview(m), isOutgoing: false })}
                               >
-                                <span
-                                  className="mini"
-                                  style={
-                                    {
-                                      "--c":
-                                        isGroupThread && bubbleSender
-                                          ? getMochiCharacterColor(bubbleSender)
-                                          : activeCharacterColor,
-                                    } as React.CSSProperties
-                                  }
-                                >
-                                  {bubbleInitial}
-                                </span>
+                                <MochiMessageIdentity name={identityName} color={isGroupThread && bubbleSender ? getMochiCharacterColor(bubbleSender) : activeCharacterColor} avatar={identityCharacter?.avatarPath} crop={identityCharacter?.avatarCrop} />
                                 <span className="wmsg">
                                   {m.type === "sticker" ? (
                                     <span className="sticker">
-                                      {conversationStickerMap.get(m.text || "") ? (
+                                      {conversationStickerMap.get(MochiStickerName(m.text || "")) ? (
                                         <img
                                           className="mochi-chat-sticker-image"
-                                          src={conversationStickerMap.get(m.text || "")}
+                                          src={conversationStickerMap.get(MochiStickerName(m.text || ""))}
                                           alt={m.text || "Sticker"}
                                         />
                                       ) : (
@@ -6437,11 +5845,6 @@ export function MochiOsView({
                                   ) : (
                                     <>
                                       <MochiTextBubble message={m} direction="in" stickerMap={conversationStickerMap} />
-                                      {translatedMochiMsgs[idx] && (
-                                        <div className="mt-1 p-2 rounded-lg bg-[var(--surface-layer-1)] text-xs text-[var(--text-secondary)] border border-[var(--border-subtle)] whitespace-pre-wrap">
-                                          {translatedMochiMsgs[idx]}
-                                        </div>
-                                      )}
                                     </>
                                   )}
                                   {demoReactions.length > 0 && (
@@ -6460,7 +5863,7 @@ export function MochiOsView({
                                     {isGroupThread && <MochiGroupSenderLabel name={bubbleSender} />}
                                     <span className="mt">{ts}</span>
                                   </span>
-                                  <div className="msg-actions-trigger">
+                                  <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
                                       onPick={(emoji, imageUrl) => handleDemoReaction(idx, emoji, imageUrl)}
@@ -6479,18 +5882,6 @@ export function MochiOsView({
                                     </button>
                                     {m.type !== "sticker" && m.type !== "voice" && !isMochiTransferType(m.type) && (
                                       <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleTranslateMochiMessage(idx, m.text || "")}
-                                          title={
-                                            translatedMochiMsgs[idx]
-                                              ? localizeUi("ui.chat.chatmessage.hideTranslation")
-                                              : localizeUi("ui.chat.chatmessage.translate")
-                                          }
-                                          className={`mochi-reaction-btn ${translatedMochiMsgs[idx] ? "text-[var(--acc)]" : ""}`}
-                                        >
-                                          <Languages size={13} />
-                                        </button>
                                         <button
                                           type="button"
                                           onClick={() => handleStartEditMochiMessage(idx, m.text || "")}
@@ -6543,8 +5934,9 @@ export function MochiOsView({
                                     >
                                       <Trash2 size={13} />
                                     </button>
+                                  </div>
                                     {isRecordEndBubble && (bubbleSwipeCount > 1 || isLastBubbleInThread) && (
-                                      <div className="mochi-swipe-trigger">
+                                      <div className="mochi-swipe-trigger" inert={activeMochiMsgActionId !== msgBubbleId}>
                                         <button
                                           type="button"
                                           disabled={bubbleActiveSwipeIdx <= 0}
@@ -6575,7 +5967,6 @@ export function MochiOsView({
                                         </button>
                                       </div>
                                     )}
-                                  </div>
                                 </span>
                               </div>
                             )}
@@ -6662,13 +6053,10 @@ export function MochiOsView({
 
                     {/* Media Picker Popover */}
                     {mediaPickerOpen && (
-                      <div ref={mediaPickerContainerRef} className="mochi-media-picker-popover">
                         <ConversationMediaPickerPanel
                           tabs={[
                             { id: "emoji", label: "Emoji" },
                             { id: "stickers", label: "Stickers" },
-                            { id: "gifs", label: "GIFs" },
-                            { id: "kaomoji", label: "Kaomoji" },
                           ]}
                           activeTab={mediaPickerTab}
                           onActiveTabChange={setMediaPickerTab}
@@ -6676,27 +6064,24 @@ export function MochiOsView({
                           onEmojiSelect={(emoji) => {
                             setMsgInputText((prev) => prev + emoji);
                             setMediaPickerOpen(false);
-                          }}
-                          onGifSelect={(gifUrl) => {
-                            setMsgInputText((prev) => (prev ? `${prev}\n![GIF](${gifUrl})` : `![GIF](${gifUrl})`));
-                            setMediaPickerOpen(false);
+                            composerInputRef.current?.focus();
                           }}
                           onStickerSelect={(name) => {
-                            setMsgInputText((prev) => (prev ? `${prev} :${name}:` : `:${name}:`));
+                            pushMessageToCurrentContact({ me: 1, type: "sticker", rawType: "sticker", text: name });
                             setMediaPickerOpen(false);
                           }}
                         />
-                      </div>
                     )}
 
                     <div className="plus-wrap">
-                      <div className="plus-menu">
+                      <div className="plus-menu" aria-label="More chat options" inert={!composerPlusOpen}>
                         <button
                           type="button"
                           className="rbtn"
                           id="emojiBtn"
                           title={localizeUi("chat.input.emoji")}
                           onClick={() => {
+                            setMediaPickerTab("emoji");
                             setMediaPickerOpen((prev) => !prev);
                             setComposerPlusOpen(false);
                           }}
@@ -6770,6 +6155,7 @@ export function MochiOsView({
                         className="rbtn"
                         id="plusBtn"
                         title={localizeUi("ui.chat.mochiosview.more")}
+                        aria-expanded={composerPlusOpen}
                         onClick={(e) => {
                           e.stopPropagation();
                           setComposerPlusOpen((p) => !p);
@@ -6790,6 +6176,7 @@ export function MochiOsView({
                     )}
 
                     <input
+                      ref={composerInputRef}
                       type="text"
                       enterKeyHint="send"
                       placeholder={chatInputPlaceholder}
@@ -7701,7 +7088,7 @@ export function MochiOsView({
             </button>
           </div>
 
-          <div className="settings-split-body">
+          <MochiSettingsSplit>
             {/* Left Pane (Master/Navigation) */}
             <div className="settings-split-sidebar">
               <button
@@ -8798,7 +8185,7 @@ export function MochiOsView({
                 </div>
               )}
             </div>
-          </div>
+          </MochiSettingsSplit>
         </div>
       </div>
 

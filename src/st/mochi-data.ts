@@ -18,12 +18,30 @@ import { generateMochiOutput } from './generate';
 import { refreshLorebookPrompt } from './lorebooks';
 import {
   cleanAndExtractRawYaml,
+  isMochiGroupRecordTag,
   parseMochiChatResponse,
+  parseEnvironmentYaml,
   serializeChatHistoryYaml,
   type MochiChatRecordType,
 } from '../components/chat/mochi-os/mochi-os.utils';
+import type { MochiMessage } from '../components/chat/mochi-os/mochi-os.types';
 
 const THREAD_CATEGORIES = new Set(['private_chats', 'group_chats']);
+const THREAD_OUTPUT_TAGS = 'chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat|environment';
+
+/** Foreign XML blocks are model commentary, not transcript/data fields. */
+function stripUnrelatedOutputTags(text: string, allowedTags: string): string {
+  const foreignBlock = new RegExp(`<(?!(${allowedTags})\\b)([a-z][\\w:-]*)\\b[^>]*>[\\s\\S]*?<\\/\\2\\s*>`, 'gi');
+  let cleaned = text;
+  let previous: string;
+  do {
+    previous = cleaned;
+    cleaned = cleaned.replace(foreignBlock, '');
+  } while (cleaned !== previous);
+  return cleaned
+    .replace(new RegExp(`<\\/?(?!(?:${allowedTags})\\b)[a-z][\\w:-]*\\b[^>]*>`, 'gi'), '')
+    .replace(/<\|[^>]*\|>/g, '');
+}
 
 interface StoredMeta {
   phoneDataYaml?: string;
@@ -179,6 +197,11 @@ function userItems(
       out.push({ me: 1, type: 'quote', text: '', t: time, rawItem: { t: 'quote' }, ...sender });
       continue;
     }
+    const sticker = /^\[Sticker\]\s*(.+)$/i.exec(line);
+    if (sticker) {
+      out.push({ me: 1, type: 'sticker', text: sticker[1].trim(), t: time, ...sender });
+      continue;
+    }
     out.push({ me: 1, type: 'text', text: line, t: time, ...sender });
   }
   return out;
@@ -193,7 +216,35 @@ export interface GeneratePhoneDataInput {
   characterName?: string;
   userName?: string;
   continuationOnly?: boolean;
+  /** Authored phone bubbles, not model echoes or lossy text markers. */
+  userMessages?: MochiMessage[];
   signal?: AbortSignal;
+}
+
+/** Select only this request's output envelope, not prose or another phone app.
+ * Old bare YAML remains readable, but XML from an unrelated response never
+ * falls through into the parser's direct-message fallback. */
+function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType, targetNames: string[]): string {
+  const source = stripUnrelatedOutputTags(cleaned, THREAD_OUTPUT_TAGS);
+  const pattern = /<(chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat)\b[^>]*>[\s\S]*?<\/(?:\1|chat_history|privatechat_history|groupchat_history|group_message)>/gi;
+  const records = [...source.matchAll(pattern)];
+  const wantedNames = targetNames.map((name) => name.trim().toLowerCase());
+  const record = records.find((match) => {
+    const opener = match[0].slice(0, match[0].indexOf('>') + 1);
+    const tag = match[1].toLowerCase();
+    const type = /\btype\s*=\s*["']([^"']+)["']/i.exec(opener)?.[1]?.toLowerCase();
+    const target = /\btarget\s*=\s*["']([^"']+)["']/i.exec(opener)?.[1]?.trim().toLowerCase();
+    if (target && !wantedNames.includes(target)) return false;
+    if (type === 'private' || type === 'group') return type === recordType;
+    if (isMochiGroupRecordTag(tag)) return recordType === 'group';
+    if (tag === 'privatechat_history' || tag === 'private_chat') return recordType === 'private';
+    return true;
+  });
+  if (!record) return /<\/?[a-z][\w-]*\b[^>]*>/i.test(source) ? '' : source;
+  const end = record.index! + record[0].length;
+  const nextRecord = records.find((match) => match.index! >= end)?.index ?? source.length;
+  const environment = [...source.slice(end, nextRecord).matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].at(-1)?.[0];
+  return [record[0], environment].filter(Boolean).join('\n\n');
 }
 
 /**
@@ -215,11 +266,20 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   });
   const cleaned = cleanAndExtractRawYaml(raw);
 
-  if (!isThreadCategory(category)) return { rawOutput: cleaned || raw };
+  if (!isThreadCategory(category)) {
+    const source = stripUnrelatedOutputTags(cleaned, 'phone_data');
+    const document = source.match(/<phone_data\b[^>]*>([\s\S]*?)<\/phone_data\s*>/i)?.[1]?.trim();
+    const output = document ? `<phone_data>\n${document}\n</phone_data>` : source.trim();
+    if (!output || (!document && /<\/?[a-z][\w-]*\b[^>]*>/i.test(output))) throw new Error('Mochi OS returned no phone data');
+    return { rawOutput: output };
+  }
 
   const recordType = recordTypeFor(category);
-  const targetName = (input.contactName || input.characterName || 'Character').trim();
-  const parsed = parseMochiChatResponse(cleaned, targetName);
+  const targetName = (recordType === 'group'
+    ? input.contactName || input.characterName || 'Group'
+    : input.characterName || input.contactName || 'Character').trim();
+  const threadOutput = extractGeneratedThread(cleaned, recordType, [targetName, input.contactName || '', input.characterName || '']);
+  const parsed = parseMochiChatResponse(threadOutput, targetName, { structuredOnly: true });
 
   const firstTime = parsed.find((reply) => reply.time)?.time ?? nowClock();
   const lines = resolveUserMessageLines({
@@ -229,14 +289,22 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   });
 
   const messages: Array<Record<string, any>> = [];
+  const authoredInputs = Array.isArray(input.userMessages) ? input.userMessages.filter((message) => message.me === 1) : null;
+  if (authoredInputs && !input.continuationOnly) {
+    messages.push(...authoredInputs.map((message) => ({
+      ...message, me: 1, t: message.t || firstTime,
+      ...(recordType === 'group' ? { sender: input.userName } : {}),
+    })));
+  }
   // Only fold the user's lines in when the model did not already archive them.
-  if (lines.length > 0 && !parsed.some((reply) => isUserItem(reply.rawItem))) {
+  if (!authoredInputs && lines.length > 0 && !parsed.some((reply) => isUserItem(reply.rawItem))) {
     messages.push(...userItems(lines, firstTime, input.userName, recordType));
   }
   for (const reply of parsed) {
     // Never archive a model-authored group line as though the user said it.
     if (recordType === 'group' && !isUserItem(reply.rawItem) && input.userName && reply.sender?.trim().toLowerCase() === input.userName.trim().toLowerCase()) continue;
     if (input.continuationOnly && isUserItem(reply.rawItem)) continue;
+    if (authoredInputs && isUserItem(reply.rawItem)) continue;
     messages.push({
       me: isUserItem(reply.rawItem) ? 1 : 0,
       type: reply.type,
@@ -250,11 +318,13 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
 
   if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
 
+  const environment = parseEnvironmentYaml([...threadOutput.matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].at(-1)?.[0] || '');
   const finalOutput = serializeChatHistoryYaml({
     targetName,
+    contactName: input.contactName,
     recordType,
     messages: messages as any,
-    environmentYaml: [...raw.matchAll(/<environment>[\s\S]*?<\/environment>/gi)].at(-1)?.[0],
+    environmentYaml: environment ? yaml.stringify(environment).trim() : undefined,
   });
 
   return { rawOutput: finalOutput };

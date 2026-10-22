@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
+import { stickerName } from "../../../st/stickers";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS } from "@marinara-engine/shared";
 import { parseMochiGroupChatContent, type ParsedMochiChatWidget } from "./mochi-os.utils";
@@ -32,10 +33,7 @@ export function renderMochiGroupChatBlocks(text: string, renderText: (text: stri
 }
 
 function stickerNameFromText(text: string): string {
-  return text
-    .trim()
-    .replace(/^\[Sticker\]\s*/i, "")
-    .replace(/^sticker:([a-z0-9_]+):$/i, "$1");
+  return stickerName(text);
 }
 
 /**

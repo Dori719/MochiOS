@@ -1,5 +1,5 @@
 import yaml from "yaml";
-import type { MochiCurrency, MochiMessage } from "./mochi-os.types";
+import type { MochiContactsMap, MochiCurrency, MochiMessage } from "./mochi-os.types";
 
 export function two(n: number): string {
   return String(n).padStart(2, "0");
@@ -170,20 +170,11 @@ export interface ParsedMochiChatReply {
   rawItem?: Record<string, any>;
 }
 
-export function parseMochiChatResponse(rawText: string, defaultSenderName?: string): ParsedMochiChatReply[] {
+export function parseMochiChatResponse(rawText: string, defaultSenderName?: string, options?: { structuredOnly?: boolean }): ParsedMochiChatReply[] {
   if (!rawText || !rawText.trim()) return [];
 
-  // 1. Thoroughly strip reasoning / thinking tags (including orphaned closing tags)
-  let text = rawText;
-  if (text.includes("</think>")) {
-    text = text.slice(text.indexOf("</think>") + 8);
-  } else if (text.includes("</thinking>")) {
-    text = text.slice(text.indexOf("</thinking>") + 11);
-  }
-  text = text
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .trim();
+  let text = stripMochiReasoning(rawText);
+  if (!text) return [];
 
   // 2. Extract content strictly within the supported Mochi wrappers. A new
   // private-chat output closes a targeted record with </privatechat_history>, and
@@ -357,7 +348,7 @@ export function parseMochiChatResponse(rawText: string, defaultSenderName?: stri
   }
 
   // Fallback: If no structured list was matched, treat the cleaned text as a direct message reply
-  if (results.length === 0) {
+  if (results.length === 0 && !options?.structuredOnly) {
     // Strip XML opening/closing tags or YAML keys if leftover
     let fallbackText = text
       .replace(
@@ -594,20 +585,37 @@ export function extractPhoneDataEditorYaml(rawText: string): string {
   return body;
 }
 
+/** Remove model reasoning, including nested/mixed-case tags and prefill closers.
+ * An unfinished reasoning block is discarded, never saved as a chat reply. */
+export function stripMochiReasoning(rawText: string): string {
+  const text = rawText || "";
+  const tags = /<\s*(\/?)\s*(think|thinking|think_format|analysis|reasoning|scratchpad)\b[^>]*>/gi;
+  let depth = 0;
+  let cursor = 0;
+  let result = "";
+  for (const match of text.matchAll(tags)) {
+    const index = match.index!;
+    if (!match[1]) {
+      if (depth === 0) result += text.slice(cursor, index);
+      if (!/\/\s*>$/.test(match[0])) depth++;
+    } else if (depth > 0) {
+      depth--;
+    } else {
+      const prefix = text.slice(cursor, index);
+      // An orphaned close commonly finishes the preset's assistant <think>
+      // prefill. A format example inside that reasoning is not a real reply.
+      const start = prefix.trimStart().replace(/^```[a-zA-Z0-9_-]*\s*/i, "");
+      if (result || /^(?:<(?:phone_data|chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat|environment)\b|(?:phone_data|messages|user|characters|groups):)/i.test(start)) result += prefix;
+    }
+    cursor = index + match[0].length;
+  }
+  if (depth === 0) result += text.slice(cursor);
+  return result.trim();
+}
+
 export function cleanAndExtractRawYaml(rawText: string): string {
   if (!rawText || !rawText.trim()) return "";
-
-  // 1. Thoroughly strip reasoning/think blocks if present (including orphaned </think> / </thinking>)
-  let cleanText = rawText;
-  if (cleanText.includes("</think>")) {
-    cleanText = cleanText.slice(cleanText.indexOf("</think>") + 8);
-  } else if (cleanText.includes("</thinking>")) {
-    cleanText = cleanText.slice(cleanText.indexOf("</thinking>") + 11);
-  }
-  cleanText = cleanText
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .trim();
+  let cleanText = stripMochiReasoning(rawText);
 
   // 2. Strip outer markdown fences like ```yaml ... ```
   cleanText = cleanText
@@ -661,6 +669,10 @@ export function formatFriendInfo(info?: {
 
 export interface MochiRoleplayLocation {
   roleplayMessageId: string;
+  /** Which record in the roleplay message holds this bubble. */
+  recordIndex: number;
+  /** Saved thread name, which can differ from its current display alias. */
+  targetName: string;
   /** Index of the message inside that roleplay message's own record. */
   indexInRecord: number;
   /** Where this record begins in the merged thread shown in the UI. */
@@ -677,6 +689,11 @@ export interface MochiRoleplayLocation {
   recordHasUserMessages: boolean;
 }
 
+/** A UI key derived from a saved position; never a transcript field. */
+export function mochiRoleplayBubbleId(messageId: string, recordIndex: number, itemIndex: number): string {
+  return `${messageId}:mochi:${recordIndex}:${itemIndex}`;
+}
+
 /**
  * Find the roleplay message and in-record index that back one bubble in the
  * merged private-chat thread.
@@ -685,8 +702,9 @@ export interface MochiRoleplayLocation {
  * for that contact across all of its roleplay messages, one record per
  * generated turn. So a UI index is only meaningful relative to the record it
  * came from, and addressing it needs the running total of the records before
- * it. The bubble's own id is preferred when a record carries ids, because ids
- * restart per record and a position alone can land in the wrong turn.
+ * it. Runtime bubble keys address the saved record and item without inserting
+ * ids into transcript YAML. Imported ids may repeat, so they never override the
+ * selected position.
  */
 export function locateMochiMessageInRoleplay(params: {
   roleplayMessages: Array<{ id: string; role?: string; content: string }>;
@@ -696,36 +714,44 @@ export function locateMochiMessageInRoleplay(params: {
   recordType?: MochiChatRecordType;
   /** Index into the merged thread shown in the UI. */
   threadIndex: number;
-  /** The bubble's own `id`, used to disambiguate ids repeated across turns. */
+  /** An in-memory bubble key; not a field written into the roleplay transcript. */
   threadMessageId?: string;
 }): MochiRoleplayLocation | null {
   const wanted = params.targetName.trim().toLowerCase();
-  const options = params.recordType ? { recordType: params.recordType } : undefined;
+  const records = params.roleplayMessages.flatMap((message) => message.role === "assistant"
+    ? parseChatHistoryBlocks(message.content, params.userName).map((block, recordIndex) => ({ message, block, recordIndex }))
+    : []);
+  const source = records.map((record) => ({
+    ...record,
+    itemIndex: record.block.messages.findIndex((_, index) =>
+      mochiRoleplayBubbleId(record.message.id, record.recordIndex, index) === params.threadMessageId,
+    ),
+  })).find((record) => record.itemIndex >= 0);
+  // A missing runtime source must not fall back to a different saved bubble.
+  if (params.threadMessageId?.match(/:mochi:\d+:\d+$/) && !source) return null;
+  if (source && params.recordType && source.block.type !== params.recordType) return null;
+  const recordType = params.recordType || source?.block.type;
+  const sourceTarget = source ? (source.block.target || source.block.contactname || source.block.name || "").trim().toLowerCase() : null;
   let offset = 0;
+  let indexedLocation: MochiRoleplayLocation | null = null;
 
-  for (const message of params.roleplayMessages) {
-    if (message.role !== "assistant") continue;
-    const block = parseChatHistoryBlocks(message.content, params.userName, options).find(
-      (entry) => (entry.target || "").trim().toLowerCase() === wanted,
-    );
-    if (!block) continue;
-
-    const byId =
-      params.threadMessageId !== undefined
-        ? block.messages.findIndex((item) => item.id === params.threadMessageId)
-        : -1;
+  for (const { message, block, recordIndex } of records) {
+    if (recordType && block.type !== recordType) continue;
+    const sameThread = sourceTarget !== null
+      ? (block.target || block.contactname || block.name || "").trim().toLowerCase() === sourceTarget
+      : [block.target, block.contactname, block.name].some((name) => name?.trim().toLowerCase() === wanted);
+    if (!sameThread) continue;
+    const location = (indexInRecord: number): MochiRoleplayLocation => ({
+      roleplayMessageId: message.id, recordIndex, indexInRecord, recordStartIndex: offset,
+      targetName: block.target || block.contactname || block.name || params.targetName,
+      recordHasUserMessages: block.messages.some((item) => item.me === 1),
+    });
+    if (source?.message === message && source.recordIndex === recordIndex) return location(source.itemIndex);
     const local = params.threadIndex - offset;
-    if (byId >= 0 || (local >= 0 && local < block.messages.length)) {
-      return {
-        roleplayMessageId: message.id,
-        indexInRecord: byId >= 0 ? byId : local,
-        recordStartIndex: offset,
-        recordHasUserMessages: block.messages.some((item) => item.me === 1),
-      };
-    }
+    if (local >= 0 && local < block.messages.length) indexedLocation = location(local);
     offset += block.messages.length;
   }
-  return null;
+  return indexedLocation;
 }
 
 /**
@@ -939,6 +965,7 @@ export interface ParsedChatHistoryBlock {
     /** Author of a group message; absent in a private record, whose reader is always the contact. */
     sender?: string;
     rawItem?: Record<string, any>;
+    reactions?: MochiMessage['reactions'];
   }>;
 }
 
@@ -1037,16 +1064,8 @@ export function parseChatHistoryBlocks(
 ): ParsedChatHistoryBlock[] {
   if (!rawYaml || !rawYaml.trim()) return [];
 
-  let cleanedYaml = rawYaml;
-  if (cleanedYaml.includes("</think>")) {
-    cleanedYaml = cleanedYaml.slice(cleanedYaml.indexOf("</think>") + 8);
-  } else if (cleanedYaml.includes("</thinking>")) {
-    cleanedYaml = cleanedYaml.slice(cleanedYaml.indexOf("</thinking>") + 11);
-  }
-  cleanedYaml = cleanedYaml
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .trim();
+  let cleanedYaml = stripMochiReasoning(rawYaml);
+  if (!cleanedYaml) return [];
 
   const outerFence = cleanedYaml.match(/^```(?:yaml)?\s*([\s\S]*?)\s*```$/i);
   if (outerFence && outerFence[1]) {
@@ -1167,6 +1186,7 @@ function parseSingleChatHistoryRecord(
           dur: durVal || (rawType === "voice" ? "0:05" : undefined),
           sender: senderVal || undefined,
           rawItem: item,
+          reactions: Array.isArray(item.reactions) ? item.reactions : undefined,
         };
       });
 
@@ -1575,6 +1595,42 @@ export function selectMochiThreadContact<T>(contacts: Record<string, T>, threadI
   return contacts[threadId];
 }
 
+/** Saved roleplay history replaces local history, including an emptied thread.
+ * Only unsaved user inputs and explicitly in-flight regenerations may survive. */
+export function reconcileMochiContactHistory(params: {
+  local: MochiContactsMap;
+  archived: MochiContactsMap;
+  pendingUserMessages: Record<string, MochiMessage[]>;
+  regeneratingThreadIds: ReadonlySet<string>;
+}): MochiContactsMap {
+  const next: MochiContactsMap = { ...params.local };
+  let changed = false;
+  const threadIds = new Set([...Object.keys(params.local), ...Object.keys(params.archived)]);
+  for (const threadId of threadIds) {
+    const previous = params.local[threadId];
+    if (previous && params.regeneratingThreadIds.has(threadId)) continue;
+    const archived = params.archived[threadId];
+    const contact = archived || previous;
+    if (!contact) continue;
+    const msgs = [...(archived?.msgs || [])];
+    const savedIds = new Set(msgs.map((message) => message.id).filter(Boolean));
+    for (const pending of params.pendingUserMessages[threadId] || []) {
+      if (pending.id && savedIds.has(pending.id)) continue;
+      msgs.push(pending);
+      if (pending.id) savedIds.add(pending.id);
+    }
+    const preview = mochiMessagePreview(msgs.at(-1));
+    if (previous && previous.name === contact.name && previous.preview === preview &&
+        JSON.stringify(previous.msgs) === JSON.stringify(msgs)) continue;
+    next[threadId] = {
+      ...previous, ...contact, color: previous?.color || contact.color,
+      msgs, preview, unread: 0,
+    };
+    changed = true;
+  }
+  return changed ? next : params.local;
+}
+
 /** Merge separate archived turns into one thread's chronological message history. */
 export function mergeMochiChatHistoryBlocks<
   T extends {
@@ -1605,6 +1661,8 @@ export function mergeMochiChatHistoryBlocks<
 
 export function serializeChatHistoryYaml(params: {
   targetName: string;
+  /** Display alias, distinct from the private thread's stable character target. */
+  contactName?: string;
   date?: string;
   time?: string;
   messages: Array<MochiMessage>;
@@ -1646,6 +1704,7 @@ export function serializeChatHistoryYaml(params: {
     if (recordType === "group" && senderName) {
       item.sender = { name: senderName };
     }
+    if (m.reactions?.length) item.reactions = m.reactions;
 
     if (rawType === "voice") {
       item.c = m.text || "voice note";
@@ -1669,7 +1728,7 @@ export function serializeChatHistoryYaml(params: {
       // excluded because it was resolved above and re-copying the raw object would
       // override an edited author with the one the model originally wrote.
       for (const [key, val] of Object.entries(m.rawItem)) {
-        if (key !== "id" && key !== "t" && key !== "time" && key !== "{{user}}" && key !== "name" && key !== "sender") {
+        if (key !== "id" && key !== "t" && key !== "time" && key !== "{{user}}" && key !== "name" && key !== "sender" && key !== "reactions") {
           item[key] = val;
         }
       }
@@ -1687,7 +1746,7 @@ export function serializeChatHistoryYaml(params: {
   // `name:`. Writing the key the guide asks for means an edited or regenerated
   // turn is byte-identical in shape to a freshly generated one.
   const chatObj: Record<string, any> = {
-    ...(recordType === "group" ? { name: targetName } : { contactname: targetName }),
+    ...(recordType === "group" ? { name: targetName } : { contactname: params.contactName || targetName }),
     date: conversationDate,
     time: conversationTime,
   };
@@ -1749,17 +1808,8 @@ export interface ParsedEnvironment {
 export function parseEnvironmentYaml(rawText: string): ParsedEnvironment | null {
   if (!rawText || !rawText.trim()) return null;
 
-  // Thoroughly strip reasoning/think tags first
-  let cleaned = rawText;
-  if (cleaned.includes("</think>")) {
-    cleaned = cleaned.slice(cleaned.indexOf("</think>") + 8);
-  } else if (cleaned.includes("</thinking>")) {
-    cleaned = cleaned.slice(cleaned.indexOf("</thinking>") + 11);
-  }
-  cleaned = cleaned
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .trim();
+  const cleaned = stripMochiReasoning(rawText);
+  if (!cleaned) return null;
 
   // Extract <environment>...</environment> (find the last one if multiple exist)
   const allEnvMatches = Array.from(cleaned.matchAll(/<environment>([\s\S]*?)<\/environment>/gi));

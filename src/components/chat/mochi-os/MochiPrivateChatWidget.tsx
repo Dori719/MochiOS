@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
+import { stickerName } from "../../../st/stickers";
 import { useMochiOSPhoneData } from "../../../hooks/use-mochios-data";
 import { useChatStore } from "../../../stores/chat.store";
 import { getMochiCharacterColor } from "./mochi-character-color";
@@ -33,10 +34,7 @@ export function renderMochiPrivateChatBlocks(text: string, renderText: (text: st
 }
 
 function getStickerName(text: string): string {
-  return text
-    .trim()
-    .replace(/^\[Sticker\]\s*/i, "")
-    .replace(/^sticker:([a-z0-9_]+):$/i, "$1");
+  return stickerName(text);
 }
 
 /**
@@ -253,10 +251,10 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
                         ) : null}
                         <div>
                           {message.type === "sticker" &&
-                          stickerMap.get(message.text.replace(/^\[Sticker\]\s*/i, "")) ? (
+                           stickerMap.get(getStickerName(message.text)) ? (
                             <img
                               className="mochi-private-sticker"
-                              src={stickerMap.get(message.text.replace(/^\[Sticker\]\s*/i, ""))}
+                              src={stickerMap.get(getStickerName(message.text))}
                               alt={message.text}
                             />
                           ) : (

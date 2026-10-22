@@ -14,6 +14,7 @@
 import * as st from './adapter';
 import { deletePhoneData, generatePhoneData, readPhoneData, savePhoneData } from './mochi-data';
 import { listLorebooks, readLorebookEntries, scanLorebooks } from './lorebooks';
+import { editPhoneMessage, updatePhoneMessageReactions } from './phone-actions';
 
 export class ApiError extends Error {
   status: number;
@@ -177,6 +178,31 @@ route('PATCH', '/chats/:chatId/messages/:messageId/extra', (request, params) => 
   return st.mergeMessageExtra(params.messageId, patch);
 });
 
+route('PATCH', '/chats/:chatId/messages/:messageId/phone-reactions', (request, params) => {
+  assertCurrentChat(params.chatId);
+  const body = request.body ?? {};
+  if (!Number.isInteger(body.itemIndex) || body.itemIndex < 0 || !Array.isArray(body.reactions)) throw new ApiError(400, 'Invalid phone reaction target');
+  if (body.recordIndex !== undefined && (!Number.isInteger(body.recordIndex) || body.recordIndex < 0)) throw new ApiError(400, 'Invalid phone record target');
+  return updatePhoneMessageReactions({
+    messageId: params.messageId, recordType: body.recordType === 'group' ? 'group' : 'private',
+    targetName: String(body.targetName ?? ''), recordIndex: body.recordIndex, itemIndex: body.itemIndex, itemId: body.itemId,
+    reactions: body.reactions,
+  });
+});
+
+route('PATCH', '/chats/:chatId/messages/:messageId/phone-message', (request, params) => {
+  assertCurrentChat(params.chatId);
+  const body = request.body ?? {};
+  if (!Number.isInteger(body.itemIndex) || body.itemIndex < 0 || (typeof body.content !== 'string' && body.delete !== true)) throw new ApiError(400, 'Invalid phone message edit');
+  if (body.recordIndex !== undefined && (!Number.isInteger(body.recordIndex) || body.recordIndex < 0)) throw new ApiError(400, 'Invalid phone record target');
+  if (body.expectedContent !== undefined && typeof body.expectedContent !== 'string') throw new ApiError(400, 'Invalid phone edit snapshot');
+  return editPhoneMessage({
+    messageId: params.messageId, recordType: body.recordType === 'group' ? 'group' : 'private',
+    targetName: String(body.targetName ?? ''), recordIndex: body.recordIndex, itemIndex: body.itemIndex, itemId: body.itemId,
+    content: body.content, delete: body.delete === true, expectedContent: body.expectedContent,
+  });
+});
+
 route('POST', '/chats/:chatId/messages/:messageId/swipes', (request, params) => {
   assertCurrentChat(params.chatId);
   return st.appendSwipe(params.messageId, String(request.body?.content ?? ''));
@@ -313,6 +339,7 @@ route('POST', '/mochios-data/:chatId/generate', async (request, params) => {
       characterName: request.body?.characterName,
       userName: request.body?.userName,
       continuationOnly: Boolean(request.body?.continuationOnly),
+      userMessages: Array.isArray(request.body?.userMessages) ? request.body.userMessages : undefined,
       signal: controller.signal,
     });
     assertCurrentChat(params.chatId);
