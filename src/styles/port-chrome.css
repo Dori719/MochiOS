@@ -107,6 +107,7 @@
 }
 
 .mochi-scope .mochi-media-picker-body {
+  min-height: 0;
   padding: 8px 10px 10px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -147,54 +148,6 @@
   background: var(--acc-soft);
 }
 
-.mochi-scope .mochi-kaomoji-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-}
-
-.mochi-scope .mochi-kaomoji-grid button {
-  border: 1px solid var(--bubble-line);
-  background: var(--paper-dim);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 6px 4px;
-  font-size: 12px;
-  line-height: 1.25;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mochi-scope .mochi-kaomoji-grid button:hover {
-  border-color: var(--acc);
-}
-
-.mochi-scope .mochi-gif-tab p,
-.mochi-scope .mochi-media-empty p {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.mochi-scope .mochi-gif-row {
-  display: flex;
-  gap: 6px;
-}
-
-.mochi-scope .mochi-gif-row input {
-  flex: 1;
-  min-width: 0;
-  background: var(--input-bg);
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.mochi-scope .mochi-gif-row button,
 .mochi-scope .mochi-media-empty-action {
   border: none;
   background: var(--acc);
@@ -207,16 +160,8 @@
   transition: transform 0.12s ease;
 }
 
-.mochi-scope .mochi-gif-row button:hover,
 .mochi-scope .mochi-media-empty-action:hover {
   transform: scale(1.03);
-}
-
-.mochi-scope .mochi-media-empty {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 4px 6px;
 }
 
 .mochi-scope .mochi-media-empty-hint {
@@ -227,12 +172,6 @@
 .mochi-scope .mochi-media-empty-action {
   align-self: flex-start;
   margin-top: 6px;
-}
-
-.mochi-scope .mochi-media-tools {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 /* ── Slash-command feedback ──────────────────────────────────────────── */
@@ -427,10 +366,8 @@
 
 /* ── The handful of Tailwind utilities Mochi OS itself uses ──────────── */
 
-/* `MochiOsView` is unmodified, and it carries Tailwind classes on four spots
-   that its own stylesheet does not cover: the translation box under a bubble
-   and three hover accents on action buttons. Tailwind does not run in
-   SillyTavern, so those utilities are declared here — same names, same values,
+/* Ported components carry utility classes their own stylesheets do not cover.
+   Tailwind does not run in SillyTavern, so those utilities are declared here — same names, same values,
    scoped to `.mochi-scope` so they cannot reach SillyTavern's own markup. */
 
 .mochi-scope .flex {
@@ -661,24 +598,64 @@
   min-width: 0;
 }
 
-.mochi-scope .msg-actions-trigger {
+.mochi-scope .wmsg > .msg-actions-trigger,
+.mochi-scope .mrow:is(:hover, :focus-within) .wmsg > .msg-actions-trigger {
   position: static;
-  display: none;
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  justify-content: flex-start;
+  min-height: 32px;
   flex-wrap: wrap;
   max-width: 100%;
-  margin-top: 4px;
+  width: 100%;
+  contain: inline-size;
+  gap: 4px;
+  margin: 4px 0 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
 }
 
 .mochi-scope .mrow {
   padding-bottom: 0;
+  flex-shrink: 0;
 }
 
-.mochi-scope .mrow:is(:hover, :focus-within, .actions-visible) .msg-actions-trigger {
-  display: flex;
+.mochi-scope .mrow.actions-visible .wmsg > :is(.msg-actions-trigger, .mochi-swipe-trigger) {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.mochi-scope .mrow.out .msg-actions-trigger {
+.mochi-scope .wmsg > .mochi-swipe-trigger {
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  width: min(96px, 100%);
   max-width: 100%;
+  box-sizing: border-box;
+  contain: inline-size;
+  flex-wrap: wrap;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mochi-scope .mrow:focus-visible {
+  outline: 1px solid var(--acc);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.mochi-scope .mochi-reaction-add-popover {
+  left: 0;
+  transform: none;
+  flex-wrap: wrap;
+  width: min(224px, calc(100cqw - 64px));
+  box-sizing: border-box;
 }
 
 .mochi-scope :is(.mochi-transfer-amount, .mochi-private-transfer-amount, .notice, .mochi-private-day) {
@@ -689,6 +666,85 @@
 .mochi-scope.mochi-private-widget {
   max-width: 100%;
   min-width: 0;
+}
+
+/* Navigation keeps the engine's sidebar/tab-strip geometry and native touch
+   scrolling. Desktop pointers can grab the same strip to reach later sections. */
+.mochi-scope .settings-split-sidebar {
+  user-select: none;
+  overscroll-behavior: contain;
+}
+
+.mochi-scope .settings-split-sidebar.is-dragging,
+.mochi-scope .settings-split-sidebar.is-dragging * {
+  cursor: grabbing;
+}
+
+.mochi-scope .mochi-sticker-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mochi-scope .mochi-sticker-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mochi-scope .mochi-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+}
+
+.mochi-scope .mochi-sticker-cell {
+  position: relative;
+  min-width: 0;
+}
+
+.mochi-scope .mochi-sticker-send {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--paper-dim);
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.mochi-scope .mochi-sticker-send img {
+  width: 100%;
+  height: 68px;
+  object-fit: contain;
+}
+
+.mochi-scope .mochi-sticker-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-media-picker-popover [hidden] {
+  display: none !important;
+}
+
+.mochi-scope .mochi-media-error {
+  color: var(--text);
+  font-size: 12px;
+  padding: 8px;
+  background: var(--acc-soft);
+  border-radius: 8px;
 }
 
 @container (max-height: 520px) {

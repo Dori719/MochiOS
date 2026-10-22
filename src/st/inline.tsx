@@ -42,6 +42,7 @@ export function mayContainMochiWidget(text: string): boolean {
 interface Mounted {
   container: HTMLElement;
   root: Root;
+  text: string;
 }
 
 const mounted = new Map<number, Mounted>();
@@ -90,7 +91,7 @@ function mount(index: number, textElement: HTMLElement, text: string): void {
 
   const root = createRoot(container);
   root.render(<QueryClientProvider client={mochiQueryClient()}>{blocks}</QueryClientProvider>);
-  mounted.set(index, { container, root });
+  mounted.set(index, { container, root, text });
 }
 
 /**
@@ -102,7 +103,7 @@ function mount(index: number, textElement: HTMLElement, text: string): void {
  */
 function sweep(): void {
   for (const [index, entry] of mounted) {
-    if (entry.container.isConnected) continue;
+    if (entry.container.isConnected && messageTextElement(index)?.contains(entry.container)) continue;
     mounted.delete(index);
     queueMicrotask(() => entry.root.unmount());
   }
@@ -112,7 +113,8 @@ function sweep(): void {
  * Brings the transcript widgets in the open chat up to date.
  *
  * Cheap to call: messages without a record are skipped by a substring test, and
- * messages that already have a mounted widget are left alone.
+ * unchanged mounted widgets are left alone. Content changes repaint existing
+ * roots too, even when the host has not replaced their DOM container.
  */
 export function refreshMochiWidgets(): void {
   const chat = ctx().chat;
@@ -122,13 +124,25 @@ export function refreshMochiWidgets(): void {
 
   for (let index = 0; index < chat.length; index += 1) {
     const text = typeof chat[index]?.mes === 'string' ? chat[index].mes : '';
-    if (!text || !mayContainMochiWidget(text)) continue;
-
+    const existing = mounted.get(index);
+    if (!existing && (!text || !mayContainMochiWidget(text))) continue;
     const textElement = messageTextElement(index);
     if (!textElement) continue;
 
-    const existing = mounted.get(index);
-    if (existing?.container.isConnected && textElement.contains(existing.container)) continue;
+    if (existing) {
+      if (existing.text === text) continue;
+      const blocks = mayContainMochiWidget(text) ? renderBlocks(text, index) : null;
+      if (blocks) {
+        existing.text = text;
+        existing.root.render(<QueryClientProvider client={mochiQueryClient()}>{blocks}</QueryClientProvider>);
+      } else {
+        mounted.delete(index);
+        queueMicrotask(() => existing.root.unmount());
+        if (typeof ctx().updateMessageBlock === 'function') ctx().updateMessageBlock(index, chat[index]);
+        else textElement.textContent = text;
+      }
+      continue;
+    }
 
     mount(index, textElement, text);
   }

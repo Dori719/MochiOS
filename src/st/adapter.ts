@@ -17,7 +17,7 @@
  *    assigning to the snapshot's property would only touch the copy.
  */
 
-import { combinePhoneTranscript, resolvePhoneCharacter, splitPhoneTranscript, transcriptBlock } from './phone-transcript';
+import { combinePhoneTranscript, resolvePhoneCharacter, transcriptBlock } from './phone-transcript';
 
 type StRecord = Record<string, any>;
 
@@ -274,8 +274,7 @@ export function writeChatMeta(next: Record<string, any>): void {
 }
 
 /**
- * The port's extension-wide settings — theme, colours, the profile's status, the
- * page size.
+ * The port's extension-wide settings — theme, colours and window preferences.
  *
  * Reading never creates the key: an empty `mochi_os` block in the user's
  * `settings.json` would be a change to their SillyTavern for nothing. It appears
@@ -321,9 +320,15 @@ export function ensureMessageId(index: number): string | null {
   if (!message) return null;
   if (!message.extra || typeof message.extra !== 'object') message.extra = {};
   const existing = message.extra.mochiosId;
-  if (typeof existing === 'string' && existing) return existing;
-  const id = nextMessageId();
+  const id = typeof existing === 'string' && existing ? existing : nextMessageId();
   message.extra.mochiosId = id;
+  // Native ST swipes restore `extra` from swipe_info. The logical turn identity
+  // must survive that restore, including swipes created before Mochi assigned it.
+  if (Array.isArray(message.swipe_info)) {
+    for (const swipe of message.swipe_info) {
+      if (swipe && typeof swipe === 'object') swipe.extra = { ...swipe.extra, mochiosId: id };
+    }
+  }
   return id;
 }
 
@@ -397,7 +402,7 @@ function turnIndices(index: number): number[] {
     : [index];
 }
 
-/** Mochi edits/regenerates a whole turn; ST stores and displays each incoming bubble separately. */
+/** Read older split turns as one transcript without rewriting history on read. */
 function mapTurn(index: number): Record<string, any> | null {
   const indices = turnIndices(index);
   const first = indices[0];
@@ -415,6 +420,11 @@ function mapTurn(index: number): Record<string, any> | null {
       : null, content,
     swipeCount: swipes.length, activeSwipeIndex: swipeId, swipes,
   };
+}
+
+export function readMessage(id: string): Record<string, any> | null {
+  const index = messageIndexOf(id);
+  return index < 0 ? null : mapTurn(index);
 }
 
 /** Chronological window of logical turns, oldest first. */
@@ -459,38 +469,34 @@ function makeMessages(input: InsertMessageInput, stableId?: string): StRecord[] 
   const role = input.role ?? 'assistant';
   const content = input.content ?? '';
   const block = role === 'assistant' ? transcriptBlock(content) : null;
-  const parts = role === 'assistant' ? splitPhoneTranscript(content) : null;
-  const turnId = parts ? stableId || nextMessageId() : undefined;
-  return (parts ?? [{ content, name: input.name || (block?.target ?? ''), characterId: input.characterId ?? undefined, isUser: role === 'user' }]).map((part, partIndex) => {
-    const isPhone = Boolean(block);
-    const character = isPhone
-      ? parts && part.characterId
-        ? context.characters.find((item) => String(item.avatar) === part.characterId)
-        : resolvePhoneCharacter(part.name, part.characterId, context.characters, context.chatMetadata?.mochios?.phoneDataYaml)
-      : context.characters.find((item) => input.characterId && String(item.avatar) === String(input.characterId));
-    const name = part.isUser ? context.name1 || 'User'
-      : characterDisplayName(character) || part.name || (isPhone ? 'Unknown sender' : context.name2 || 'Character');
-    const extra: StRecord = { ...input.extra };
-    for (const key of ['mochiosId', 'mochiosTurnId', 'mochiosTurnPart', 'mochiosTurnSwipes', 'mochiosTurnSwipeId']) delete extra[key];
-    if (isPhone) extra.mochiosCharacterId = character ? String(character.avatar) : null;
-    if (turnId) {
-      extra.mochiosTurnId = turnId;
-      extra.mochiosTurnPart = partIndex;
-      if (partIndex === 0) {
-        extra.mochiosId = turnId;
-        extra.mochiosTurnSwipes = [content];
-        extra.mochiosTurnSwipeId = 0;
-      }
-    } else if (stableId) extra.mochiosId = stableId;
-    return {
-      name, is_user: part.isUser, is_system: role === 'system', send_date: new Date().toISOString(),
-      mes: part.content, extra,
-      ...(!part.isUser && character ? {
-        original_avatar: character.avatar,
-        force_avatar: context.getThumbnailUrl?.('avatar', character.avatar) || `/characters/${encodeURIComponent(character.avatar)}`,
-      } : !part.isUser && isPhone ? { force_avatar: '/img/ai4.png' } : {}),
-    };
-  });
+  // A phone response is ONE ST turn. Its YAML already attributes each bubble;
+  // splitting it creates extra roleplay turns and fires host automation per item.
+  const character = block?.type === 'group' ? undefined : block
+    ? resolvePhoneCharacter(block.target || block.contactname || '', input.characterId, context.characters, context.chatMetadata?.mochios?.phoneDataYaml)
+    : context.characters.find((item) => input.characterId && String(item.avatar) === String(input.characterId));
+  const extra: StRecord = { ...input.extra };
+  for (const key of ['mochiosId', 'mochiosTurnId', 'mochiosTurnPart', 'mochiosTurnSwipes', 'mochiosTurnSwipeId']) delete extra[key];
+  if (stableId) extra.mochiosId = stableId;
+  if (block) {
+    extra.mochiosCharacterId = character ? String(character.avatar) : null;
+    extra.mochiosPhoneTranscript = { type: block.type, target: block.target };
+  }
+  const message: StRecord = {
+    name: role === 'user' ? context.name1 || 'User'
+      : characterDisplayName(character) || input.name || block?.target || context.name2 || 'Character',
+    is_user: role === 'user', is_system: role === 'system', send_date: new Date().toISOString(),
+    mes: content, extra,
+    ...(role === 'assistant' && character ? {
+      original_avatar: character.avatar,
+      force_avatar: context.getThumbnailUrl?.('avatar', character.avatar) || `/characters/${encodeURIComponent(character.avatar)}`,
+    } : role === 'assistant' && block ? { force_avatar: '/img/ai4.png' } : {}),
+  };
+  if (role === 'assistant') {
+    message.swipe_id = 0;
+    message.swipes = [content];
+    message.swipe_info = [{ send_date: message.send_date, gen_started: null, gen_finished: null, extra: { ...extra } }];
+  }
+  return [message];
 }
 
 async function emitMessage(context: StContext, name: string, index: number): Promise<void> {
@@ -509,7 +515,7 @@ async function repaintChat(context: StContext): Promise<void> {
   await context.printMessages();
 }
 
-/** Follow ST's received → render → rendered → save lifecycle, including group avatars. */
+/** Follow ST's received → render → rendered → save lifecycle once per turn. */
 export async function insertMessage(input: InsertMessageInput, atIndex?: number): Promise<Record<string, any>> {
   const context = ctx();
   const chatId = activeChatId();
@@ -524,7 +530,7 @@ export async function insertMessage(input: InsertMessageInput, atIndex?: number)
     const message = messages[offset];
     await emitMessage(context, message.is_user ? 'MESSAGE_SENT' : 'MESSAGE_RECEIVED', index + offset);
     assertMessageChat(chat, chatId);
-    if (appended) context.addOneMessage?.(message);
+    if (appended) context.addOneMessage?.(message, { forceId: index + offset });
     else if (offset === 0) await repaintChat(context);
     assertMessageChat(chat, chatId);
     await emitMessage(context, message.is_user ? 'USER_MESSAGE_RENDERED' : 'CHARACTER_MESSAGE_RENDERED', index + offset);
@@ -534,7 +540,7 @@ export async function insertMessage(input: InsertMessageInput, atIndex?: number)
   return result;
 }
 
-async function replaceTurn(id: string, content: string, swipes?: string[], swipeId = 0): Promise<Record<string, any> | null> {
+async function replaceTurn(id: string, content: string, swipes?: string[], swipeId = 0, eventName = 'MESSAGE_UPDATED'): Promise<Record<string, any> | null> {
   const index = messageIndexOf(id);
   if (index < 0) return null;
   const context = ctx();
@@ -544,26 +550,21 @@ async function replaceTurn(id: string, content: string, swipes?: string[], swipe
   const first = indices[0];
   const previous = chat[first];
   const messages = makeMessages({ role: 'assistant', characterId: mapMessage(first)?.characterId, name: previous.is_user ? undefined : previous.name, content, extra: previous.extra }, ensureMessageId(first)!);
-  if (previous.extra?.mochiosTurnId) {
-    messages[0].extra.mochiosId = previous.extra.mochiosTurnId;
-    messages.forEach((message, part) => {
-      message.extra.mochiosTurnId = previous.extra.mochiosTurnId;
-      message.extra.mochiosTurnPart = part;
-    });
-  }
+  if (previous.extra?.mochiosTurnId) messages[0].extra.mochiosId = previous.extra.mochiosTurnId;
   for (const position of [...indices].reverse()) chat.splice(position, 1);
   chat.splice(first, 0, ...messages);
   messages.forEach((message, offset) => {
     if (offset === 0) message.send_date = previous.send_date;
     ensureMessageId(first + offset);
   });
-  if (swipes && messages[0].extra.mochiosTurnId) {
-    messages[0].extra.mochiosTurnSwipes = swipes;
-    messages[0].extra.mochiosTurnSwipeId = swipeId;
+  if (swipes) {
+    messages[0].swipes = swipes;
+    messages[0].swipe_id = swipeId;
+    messages[0].swipe_info = swipes.map(() => ({ send_date: previous.send_date, gen_started: null, gen_finished: null, extra: { ...messages[0].extra } }));
   }
   await repaintChat(context);
   assertMessageChat(chat, chatId);
-  await emitMessage(context, 'MESSAGE_UPDATED', first);
+  await emitMessage(context, eventName, first);
   assertMessageChat(chat, chatId);
   await context.saveChat?.();
   return mapTurn(first);
@@ -575,7 +576,7 @@ export async function updateMessageContent(id: string, content: string): Promise
   const context = ctx();
   const chatId = activeChatId();
   const message = context.chat[index];
-  if (message.extra?.mochiosTurnId || splitPhoneTranscript(content)) {
+  if (message.extra?.mochiosTurnId) {
     const turn = mapTurn(index)!;
     const swipes = turn.swipes?.length ? [...turn.swipes] : [turn.content];
     swipes[turn.activeSwipeIndex] = content;
@@ -624,10 +625,10 @@ export async function appendSwipe(id: string, content: string): Promise<Record<s
   const index = messageIndexOf(id);
   if (index < 0) return null;
   const message = ctx().chat[index];
-  if (message.extra?.mochiosTurnId || splitPhoneTranscript(content)) {
+  if (message.extra?.mochiosTurnId) {
     const turn = mapTurn(index)!;
     const swipes = [...(turn.swipes?.length ? turn.swipes : [turn.content]), content];
-    return replaceTurn(id, content, swipes, swipes.length - 1);
+    return replaceTurn(id, content, swipes, swipes.length - 1, 'MESSAGE_SWIPED');
   }
   if (!Array.isArray(message.swipes) || message.swipes.length === 0) {
     message.swipes = [message.mes ?? ''];
@@ -635,6 +636,10 @@ export async function appendSwipe(id: string, content: string): Promise<Record<s
   message.swipes.push(content);
   message.swipe_id = message.swipes.length - 1;
   message.mes = content;
+  message.swipe_info ??= [];
+  while (message.swipe_info.length < message.swipes.length) {
+    message.swipe_info.push({ send_date: message.send_date, gen_started: null, gen_finished: null, extra: { ...message.extra } });
+  }
   const context = ctx();
   const chatId = activeChatId();
   context.addOneMessage?.(message, { type: 'swipe', forceId: index, scroll: false });
@@ -648,11 +653,11 @@ export async function setActiveSwipe(id: string, swipeIndex: number): Promise<Re
   const index = messageIndexOf(id);
   if (index < 0) return null;
   const message = ctx().chat[index];
-  if (message.extra?.mochiosTurnId || splitPhoneTranscript(message.swipes?.[swipeIndex] ?? message.mes)) {
+  if (message.extra?.mochiosTurnId) {
     const turn = mapTurn(index)!;
     const swipes = turn.swipes?.length ? turn.swipes : [turn.content];
     const next = Math.max(0, Math.min(Number.isFinite(swipeIndex) ? Math.floor(swipeIndex) : 0, swipes.length - 1));
-    return replaceTurn(id, swipes[next], swipes, next);
+    return replaceTurn(id, swipes[next], swipes, next, 'MESSAGE_SWIPED');
   }
   if (!Array.isArray(message.swipes) || message.swipes.length === 0) {
     message.swipes = [message.mes ?? ''];

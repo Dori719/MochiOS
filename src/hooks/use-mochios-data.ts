@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api-client";
+import type { MochiMessage } from "../components/chat/mochi-os/mochi-os.types";
 import type {
   MochiOsPhoneDataResponse,
   MochiOsCharacterData,
@@ -67,6 +68,7 @@ export function useGenerateMochiOSPhoneData() {
        * must not archive it as a `{{user}}: true` message.
        */
       continuationOnly?: boolean;
+      userMessages?: MochiMessage[];
       signal?: AbortSignal;
     }
   >({
@@ -80,6 +82,7 @@ export function useGenerateMochiOSPhoneData() {
       contactName,
       userName,
       continuationOnly,
+      userMessages,
       signal,
     }) => {
       const payload = {
@@ -91,6 +94,7 @@ export function useGenerateMochiOSPhoneData() {
         contactName,
         userName,
         continuationOnly,
+        userMessages,
       };
       for (let attempt = 0; ; attempt += 1) {
         try {

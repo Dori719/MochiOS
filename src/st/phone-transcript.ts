@@ -1,4 +1,4 @@
-/** Physical SillyTavern messages, with one logical phone turn for Mochi's edit/swipe UI. */
+/** Compatibility readers for older phone turns split into physical ST messages. */
 import yaml from 'yaml';
 import {
   parseChatHistoryBlocks,
@@ -36,7 +36,7 @@ export function transcriptBlock(content: string): ParsedChatHistoryBlock | null 
   return blocks.length === 1 && blocks[0].messages.length > 0 ? blocks[0] : null;
 }
 
-/** Each incoming bubble becomes a character message; group items retain their own sender. */
+/** Legacy split format. New writes keep the complete transcript in one ST message. */
 export function splitPhoneTranscript(content: string): TranscriptPart[] | null {
   const block = transcriptBlock(content);
   if (!block) return null;

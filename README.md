@@ -22,14 +22,29 @@ app shell.
   (`<privatechat_history …>`, `<groupchat_history …>` and their `<environment>`
   block) renders as a real chat widget inside the message, with the prose around
   it untouched.
+- **One response, one roleplay turn.** Each complete private or group phone
+  response is saved as one SillyTavern message. Group senders remain attributed
+  inside its YAML, and regeneration uses that message's native swipes.
+- **Bubble actions.** Click or tap a bubble to reveal left-aligned actions below
+  it, with swipe controls on their own row underneath; hovering does not reveal
+  them. The original compact avatar/bubble layout is retained, with no extra
+  author rail. Long-press with mouse or touch to Reply. Reserved control rows
+  prevent bubbles from shifting. Translate is not offered.
+- **Live history.** Deleting roleplay turns immediately restores each phone
+  thread's latest surviving messages and preview, including empty threads.
+  Generated replies save only the relevant transcript and environment; model
+  reasoning, unrelated tags, surrounding explanations and fences are discarded.
+- **Emoji and global stickers.** More → Emoji opens the emoji/sticker picker.
+  Import images once and use them in any Mochi chat in the same browser/origin.
 - **The same data, in SillyTavern's terms.** The phone document lives in the
   chat's metadata, so it travels with export, import and branching. Transcript
   turns stay in the ordinary roleplay messages — no parallel store to keep in
-  step.
+  step. Sticker image files are the exception: they live in Mochi's browser
+  storage, not chat metadata or SillyTavern's media directories.
 
 ## Opening it
 
-Three ways, all of them first-class:
+Ways to open it:
 
 | Where | How |
 | --- | --- |
@@ -46,7 +61,9 @@ and the popup stays inside the visible viewport, including browser panning and
 safe-area insets. Drag it by the four-arrow move button; the position is remembered
 across opening, closing and page reloads. Temporary keyboard adjustments do not
 overwrite your saved position. You can also focus
-that button and use arrow keys (Shift for larger steps). Escape or **×** closes it.
+that button and use arrow keys (Shift for larger steps). **×** closes it;
+Escape dismisses the current picker, actions or sheet first, then backs out of
+the app and closes the phone.
 Phone data and transcripts belong to the selected SillyTavern chat; switching
 chats resets the phone UI and cancels pending phone results.
 
@@ -54,6 +71,26 @@ Under **Extensions → Mochi OS**, the inline settings drawer has a **Show float
 bubble** checkbox. Hiding it leaves the wand menu, Quick Reply and slash command
 available. Drag the bubble directly, or focus it and use **Alt + arrow keys**
 (**Shift** for larger steps).
+
+Settings keeps its original sidebar on wide screens and horizontal section strip
+on phones. Hold and drag the navigation to reach more sections with a desktop
+mouse, just as you swipe the strip on mobile, then click a section to open it.
+The content scrolls independently; there is no resize divider or section grid.
+
+### Stickers and emoji
+
+Open **More → Emoji → Stickers → Import stickers**. PNG, JPEG, GIF and WebP files
+up to 10 MB each are supported. Select an imported sticker to send an image
+bubble; emoji selection inserts into the composer, where Send queues it as text.
+Use Refresh to request the phone's next reply, just as with other queued messages.
+
+Images are saved in the browser's origin-private folder **`mochi-os/stickers`**,
+with an IndexedDB fallback on browsers without folder storage. This is not a
+folder beside the repository and does not use SillyTavern upload APIs. The
+library survives page reloads and chat switches within the same browser profile
+and origin; it is not synced across devices or included in SillyTavern chat
+exports. Clearing site data removes the library. A sticker's **×** removes it
+globally; older transcripts then show its name if its image is unavailable.
 
 ## Installing
 
@@ -90,6 +127,15 @@ To build without writing to any SillyTavern installation, use
 contract without touching an installation or sending API requests. After a
 build, `node scripts/preview-st.mjs` serves an isolated UI fixture at
 `http://127.0.0.1:8127`; generation is disabled there.
+**Check chat features** runs bubble-action, long-press, settings, media and
+conversation-isolation checks using only queued local mock replies. Reload the
+page and run **Check saved stickers after reload** to verify real storage
+persistence and remove the imported test sticker. **Check responsive controls**
+tests viewport/keyboard placement and launcher behavior. Resize the preview to a
+mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
+visible area deterministically. Feature results report the measured visible size,
+not the browser panel's preset label. None of these checks calls a live model or
+writes to a SillyTavern installation.
 
 ### Why it is laid out this way
 
@@ -120,11 +166,11 @@ has:
 | `GET /chats/:id/messages` and friends | The open chat, read through `getContext().chat`. |
 | Engine message ids | Minted once into `message.extra.mochiosId`, so the UI can hold an id across a generation. |
 | `data_generation` YAML file | `chat_metadata.mochios.phoneDataYaml`, saved with the chat. |
-| Transcript turns | The roleplay messages themselves. |
-| Incoming private/group replies | Each phone bubble is rendered and saved in SillyTavern with its character name and avatar. Group sender aliases resolve through phone contacts; unknown NPCs retain their own name. Mochi groups physical messages into logical turns for editing and regeneration. |
+| Transcript turns | The roleplay messages themselves. Bubble keys exist only in memory; no message ids are added to transcript YAML. |
+| Incoming private/group replies | One complete YAML transcript per SillyTavern message, with each sender retained inside the record. The phone renders individual bubbles; edits and reactions target their YAML items. Older split turns remain readable and consolidate only when explicitly edited or regenerated. |
+| Sticker library | Mochi-owned browser folder `mochi-os/stickers`, or IndexedDB fallback, shared across chats within the same browser/origin. |
 | Lorebook assignments | Only explicitly configured global, chat, persona or character books (including group members and embedded card entries). Installed but unattached books are never activated; assignments are checked again before sending. |
 | Model provider | Current connection via `generateRaw`, or saved profile via `ConnectionManagerRequestService`; template braces are protected. |
-| Translation endpoint | SillyTavern's own `/api/backends/translate`. |
 | Engine dialogs | SillyTavern's `callGenericPopup`. |
 | Engine toasts | `toastr`. |
 | Capability packages | Reported as none installed; Mochi OS only asks whether there are any. |
@@ -148,22 +194,26 @@ src/
     adapter.ts              the one place that touches getContext()
     api.ts                  the engine's REST surface, answered from SillyTavern
     mochi-data.ts           phone document storage, transcript generation
+    phone-actions.ts        targeted transcript edits, deletion and reactions
+    phone-transcript.ts     compatibility with older split-message turns
+    stickers.ts             persistent global Mochi sticker library
     generate.ts             generateRaw, and the {{ escape
     connections.ts          saved profile selection and host request service
     host.tsx                the phone window: floating controls, drag, lifecycle
     frame-layout.ts         how big the window is and where it sits
     inline.tsx              the transcript widgets inside messages
     styles.ts               the stylesheets, in the engine's order
-  components/chat/mochi-os/ the engine's interface — MochiOsView and everything it draws
+  components/chat/mochi-os/ the ported interface, identities and draggable navigation
   components/chat/          the four pieces of the engine's app shell Mochi OS borrows
   hooks/, stores/, lib/, shared/, types/, compat/
   styles/port-chrome.css    the chrome the port had to write, plus utility generation output
 ```
 
 `index.js` and `app.js` are build output, committed because SillyTavern never
-runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` and
-`mochi-os.css` are the engine's files and are edited by nobody. If a change is
-needed there, it belongs in the engine first.
+runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` is adapted
+for this port's transcript lifecycle and interactions. The engine's base
+`mochi-os.css` stays unchanged; port-specific responsive and interaction rules
+belong in `src/styles/port-chrome.css`.
 
 ### Why the interface is measured in `cq` units
 
@@ -182,11 +232,16 @@ time, in memory.
 
 ```powershell
 npm run typecheck    # tsc across the whole port
-npm run dev          # rebuild on save, and keep the installed copy current
-npm run build        # one build, installed
+npm test             # offline integration contracts
+node build.mjs --no-install          # one build, no installation writes
+node build.mjs --watch --no-install  # rebuild on save, without installing
 npm run install:st   # copy the four files without rebuilding
 npm run tailwind     # regenerate the utility sheet (see below)
 ```
+
+`npm run build` installs into neighboring SillyTavern directories automatically.
+Use the explicit `--no-install` commands when those installations must remain
+untouched.
 
 ### The one generated stylesheet
 

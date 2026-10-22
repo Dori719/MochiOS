@@ -311,7 +311,11 @@ function onKeyDown(event: KeyboardEvent): void {
   // also close whatever panel it thinks is showing underneath.
   event.preventDefault();
   event.stopPropagation();
-  closeMochiOs();
+  // Let the phone dismiss its topmost controls first, without handing Escape
+  // to SillyTavern's panels underneath the overlay.
+  const escape = new Event('mochios:escape', { bubbles: true, cancelable: true });
+  host?.dispatchEvent(escape);
+  if (!escape.defaultPrevented) closeMochiOs();
 }
 
 /**
