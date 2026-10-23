@@ -8,3 +8,6 @@
  */
 declare module '*/st-context.js';
 declare module '*/world-info.js';
+declare module '*/personas.js';
+declare module '*/extensions/regex/engine.js';
+declare module '*/chats.js';

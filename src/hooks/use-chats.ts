@@ -34,6 +34,16 @@ export function useChat(id: string | null) {
   });
 }
 
+export function useUpdateMochiPersona(chatId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (personaId: string) => api.put<Chat>(chatPath(chatId as string, '/mochi-persona'), { personaId }),
+    onSuccess: (chat) => {
+      queryClient.setQueryData(chatKeys.detail(chatId), chat);
+    },
+  });
+}
+
 /**
  * A page of the chat's messages, oldest first within the page.
  *

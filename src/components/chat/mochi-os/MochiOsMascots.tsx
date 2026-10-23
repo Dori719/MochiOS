@@ -1,7 +1,7 @@
 import React from "react";
 
 export const MascotRabbit1: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} viewBox="0 0 140 120">
+  <svg className={className} viewBox="0 0 140 120" aria-hidden="true">
     <path
       d="M70 16C78 8 92 10 96 20C108 16 118 26 114 36C126 40 128 54 118 60C126 70 120 82 108 84C110 96 98 104 88 98C82 108 66 108 60 98C50 104 38 96 40 84C28 82 22 70 30 60C20 54 22 40 34 36C30 26 40 16 52 20C56 10 66 8 70 16Z"
       fill="#fff"
@@ -40,7 +40,7 @@ export const MochiTabIcon: React.FC<{ className?: string; size?: number | string
 );
 
 export const MascotRabbit2: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} viewBox="0 0 140 120">
+  <svg className={className} viewBox="0 0 140 120" aria-hidden="true">
     <path
       d="M70 16C78 8 92 10 96 20C108 16 118 26 114 36C126 40 128 54 118 60C126 70 120 82 108 84C110 96 98 104 88 98C82 108 66 108 60 98C50 104 38 96 40 84C28 82 22 70 30 60C20 54 22 40 34 36C30 26 40 16 52 20C56 10 66 8 70 16Z"
       fill="#fff"

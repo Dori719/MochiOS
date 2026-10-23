@@ -1145,8 +1145,8 @@
 /* Format Guides Styles & Filter Bar */
 .mochi-scope .format-guides-filter-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
@@ -1202,9 +1202,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  min-width: 180px;
-  flex: 1;
-  max-width: 260px;
+  min-width: 0;
+  width: 100%;
 }
 
 .mochi-scope .format-guide-search-wrap > svg {
@@ -1348,6 +1347,17 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.mochi-scope .format-guide-header-buttons .btn.format-guide-copy-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 6px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .mochi-scope .format-guide-card-header-right {
@@ -3536,25 +3546,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 20px;
+  padding: 16px;
   background: var(--chat-item-bg);
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: 0 4px 16px rgba(70, 90, 50, 0.08);
   text-align: center;
   margin: 8px 14px 0;
 }
 
 .mochi-scope .profile-card .p-ava {
-  width: 86px;
-  height: 86px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
   color: #fff;
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 900;
   display: grid;
   place-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   box-shadow: 0 6px 14px rgba(70, 90, 50, 0.2);
   overflow: hidden;
   position: relative;
@@ -3568,19 +3578,19 @@
 }
 
 .mochi-scope .profile-card h3 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 900;
   color: var(--text);
-  margin-bottom: 14px;
+  margin: 0 0 10px;
 }
 
 .mochi-scope .profile-fields-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   max-width: 480px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   text-align: left;
 }
 
@@ -3633,9 +3643,9 @@
 .mochi-scope .profile-bio-card {
   display: flex;
   flex-direction: column;
-  padding: 20px 22px;
+  padding: 14px 16px;
   background: var(--chat-item-bg);
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: 0 4px 16px rgba(70, 90, 50, 0.08);
   margin: 0 14px 18px;
   text-align: left;
@@ -3650,7 +3660,7 @@
   background: var(--paper-dim);
   border: 1px solid var(--bubble-line);
   border-radius: 18px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   box-shadow: 0 2px 6px rgba(70, 90, 50, 0.06);
   transition: border-color 0.18s ease;
 }
@@ -3671,7 +3681,7 @@
   outline: none !important;
   box-shadow: none !important;
   resize: vertical !important;
-  min-height: 160px;
+  min-height: 96px;
   font-family: inherit;
 }
 
@@ -5361,7 +5371,7 @@
   }
 
   .mochi-scope .profile-bio-textarea {
-    min-height: clamp(110px, 26vh, 160px);
+    min-height: clamp(72px, 16vh, 96px);
   }
 
   .mochi-scope .preset-blocks-container {
@@ -5372,10 +5382,23 @@
     font-size: clamp(10px, 2.8vw, 13px);
   }
 
-  /* The floating mascots sit behind the app grid on a wide window but land on top of the app
-     labels once the grid is tight, so a narrow screen drops the decoration, not the apps. */
+  /* Crop the original floating wallpaper to the phone instead of hiding it.
+     Decorations stay below the app tiles, and can never intercept a tap. */
   .mochi-scope .mascot {
-    display: none;
+    display: block;
+    opacity: 0.8;
+  }
+
+  .mochi-scope .m1 {
+    width: clamp(110px, 40vw, 200px);
+    right: -5%;
+    top: 35%;
+  }
+
+  .mochi-scope .m2 {
+    width: clamp(95px, 34vw, 170px);
+    left: -5%;
+    top: 62%;
   }
 
   /* ── Backdrop blurs and layer promotion ───────────────────────

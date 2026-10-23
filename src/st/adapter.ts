@@ -43,7 +43,7 @@ interface StModules {
   saveMetadataDebounced: () => void;
   saveSettingsDebounced: () => void;
   saveChat: (options?: StRecord) => Promise<void>;
-  substituteParams: (text: string) => string;
+  substituteParams: (text: string, options?: StRecord) => string;
   generateRaw: (options: StRecord) => Promise<string>;
   executeSlashCommandsWithOptions: (commands: string, options?: StRecord) => Promise<string>;
   callGenericPopup: (...args: any[]) => Promise<any>;
@@ -51,12 +51,17 @@ interface StModules {
 }
 
 let modules: StModules | null = null;
+let personaModule: { user_avatar?: string } | null = null;
 let loading: Promise<void> | null = null;
 
 /** Loaded lazily: importing SillyTavern's scripts at module scope would run before it boots. */
 export function stReady(): Promise<void> {
   if (!loading) {
-    loading = import('/scripts/st-context.js').then((mod: StRecord) => {
+    loading = Promise.all([
+      import('/scripts/st-context.js'),
+      import('/scripts/personas.js'),
+    ]).then(([mod, personas]: [StRecord, { user_avatar?: string }]) => {
+      personaModule = personas;
       // st-context exports getContext, not the generation/storage functions.
       // Resolve those on its live context so all calls reach the host API.
       modules = new Proxy(mod, {
@@ -166,6 +171,10 @@ export function mapCharacter(character: StRecord): Record<string, any> {
     data: {
       ...data,
       name: data.name || character.name || '',
+      description: character.description ?? data.description ?? '',
+      personality: character.personality ?? data.personality ?? '',
+      scenario: character.scenario ?? data.scenario ?? '',
+      mes_example: character.mes_example ?? data.mes_example ?? '',
     },
     // SillyTavern stores the embedded card book here; the ported macro helpers
     // read `data.character_book` for world info.
@@ -210,13 +219,15 @@ export function listPersonas(): Array<Record<string, any>> {
       id: String(id),
       name: String(name ?? ''),
       comment: String(name ?? ''),
+      title: String(entry.title ?? ''),
+      isActive: String(id) === activePersonaId(),
       description: String(entry.description ?? ''),
       personality: '',
       backstory: '',
       appearance: '',
       scenario: '',
-      avatarPath: entry.avatar ? `/User Avatars/${entry.avatar}` : null,
-      avatar: entry.avatar ?? null,
+      avatarPath: `/User Avatars/${encodeURIComponent(id)}`,
+      avatar: id,
       avatarCrop: personaCrop(entry),
     });
   }
@@ -227,10 +238,10 @@ export function listPersonas(): Array<Record<string, any>> {
 export function activePersonaId(): string | null {
   const context = ctx();
   const power = context.powerUserSettings ?? {};
-  // SillyTavern tracks the selected persona per chat in `chat_metadata.persona`,
-  // and falls back to the user's default persona.
-  const fromChat = context.chatMetadata?.persona ?? power.default_persona;
-  return fromChat ? String(fromChat) : null;
+  // A chat/default lock is not necessarily the persona currently in use. The
+  // live avatar binding also covers manual selections and character connections.
+  const selected = personaModule?.user_avatar || context.chatMetadata?.persona || power.default_persona;
+  return selected ? String(selected) : null;
 }
 
 export function updatePersona(id: string, patch: Record<string, any>): Record<string, any> {
@@ -246,8 +257,9 @@ export function updatePersona(id: string, patch: Record<string, any>): Record<st
     const descriptions = { ...(power.persona_descriptions ?? {}) };
     descriptions[id] = { ...(descriptions[id] ?? {}), description: String(patch.description ?? '') };
     power.persona_descriptions = descriptions;
+    if (id === activePersonaId()) power.persona_description = descriptions[id].description;
   }
-  st().saveMetadataDebounced?.();
+  st().saveSettingsDebounced?.();
   return listPersonas().find((persona) => persona.id === id) ?? { id, ...patch };
 }
 
@@ -371,11 +383,14 @@ export function mapMessage(index: number): Record<string, any> | null {
   if (!id) return null;
   const isUser = Boolean(message.is_user);
   const isSystem = Boolean(message.is_system);
-  const role = isUser ? 'user' : isSystem ? 'system' : 'assistant';
+  const role = isUser ? 'user' : isSystem || message.extra?.type === 'narrator' ? 'system' : 'assistant';
   return {
     id,
     chatId: activeChatId() ?? undefined,
     role,
+    name: String(message.name ?? ''),
+    isSystem,
+    forceAvatar: message.force_avatar,
     content: typeof message.mes === 'string' ? message.mes : '',
     characterId: role === 'assistant'
       ? typeof message.original_avatar === 'string' && ctx().characters.some((character) => character.avatar === message.original_avatar)

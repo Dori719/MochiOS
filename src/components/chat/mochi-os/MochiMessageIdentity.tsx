@@ -9,10 +9,10 @@ export function MochiMessageIdentity({ name, color, avatar, crop }: { name: stri
     const message = element?.parentElement?.querySelector<HTMLElement>(':scope > .wmsg');
     if (!element || !message) return;
     // Controls reserve space without moving the original bottom-aligned avatar
-    // away from its bubble. Their height can change when buttons wrap on phones.
+    // away from its bubble.
     const align = () => {
-      const actions = message.querySelector<HTMLElement>(':scope > .msg-actions-trigger');
-      const offset = actions ? message.getBoundingClientRect().bottom - actions.getBoundingClientRect().top + parseFloat(getComputedStyle(actions).marginTop) : 0;
+      const meta = message.querySelector<HTMLElement>(':scope > .mochi-bubble-meta, :scope > .mt');
+      const offset = meta ? message.getBoundingClientRect().bottom - meta.getBoundingClientRect().bottom : 0;
       element.style.marginBottom = `${Math.max(0, offset)}px`;
     };
     align();

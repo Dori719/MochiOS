@@ -18,6 +18,9 @@ app shell.
 - **API selection.** Settings → **API** offers the current SillyTavern connection
   or a supported saved Connection Manager profile. This selection applies to data
   generation, private replies, and group replies without changing the host's API.
+- **Roleplay persona.** The phone initially follows the selected SillyTavern
+  persona. The picker shows **Name (persona title)**; a manual phone choice is
+  remembered for this chat only.
 - **Transcripts inside messages.** A roleplay turn that carries a Mochi record
   (`<privatechat_history …>`, `<groupchat_history …>` and their `<environment>`
   block) renders as a real chat widget inside the message, with the prose around
@@ -26,7 +29,7 @@ app shell.
   response is saved as one SillyTavern message. Group senders remain attributed
   inside its YAML, and regeneration uses that message's native swipes.
 - **Bubble actions.** Click or tap a bubble to reveal left-aligned actions below
-  it, with swipe controls on their own row underneath; hovering does not reveal
+  it, with the timestamp in its original position and swipe controls on their own row underneath; hovering does not reveal
   them. The original compact avatar/bubble layout is retained, with no extra
   author rail. Long-press with mouse or touch to Reply. Reserved control rows
   prevent bubbles from shifting. Translate is not offered.
@@ -77,6 +80,13 @@ on phones. Hold and drag the navigation to reach more sections with a desktop
 mouse, just as you swipe the strip on mobile, then click a section to open it.
 The content scrolls independently; there is no resize divider or section grid.
 
+In **Messages → Profile**, Screen Name edits `phone_data.user.nickname`, not the
+SillyTavern persona's name. **People → Social Handle** reads and writes
+`socialhandle`; older `screenName`, `screen_name` and `nickname` values remain
+readable. New private transcripts identify their contact through `target=` only;
+both the phone and inline widget resolve display aliases from `phone_data`.
+Legacy transcript aliases remain supported, and group output is unchanged.
+
 ### Stickers and emoji
 
 Open **More → Emoji → Stickers → Import stickers**. PNG, JPEG, GIF and WebP files
@@ -121,6 +131,11 @@ directory.
 To build without writing to any SillyTavern installation, use
 `node build.mjs --no-install`.
 
+For an existing installation, update the four runtime files in its existing
+extension folder instead of creating a second differently named Mochi OS folder.
+The installer replaces its destination folder, so do not use it over a source
+checkout or a folder containing local work you need to keep.
+
 ### Offline checks
 
 `npm run typecheck` and `npm test` check types and the SillyTavern integration
@@ -131,16 +146,18 @@ build, `node scripts/preview-st.mjs` serves an isolated UI fixture at
 conversation-isolation checks using only queued local mock replies. Reload the
 page and run **Check saved stickers after reload** to verify real storage
 persistence and remove the imported test sticker. **Check responsive controls**
-tests viewport/keyboard placement and launcher behavior. Resize the preview to a
-mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
+tests viewport/keyboard placement and launcher behavior. **Check requested
+updates** verifies wallpaper cropping, personas, target-only private records,
+Social Handle editing, profile sizing and format-guide controls. Resize the
+preview to a mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
 visible area deterministically. Feature results report the measured visible size,
 not the browser panel's preset label. None of these checks calls a live model or
 writes to a SillyTavern installation.
 
 ### Why it is laid out this way
 
-`index.js` imports nothing but SillyTavern's own context module — everything it
-needs is inside it. SillyTavern loads that one file and reports a failure as
+`index.js` depends only on SillyTavern's own host modules; the extension code it
+needs is bundled inside it. SillyTavern loads that one file and reports a failure as
 `Extension "Mochi OS" failed to load: [object Event]`, which is what a browser
 returns when a **file is missing**: it is an Event, so it stringifies to nothing
 useful. A layout with `index.js` importing a folder of chunks therefore turns one
@@ -180,6 +197,23 @@ The `@marinara-engine/shared` package is not available outside the engine, so
 types the interface reads. `src/compat/` does the same for `clsx`,
 `tailwind-merge`, `i18next`, `react-i18next` and `sonner`.
 
+### Prompt presets
+
+Data generation and private/group replies use the same marker expansion.
+**Chat History** inserts chronological user, assistant and narrator messages,
+not one flattened system block. SillyTavern's prompt regexes, file attachments,
+speaker-name settings and dialogue examples are respected. The greeting stays
+in history rather than being repeated as an example.
+
+World Info uses SillyTavern's scanner for activation, budgets and placement:
+before/after lore, example lore and depth/Author's Note injections stay distinct.
+Phone scanning does not leave lore added to the roleplay's Author's Note.
+Summary and extension markers are supported without duplicate memory or lore.
+The default history limit is `0` (retain the newest turns that fit the context);
+saved message limits, tag filters and regeneration exclusions still apply.
+Marker order and disabled markers are preserved, and new input precedes trailing
+assistant prefill. Output-template placeholders remain literal.
+
 ## Layout
 
 ```
@@ -198,6 +232,8 @@ src/
     phone-transcript.ts     compatibility with older split-message turns
     stickers.ts             persistent global Mochi sticker library
     generate.ts             generateRaw, and the {{ escape
+    preset.ts               shared ST-style prompt markers and chronological history
+    lorebooks.ts            native World Info scanning and assignment compatibility
     connections.ts          saved profile selection and host request service
     host.tsx                the phone window: floating controls, drag, lifecycle
     frame-layout.ts         how big the window is and where it sits
@@ -211,9 +247,9 @@ src/
 
 `index.js` and `app.js` are build output, committed because SillyTavern never
 runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` is adapted
-for this port's transcript lifecycle and interactions. The engine's base
-`mochi-os.css` stays unchanged; port-specific responsive and interaction rules
-belong in `src/styles/port-chrome.css`.
+for this port's transcript lifecycle and interactions. The ported
+`mochi-os.css` retains the engine's design with targeted phone-layout adjustments;
+host-specific responsive and interaction rules belong in `src/styles/port-chrome.css`.
 
 ### Why the interface is measured in `cq` units
 
@@ -225,8 +261,7 @@ small-phone layout never selected on a wide screen.
 `st/styles.ts` therefore rewrites the engine's stylesheet on the way into the
 page: `vh`→`cqh`, `vw`→`cqw`, and size media queries→`@container`. The window's
 screen (`style.css`) is the container, so the interface scales as one piece at any
-window size. The engine's file itself is untouched — the rewrite happens at build
-time, in memory.
+window size. This unit/container conversion happens at build time, in memory.
 
 ## Working on it
 

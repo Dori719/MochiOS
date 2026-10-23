@@ -1,6 +1,7 @@
 /** Map explicit SillyTavern assignments, never the order of its installed library. */
-import { activeChatId, activePersonaId, ctx, worldInfoSelection } from './adapter';
+import { activeChatId, activePersonaId, chatCharacterRecords, ctx, mapCharacter, worldInfoSelection } from './adapter';
 import { estimateTextTokens } from '../shared/token-estimator';
+import type { Character } from '../shared';
 
 interface WorldEntry {
   uid?: number | string;
@@ -129,26 +130,107 @@ export async function scanLorebooks(): Promise<{ entries: ReturnType<typeof mapE
   return { entries, lorebookIds: books.map((book) => book.id) };
 }
 
+interface MochiWorldInfoPrompt {
+  worldInfoBefore: string;
+  worldInfoAfter: string;
+  worldInfoExamples?: Array<{ position?: number; content?: string }>;
+  worldInfoDepth?: Array<{ depth?: number; role?: number; entries?: string[] }>;
+  anBefore?: string[];
+  anAfter?: string[];
+  authorNote?: {
+    value: string;
+    role?: number;
+    position?: number;
+    depth?: number;
+    filter?: (() => boolean | Promise<boolean>) | null;
+  };
+}
+
+/** Use ST's scanner for keyword/constant activation, budgets, ordering and placement. */
+export async function getMochiWorldInfoPrompt(input: {
+  history: string[];
+  userInput: string;
+  personaDescription: string;
+  characters: Character[];
+  maxContext?: number;
+  substitute?: (text: string, characterName?: string) => string;
+}): Promise<MochiWorldInfoPrompt> {
+  const context = ctx();
+  const content = [...input.history, ...(input.userInput ? [input.userInput] : [])].reverse();
+  if (typeof context.getWorldInfoPrompt === 'function') {
+    const expand = (text: string, characterName?: string) => input.substitute ? input.substitute(text, characterName) : text;
+    const join = (field: string) => input.characters.map((character) => expand(character.data?.[field] || character[field] || '', character.data?.name || character.name)).filter(Boolean).join('\n');
+    const chat = context.chat;
+    const chatId = activeChatId();
+    const prompts = context.extensionPrompts;
+    const note = prompts?.['2_floating_prompt'] ? { ...prompts['2_floating_prompt'] } : undefined;
+    const noteValue = note?.value;
+    let result: MochiWorldInfoPrompt | undefined;
+    try {
+      result = await context.getWorldInfoPrompt(content, input.maxContext ?? Number(context.chatCompletionSettings?.openai_max_context || context.maxContext || 8192), true, {
+        trigger: 'quiet', personaDescription: input.personaDescription,
+        characterDescription: join('description'), characterPersonality: join('personality'),
+        characterDepthPrompt: input.characters.map((character) => expand(character.data?.extensions?.depth_prompt?.prompt || '', character.data?.name || character.name)).filter(Boolean).join('\n'),
+        scenario: expand(context.chatMetadata?.scenario || join('scenario')), creatorNotes: join('creator_notes'),
+      });
+    } finally {
+      // ST's scanner can add WI to Author's Note even for a dry run. Phone
+      // generation must not rewrite the roleplay's note or a newly switched chat.
+      if (result && prompts && ctx().chat === chat && activeChatId() === chatId && ctx().extensionPrompts === prompts && note) {
+        const current = prompts['2_floating_prompt'];
+        // Match ST's exact newline handling, including an empty original note.
+        const injectedNote = `${(result.anBefore || []).join('\n')}\n${noteValue}\n${(result.anAfter || []).join('\n')}`.replace(/(^\n)|(\n$)/g, '');
+        if (current?.value !== noteValue && current?.value === injectedNote) {
+          // Keep the scanner's note/lore in this request only; restoring the
+          // original must not silently drop AN-positioned lore from the phone.
+          result = { ...result, authorNote: { ...current } };
+          prompts['2_floating_prompt'] = note;
+        }
+      }
+    }
+    return result!;
+  }
+  // Older hosts without the scanner keep the explicit-assignment compatibility
+  // path, but before/after entries are still never duplicated into both markers.
+  const { entries } = await scanLorebooks();
+  const before: string[] = [];
+  const after: string[] = [];
+  const scanText = content.join('\n').toLowerCase();
+  const budget = Number(context.chatMetadata?.lorebookTokenBudget ?? 2048);
+  let used = 0;
+  for (const entry of entries) {
+    if (!entry.content || (!entry.constant && (!entry.keys?.length || !entry.keys.some((key: string) => scanText.includes(key.toLowerCase()))))) continue;
+    const cost = estimateTextTokens(entry.content);
+    if (budget > 0 && used + cost > budget) continue;
+    used += cost;
+    const position = entry.position;
+    if (position === 0 || position === 'before_char' || position === 'before') before.push(entry.content);
+    else if (position === undefined || position === 1 || position === 'after_char' || position === 'after') after.push(entry.content);
+  }
+  return { worldInfoBefore: before.join('\n'), worldInfoAfter: after.join('\n') };
+}
+
 /** Re-read assignments at send time so a cached UI query cannot send detached lore. */
 export async function refreshLorebookPrompt<T extends { role: string; content: string }>(messages: T[], userName?: string): Promise<T[]> {
   const wrapper = /^\s*<(world_info_before|world_info_after|lorebook)>[\s\S]*?<\/\1>\s*$/i;
   if (!messages.some((message) => wrapper.test(message.content))) return messages;
-  const { entries } = await scanLorebooks();
-  const configured = ctx().chatMetadata?.lorebookTokenBudget;
-  const budget = typeof configured === 'number' && Number.isFinite(configured) ? Math.max(0, Math.floor(configured)) : 2048;
-  let used = 0;
-  const parts: string[] = [];
-  for (const entry of entries) {
-    if (!entry.content) continue;
-    const block = `### ${entry.name}\n${entry.content}`;
-    const tokens = estimateTextTokens(block);
-    if (budget > 0 && used + tokens > budget) continue;
-    parts.push(userName ? block.replace(/\{\{user\}\}/gi, userName) : block);
-    used += tokens;
-  }
+  const worldInfo = await getMochiWorldInfoPrompt({
+    history: messages.filter((message) => !wrapper.test(message.content)).map((message) => message.content), userInput: '',
+    personaDescription: ctx().powerUserSettings?.persona_description || '',
+    characters: chatCharacterRecords().map(mapCharacter) as Character[],
+  });
+  const sent = new Set<string>();
   return messages.flatMap((message) => {
     const match = wrapper.exec(message.content);
     if (!match) return [message];
-    return parts.length ? [{ ...message, content: `<${match[1]}>\n${parts.join('\n\n')}\n</${match[1]}>` }] : [];
+    const type = match[1].toLowerCase();
+    const sources = type === 'lorebook' ? ['before', 'after'] : [type === 'world_info_before' ? 'before' : 'after'];
+    const content = sources.flatMap((source) => {
+      if (sent.has(source)) return [];
+      sent.add(source);
+      const value = source === 'before' ? worldInfo.worldInfoBefore : worldInfo.worldInfoAfter;
+      return value ? [userName ? value.replace(/\{\{user\}\}/gi, () => userName) : value] : [];
+    }).join('\n');
+    return content ? [{ ...message, content: `<${match[1]}>\n${content}\n</${match[1]}>` }] : [];
   });
 }

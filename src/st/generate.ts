@@ -69,12 +69,12 @@ export interface GenerateOptions {
  * is a small request the user is waiting on, and a 429 is usually short-lived.
  */
 export async function generateMochiOutput(
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string; name?: string }>,
   options: GenerateOptions = {},
 ): Promise<string> {
   const isCancelled = () => Boolean(options.signal?.aborted || options.isCancelled?.());
   const protectedMessages = messages.map((message) => ({
-    role: message.role,
+    ...message,
     content: protectTemplateBraces(message.content),
   }));
   const responseLength = options.responseLength ?? 4096;

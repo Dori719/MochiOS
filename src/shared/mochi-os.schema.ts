@@ -115,6 +115,10 @@ export interface MochiOsCharacterData {
   id?: string;
   name?: string;
   contactname?: string;
+  socialhandle?: string;
+  /** Read compatibility for older phone documents. New edits write socialhandle. */
+  screenName?: string;
+  screen_name?: string;
   nickname?: string;
   bio?: string;
   email?: string;

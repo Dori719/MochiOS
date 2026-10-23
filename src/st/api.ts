@@ -138,6 +138,7 @@ function buildChat(): Record<string, any> {
     characterIds,
     characterId: characterIds[0] ?? null,
     personaId: st.activePersonaId(),
+    userName: context.name1 || 'User',
     personaCharacterId: null,
     groupId: context.groupId ? String(context.groupId) : null,
     mode: isGroup ? 'group' : 'solo',
@@ -146,6 +147,17 @@ function buildChat(): Record<string, any> {
 
 route('GET', '/chats/:chatId', (_request, params) => {
   assertCurrentChat(params.chatId);
+  return buildChat();
+});
+
+/** A phone-specific choice belongs to this roleplay, never every other chat. */
+route('PUT', '/chats/:chatId/mochi-persona', (request, params) => {
+  assertCurrentChat(params.chatId);
+  const personaId = request.body?.personaId;
+  if (typeof personaId !== 'string' || !st.listPersonas().some((persona) => persona.id === personaId)) {
+    throw new ApiError(400, 'Mochi OS: the selected persona no longer exists');
+  }
+  st.writeChatMeta({ ...st.readChatMeta(), linkedPersonaId: personaId });
   return buildChat();
 });
 
