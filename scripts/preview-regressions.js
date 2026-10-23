@@ -123,6 +123,88 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
   const report = q('#preview-status');
   const button = q('#test-features');
 
+  q('#test-updates').onclick = async () => {
+    const checks = [];
+    const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
+    const control = q('#test-updates');
+    control.disabled = true;
+    try {
+      closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
+      await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
+      const screen = q('#mochi-os-host .screen');
+      const screenBounds = screen.getBoundingClientRect();
+      const mascots = all('#mochi-os-host .mascot');
+      assert(mascots.length === 2 && mascots.every((mascot) => {
+        const style = getComputedStyle(mascot); const bounds = mascot.getBoundingClientRect();
+        return style.display !== 'none' && style.pointerEvents === 'none' && Number(style.zIndex) < Number(getComputedStyle(q('#mochi-os-host .apps')).zIndex)
+          && bounds.right > screenBounds.left && bounds.left < screenBounds.right && bounds.bottom > screenBounds.top && bounds.top < screenBounds.bottom;
+      }), 'Both floating mascots are visible, cropped inside the phone, and behind clickable apps');
+      assert(screen.scrollWidth <= screen.clientWidth + 1, 'Cropped wallpaper does not add horizontal scrolling');
+      await openThread('Preview Contact');
+      assert(incoming().length === 1 && q('#chatView .c-head').textContent.includes('Preview Contact'), 'The phone reads target-only private history with a phone_data display alias');
+      const inline = q('#chat .mes[mesid="0"] .mochi-private-widget');
+      assert(inline?.textContent.includes('Preview Contact'), 'The inline widget uses the same private contact alias');
+      press(q('#chatView .c-head > button:first-child')); await settle();
+      press(q('#listView .mtabs button:last-child')); await settle();
+      assert(q('.profile-card h3').textContent === 'Preview User', 'First entry selects the roleplay persona instead of the first/default persona');
+      assert(q('.profile-card .p-ava').getBoundingClientRect().width === 64 && q('.profile-bio-textarea').rows === 4 && parseFloat(getComputedStyle(q('.profile-bio-textarea')).minHeight) <= 96, 'Profile avatar and bio are scaled down without shrinking editable text');
+      press(q('.edit-profile-btn')); await settle();
+      const chosen = all('.persona-pick-item').find((item) => item.classList.contains('active'));
+      assert(chosen?.querySelector('.persona-pick-name').textContent === 'Preview User (Roleplay persona)', 'Persona picker displays Name (Title) and marks the roleplay choice');
+      const firstPersona = all('.persona-pick-item').find((item) => item.querySelector('.persona-pick-name').textContent.startsWith('First Persona'));
+      press(firstPersona); await settle(250);
+      assert(getContext().chatMetadata.mochios.linkedPersonaId === 'first-persona.png', 'A manual persona choice is saved with this roleplay');
+      closeMochiOs(); await settle(); openMochiOs(); await settle(350);
+      press(q('button[aria-label="Messages"]')); await settle(); press(q('#listView .mtabs button:last-child')); await settle();
+      assert(q('.profile-card h3').textContent === 'First Persona', 'The phone-specific persona choice survives reopening');
+      press(q('.edit-profile-btn')); await settle();
+      press(all('.persona-pick-item').find((item) => item.querySelector('.persona-pick-name').textContent.startsWith('Preview User'))); await settle(200);
+      const screenName = q('.profile-card .profile-field-input');
+      value(screenName, 'Phone Screen Name'); screenName.focus(); screenName.blur(); await settle(300);
+      assert(getContext().powerUserSettings.personas['chosen-persona.png'] === 'Preview User' && getContext().chatMetadata.mochios.phoneDataYaml.includes('nickname: Phone Screen Name'), 'Editing the phone screen name updates phone_data without renaming the ST persona');
+      value(screenName, 'Preview User'); screenName.focus(); screenName.blur(); await settle(300);
+      press(q('#listView .mtabs button:nth-child(3)')); await settle();
+      press(q('.mochi-person-card')); await settle();
+      assert(q('.mochi-person-info-dropdown').textContent.includes('Social Handle') && q('.mochi-person-info-dropdown').textContent.includes('preview_social'), 'People displays the canonical socialhandle value');
+      press(q('.mochi-person-edit-trigger-btn')); await settle();
+      const handle = q('.mochi-person-edit-form input[placeholder="@socialhandle"]');
+      assert(handle?.value === 'preview_social', 'Social Handle editor hydrates from the new field');
+      value(handle, '@updated_social'); press(q('.mochi-person-save-btn')); await settle(350);
+      assert(/socialhandle:\s*["']?@updated_social/.test(getContext().chatMetadata.mochios.phoneDataYaml) && !getContext().chatMetadata.mochios.phoneDataYaml.includes('screenName:'), 'People edits persist socialhandle, not the retired screenName key');
+      press(q('#listView .m-head > button:first-child')); await settle();
+      press(q('#mochi-os-host .dock button:last-child')); await settle(200);
+      press(q('.settings-nav-item:nth-child(4)')); await settle(200);
+      const search = q('.format-guide-search-wrap'); const pills = q('.format-guides-category-pills');
+      assert(search.getBoundingClientRect().bottom <= pills.getBoundingClientRect().top && search.parentElement.firstElementChild === search, 'Format-guide search sits above the category pills');
+      const copy = q('.format-guide-copy-btn');
+      assert(copy?.textContent.trim() === '📋' && copy.getBoundingClientRect().width <= 32 && copy.getAttribute('aria-label') === 'Copy Template', 'Copy Template is an accessible emoji-only button sized to its icon');
+      for (const dismissal of ['close button', 'backdrop', 'Escape']) {
+        if (!q('.overlay.show .modal-settings-split')) {
+          press(q('#mochi-os-host .dock button:last-child'));
+          await until(() => q('.overlay.show .modal-settings-split'), 'settings reopening');
+        }
+        const modal = q('.overlay.show .modal-settings-split');
+        const overlay = modal.closest('.overlay');
+        const sidebar = modal.querySelector('.settings-split-sidebar');
+        const detail = modal.querySelector('.settings-split-content');
+        assert(sidebar.querySelector('.settings-nav-item.active').textContent === 'Format Guides', 'Reopening settings preserves the selected section');
+        sidebar.scrollLeft = sidebar.scrollWidth; sidebar.scrollTop = sidebar.scrollHeight;
+        detail.scrollTop = detail.scrollHeight; await settle();
+        if (dismissal === 'close button') press(modal.querySelector('.close'));
+        else if (dismissal === 'backdrop') press(overlay);
+        else key(document, 'Escape');
+        // Check the next task, not after a fade-out or compositor repaint delay.
+        await settle(0);
+        assert(isMochiOsOpen() && !overlay.isConnected && !sidebar.isConnected && !detail.isConnected && !q('.modal-settings-split'), `${dismissal} removes settings and its scrolled sidebar immediately without closing the phone`);
+      }
+      report.textContent = `PASS: ${checks.length} requested-update checks at ${Math.round(viewport.width)} × ${Math.round(viewport.height)}.`;
+      report.dataset.updateChecks = JSON.stringify(checks);
+    } catch (error) {
+      report.textContent = `FAIL after ${checks.length} requested-update checks: ${error.message}`;
+      report.dataset.updateChecks = JSON.stringify(checks); console.error(error);
+    } finally { control.disabled = false; }
+  };
+
   button.onclick = async () => {
     const checks = [];
     const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
@@ -147,6 +229,9 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(getComputedStyle(actionRow).visibility === 'visible' && !actionRow.inert, 'Bubble click reveals usable actions');
       assert(first.getBoundingClientRect().height === initial.message.height && bubble.getBoundingClientRect().top === initial.bubble.top && incoming()[1].getBoundingClientRect().top === initial.next.top, 'Revealing actions does not move content');
       assert(actionRow.parentElement.classList.contains('wmsg') && actionRow.getBoundingClientRect().top >= bubble.getBoundingClientRect().bottom && Math.abs(actionRow.getBoundingClientRect().left - actionRow.parentElement.getBoundingClientRect().left) < 1, 'Actions sit below and left-align with the message bubble');
+      assert(getComputedStyle(first.querySelector('.mt')).position === 'static' && getComputedStyle(first.querySelector('.mochi-bubble-meta')).position === 'static' && first.querySelector('.mochi-bubble-meta').getBoundingClientRect().height > 0, 'Timestamp retains its original in-flow position beside the group sender');
+      assert(getComputedStyle(actionRow).flexWrap === 'nowrap', 'Message actions remain on one horizontal row');
+      assert(Math.abs(actionRow.getBoundingClientRect().top - first.querySelector('.mochi-bubble-meta').getBoundingClientRect().top) < 1, 'Only actions move to the original timestamp metadata top edge');
       assert(!all('.msg-actions-trigger button').some((control) => /translat/i.test(control.title)), 'Translate is absent from message actions');
       key(first, 'Escape'); await settle();
       assert(isMochiOsOpen() && !first.classList.contains('actions-visible'), 'Escape dismisses actions instead of closing Mochi');
@@ -249,14 +334,14 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(all('.mochi-sticker-send span').some((span) => span.textContent === name), 'Sticker library is shared with private chats');
       press(all('.mochi-sticker-send').find((control) => control.querySelector('span').textContent === name)); await settle();
       sendText('Private hello'); await settle();
-      preview.mock(['<privatechat_history target="Preview Character" type="private">\ncontactname: Preview Contact\nmessages:\n  - id: msg_001\n    t: text\n    c: Offline private reply\n</privatechat_history>\n<environment>\nweather: Rainy\n</environment>']);
+      preview.mock(['<privatechat_history target="Preview Character" type="private">\nmessages:\n  - id: msg_001\n    t: text\n    c: Offline private reply\n</privatechat_history>\n<environment>\nweather: Rainy\n</environment>']);
       press(q('#chatView .c-bar > button:last-child'));
       await until(() => getContext().chat.length === originalChatCount + 2, 'private transcript save'); await settle(450);
       assert(incoming().length === 2 && outgoing().length === 2, 'Private replies stay in one transcript without duplicate bubbles');
-      assert(getContext().chat.at(-1).mes.includes('target="Preview Character"') && getContext().chat.at(-1).mes.includes('contactname: Preview Contact'), 'Private generation preserves stable target and display alias');
+      assert(getContext().chat.at(-1).mes.includes('target="Preview Character"') && !getContext().chat.at(-1).mes.includes('contactname:') && q('#chatView .c-head').textContent.includes('Preview Contact'), 'Private output uses target only while the phone reads its display alias from phone_data');
       assert(!/^\s*(?:-\s*)?id:/m.test(getContext().chat.at(-1).mes), 'Private generation also leaves message ids out of roleplay YAML');
       const privateTurn = getContext().chat.at(-1).mes;
-      const privateReply = '<privatechat_history target="Preview Character" type="private">\ncontactname: Preview Contact\nmessages:\n  - t: text\n    c: Regenerated private reply\n</privatechat_history>\n<environment>\nweather: Rainy\n</environment>';
+      const privateReply = '<privatechat_history target="Preview Character" type="private">\nmessages:\n  - t: text\n    c: Regenerated private reply\n</privatechat_history>\n<environment>\nweather: Rainy\n</environment>';
       let privateLast = incoming().at(-1); press(privateLast.querySelector('.b')); await settle();
       preview.mock([privateReply]); press(privateLast.querySelector('button[title="Regenerate"]'));
       await until(() => getContext().chat.at(-1).swipes?.length === 2, 'private alias regeneration'); await settle(450);
@@ -290,7 +375,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(getComputedStyle(swipe).justifyContent === 'center' && swipeItems.every((bounds) => Math.abs(bounds.top + bounds.height / 2 - swipeBounds.top - swipeBounds.height / 2) < 1) && Math.abs(swipeItems[0].left + swipeItems.at(-1).right - swipeBounds.left - swipeBounds.right) < 2, 'Swipe buttons and counter are centered inside their container');
       press(restoredLast.querySelector('.mochi-swipe-trigger button:first-child')); await settle(450);
       assert(getContext().chat.at(-1).swipe_id === 0 && getContext().chat.length === beforeRegenerate, 'Previous swipe restores the transcript without creating a message');
-      assert(q('#chatView .c-body').scrollWidth <= q('#chatView .c-body').clientWidth + 1 && all('#chatView .msg-actions-trigger').every((actions) => actions.scrollWidth <= actions.clientWidth + 1), 'Bubbles and reserved action rows wrap without horizontal overflow');
+      assert(q('#chatView .c-body').scrollWidth <= q('#chatView .c-body').clientWidth + 1 && all('#chatView .msg-actions-trigger').every((actions) => actions.scrollWidth <= actions.clientWidth + 1), 'Bubbles wrap and single-line action rows fit without horizontal overflow');
       const editable = incoming()[0]; press(editable.querySelector('.b')); await settle();
       press(editable.querySelector('button[title="Edit"]')); await settle();
       value(q('.mochi-message-edit-input'), 'Edited first group member'); key(q('.mochi-message-edit-input'), 'Enter');
@@ -330,7 +415,8 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       const privateEditable = incoming().at(-1); press(privateEditable.querySelector('.b')); await settle(); press(privateEditable.querySelector('button[title="Edit"]')); await settle();
       value(q('.mochi-message-edit-input'), 'Edited renamed private reply'); key(q('.mochi-message-edit-input'), 'Enter');
       await until(() => getContext().chat[originalChatCount + 1].mes.includes('Edited renamed private reply'), 'private alias edit'); await settle(350);
-      assert(getContext().chat[originalChatCount + 1].mes.includes('target="Preview Character"') && getContext().chat[originalChatCount + 1].mes.includes('contactname: Preview Contact') && (await openInline(originalChatCount + 1)).textContent.includes('Edited renamed private reply'), 'A private contact edit updates connected roleplay without changing its target or display alias');
+      const privateInline = await openInline(originalChatCount + 1);
+      assert(getContext().chat[originalChatCount + 1].mes.includes('target="Preview Character"') && !getContext().chat[originalChatCount + 1].mes.includes('contactname:') && privateInline.textContent.includes('Edited renamed private reply') && privateInline.textContent.includes('Preview Contact'), 'Target-only private edits update the connected widget and retain the phone_data display alias');
       privateLast = incoming().at(-1); press(privateLast.querySelector('.b')); await settle(); press(privateLast.querySelector('button[title="Edit"]')); await settle();
       value(q('.mochi-message-edit-input'), 'Offline private reply'); key(q('.mochi-message-edit-input'), 'Enter');
       await until(() => getContext().chat[originalChatCount + 1].mes.includes('c: Offline private reply'), 'restore private fixture edit'); await settle(350);
@@ -377,7 +463,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       setKeyboard(true); await settle(250);
       assert(within(q('.overlay.show .modal-settings-split').getBoundingClientRect()) && q('.overlay.show .settings-split-content').clientHeight > 0, 'Settings content remains accessible above the mobile keyboard');
       setKeyboard(false); await settle(); key(document, 'Escape'); await settle();
-      assert(isMochiOsOpen() && !q('.overlay.show .modal-settings-split'), 'Escape dismisses settings first');
+      assert(isMochiOsOpen() && !q('.modal-settings-split') && !sidebar.isConnected, 'Escape removes settings and its scrolled sidebar before returning home');
       const saved = { chatId: getContext().chatId, chat: getContext().chat, metadata: getContext().chatMetadata };
       await preview.switchChat('other-preview-chat'); await settle(450); await openThread('Preview Group'); await openPicker('Stickers');
       assert(rows().length === 0 && !q('.mochi-reply-preview') && all('.mochi-sticker-send span').some((span) => span.textContent === name), 'Host chat switch clears conversation state but retains global stickers');

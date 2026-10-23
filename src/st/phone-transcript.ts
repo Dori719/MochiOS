@@ -2,6 +2,7 @@
 import yaml from 'yaml';
 import {
   parseChatHistoryBlocks,
+  mochiSocialHandle,
   serializeChatHistoryYaml,
   type ParsedChatHistoryBlock,
 } from '../components/chat/mochi-os/mochi-os.utils';
@@ -25,9 +26,10 @@ function serialize(block: ParsedChatHistoryBlock, messages = block.messages, env
     environmentYaml,
     messages: messages.map((message) => ({ ...message, t: message.time, d: message.date })),
   });
-  // Keep a private contact's display alias without changing its thread key.
-  return block.contactname && block.contactname !== block.target
-    ? content.replace(/^contactname:[\s\S]*?(?=\ndate:)/m, yaml.stringify({ contactname: block.contactname }).trim())
+  // Compatibility reads retain an alias that was actually saved in an old
+  // record; never add one to new, target-only private output.
+  return block.contactname
+    ? content.replace(/\n(?=date:)/, `\n${yaml.stringify({ contactname: block.contactname }).trim()}\n`)
     : content;
 }
 
@@ -84,7 +86,7 @@ export function resolvePhoneCharacter(
       const parsed = yaml.parse(phoneDataYaml);
       const phone = parsed?.phone_data ?? parsed;
       const contacts = [...(Array.isArray(phone?.characters) ? phone.characters : []), ...(Array.isArray(phone?.private_contacts) ? phone.private_contacts : [])];
-      const contact = contacts.find((item) => [item.id, item.name, item.contactname, item.nickname].some((value) => typeof value === 'string' && value.trim().toLowerCase() === key));
+      const contact = contacts.find((item) => [item.id, item.name, item.contactname, mochiSocialHandle(item), item.nickname].some((value) => typeof value === 'string' && value.trim().toLowerCase() === key));
       if (contact) {
         const match = characters.find((character) => String(character.avatar) === contact.id || [character.data?.name, character.name].some((value) => typeof value === 'string' && value.trim().toLowerCase() === String(contact.name ?? '').trim().toLowerCase()));
         if (match) return match;

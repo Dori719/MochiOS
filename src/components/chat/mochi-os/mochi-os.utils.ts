@@ -1,5 +1,6 @@
 import yaml from "yaml";
 import type { MochiContactsMap, MochiCurrency, MochiMessage } from "./mochi-os.types";
+import type { MochiFormatGuideData } from "./mochi-os.constants";
 
 export function two(n: number): string {
   return String(n).padStart(2, "0");
@@ -649,9 +650,35 @@ export function formatUserMsgForAi(m: {
   return `[Text] ${m.text || ""}`;
 }
 
+/** The canonical field wins even when explicitly cleared; old documents stay readable. */
+export function mochiSocialHandle(info?: {
+  socialhandle?: string;
+  screenName?: string;
+  screen_name?: string;
+  nickname?: string;
+}): string {
+  if (typeof info?.socialhandle === "string") return info.socialhandle.trim();
+  return (info?.screenName || info?.screen_name || info?.nickname || "").trim();
+}
+
+/** Upgrade only the removed private output field; other guides/data stay intact. */
+export function normalizeMochiPrivateChatGuide(template: string): string {
+  return template.replace(/^contactname:[^\r\n]*(?:\r?\n|$)/gm, "");
+}
+
+export function normalizeMochiFormatGuides(guides: MochiFormatGuideData): MochiFormatGuideData {
+  const privateChat = guides.formatGuide?.privateChat;
+  return typeof privateChat === "string"
+    ? { ...guides, formatGuide: { ...guides.formatGuide, privateChat: normalizeMochiPrivateChatGuide(privateChat) } }
+    : guides;
+}
+
 export function formatFriendInfo(info?: {
   name?: string;
   contactname?: string;
+  socialhandle?: string;
+  screenName?: string;
+  screen_name?: string;
   nickname?: string;
   email?: string;
   onlineStyle?: string;
@@ -660,11 +687,11 @@ export function formatFriendInfo(info?: {
 }): string {
   const name = info?.name?.trim() || "Not set";
   const contactNameLine = info?.contactname?.trim() ? `\nContact Name: ${info.contactname.trim()}` : "";
-  const username = info?.nickname?.trim() || "Not set";
+  const socialHandle = mochiSocialHandle(info) || "Not set";
   const email = info?.email?.trim() || "Not set";
   const chatStyle = info?.onlineStyle?.trim() || info?.onlinestyle?.trim() || info?.online_style?.trim() || "Not set";
 
-  return `Friend Information:\nName: ${name}${contactNameLine}\nUsername: ${username}\nEmail: ${email}\nChat Style: ${chatStyle}`;
+  return `Friend Information:\nName: ${name}${contactNameLine}\nSocial Handle: ${socialHandle}\nEmail: ${email}\nChat Style: ${chatStyle}`;
 }
 
 export interface MochiRoleplayLocation {
@@ -948,7 +975,7 @@ export interface ParsedChatHistoryBlock {
   target?: string;
   type?: string;
   name?: string;
-  /** A private record's custom contact name, written as `contactname:` by the current format guide. */
+  /** Display alias from a legacy record. Current private output identifies the contact by target=. */
   contactname?: string;
   date?: string;
   time?: string;
@@ -1191,10 +1218,8 @@ function parseSingleChatHistoryRecord(
       });
 
     const declaredMembers = Number((parsed as any).members);
-    // The current private-chat guide writes the custom contact name as
-    // `contactname:`; older records (and the group guide) still use `name:`.
-    // `name` resolves to whichever is present so every reader of the display
-    // name keeps working across both shapes.
+    // Current private records need no name field: target= is their stable
+    // identity. Continue reading contactname/name from older records.
     const recordName =
       typeof (parsed as any).contactname === "string" ? (parsed as any).contactname : (parsed as any).name;
     const recordContactName =
@@ -1661,8 +1686,6 @@ export function mergeMochiChatHistoryBlocks<
 
 export function serializeChatHistoryYaml(params: {
   targetName: string;
-  /** Display alias, distinct from the private thread's stable character target. */
-  contactName?: string;
   date?: string;
   time?: string;
   messages: Array<MochiMessage>;
@@ -1742,11 +1765,10 @@ export function serializeChatHistoryYaml(params: {
     return item;
   });
 
-  // The private-chat guide names the contact `contactname:`; group records keep
-  // `name:`. Writing the key the guide asks for means an edited or regenerated
-  // turn is byte-identical in shape to a freshly generated one.
+  // Private records identify the character exclusively through target=. Contact
+  // aliases live in phone_data, not the private output. Group output is unchanged.
   const chatObj: Record<string, any> = {
-    ...(recordType === "group" ? { name: targetName } : { contactname: params.contactName || targetName }),
+    ...(recordType === "group" ? { name: targetName } : {}),
     date: conversationDate,
     time: conversationTime,
   };

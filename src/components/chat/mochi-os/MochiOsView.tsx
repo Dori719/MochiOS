@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
+import { MochiMessageActions } from "./MochiMessageActions";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Character, Message, MessageReaction } from "@marinara-engine/shared";
 import type {
@@ -41,8 +42,6 @@ import {
   formatUserMsgForAi,
   parseChatHistoryBlocks,
   selectMochiThreadContact,
-  serializeChatHistoryYaml,
-  stripMochiThreadRecordsFromContent,
   mergeMochiChatHistoryBlocks,
   reconcileMochiContactHistory,
   parseEnvironmentYaml,
@@ -67,29 +66,26 @@ import {
   MOCHI_TRANSFER_ACCEPTED_TYPE,
   MOCHI_TRANSFER_REJECTED_TYPE,
   mochiMessagePreview,
+  mochiSocialHandle,
+  normalizeMochiPrivateChatGuide,
+  normalizeMochiFormatGuides,
 } from "./mochi-os.utils";
 import { MascotRabbit1, MascotRabbit2, MochiTabIcon } from "./MochiOsMascots";
 import "./mochi-os.css";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useMochiOsSettings, useUpdateMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
-import { usePersonas, useUpdatePersona, useCharacters } from "../../../hooks/use-characters";
+import { usePersonas, useCharacters } from "../../../hooks/use-characters";
 import {
   useChatMessages,
   useChat,
+  useUpdateMochiPersona,
   useBranchChat,
   useUpdateMessage,
   useSetActiveSwipe,
   chatKeys,
 } from "../../../hooks/use-chats";
-import { useActiveLorebookEntries, useLorebooks, useEntriesAcrossLorebooks } from "../../../hooks/use-lorebooks";
 import { getChatCharacterIds, parseCharacterMacroData } from "../../../lib/chat-macros";
-import {
-  getChatActiveLorebookIds,
-  getChatExcludedLorebookIds,
-  deriveActiveLorebookViews,
-} from "../../../lib/chat-lorebooks";
 import { getChatDisplayName, parseChatMetadata } from "../../../lib/chat-display";
-import { estimateTextTokens } from "../../../lib/character-token-count";
 import { usePresets } from "../../../hooks/use-presets";
 import { useGenerate } from "../../../hooks/use-generate";
 import { useChatStore } from "../../../stores/chat.store";
@@ -115,6 +111,7 @@ import { MochiSettingsSplit } from "./MochiSettingsSplit";
 import { stickerName } from "../../../st/stickers";
 import { toggleReaction, removeCharacterReaction, reactionTargetOf, USER_REACTOR } from "../../../lib/reactions";
 import { api } from "../../../lib/api-client";
+import { buildMochiPresetMessages } from "../../../st/preset";
 import {
   useMochiOSPhoneData,
   useGenerateMochiOSPhoneData,
@@ -612,7 +609,8 @@ export function MochiOsView({
 
   // Personas
   const { data: allPersonas = [] } = usePersonas();
-  const updatePersonaMutation = useUpdatePersona();
+  const { data: activeChatData } = useChat(activeChatId ?? null);
+  const updateMochiPersona = useUpdateMochiPersona(activeChatId ?? null);
 
   // Theme & Appearance State
   const [theme, setTheme] = useState<MochiTheme>(() => persistedSettings?.theme ?? "auto");
@@ -643,9 +641,7 @@ export function MochiOsView({
   const [wxAiDecide, setWxAiDecide] = useState<boolean>(() => persistedSettings?.wxAiDecide ?? false);
 
   // Linked Persona State
-  const [linkedPersonaId, setLinkedPersonaId] = useState<string | null>(
-    () => persistedSettings?.linkedPersonaId ?? null,
-  );
+  const [personaChoice, setPersonaChoice] = useState<{ chatId: string | null; id: string } | null>(null);
   const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
   const [personaSearchText, setPersonaSearchText] = useState("");
 
@@ -668,7 +664,7 @@ export function MochiOsView({
   const [formatGuidesDraft, setFormatGuidesDraft] = useState<MochiFormatGuideData>(() => {
     if (persistedSettings?.formatGuidesJson) {
       try {
-        return JSON.parse(persistedSettings.formatGuidesJson);
+        return normalizeMochiFormatGuides(JSON.parse(persistedSettings.formatGuidesJson));
       } catch {
         return DEFAULT_FORMAT_GUIDES;
       }
@@ -715,13 +711,12 @@ export function MochiOsView({
       // settings already have it on, and `applyEnvironmentUpdate` then skips the
       // weather entirely.
       setWxAiDecide(persistedSettings.wxAiDecide);
-      setLinkedPersonaId(persistedSettings.linkedPersonaId ?? null);
       setPromptPresetMode(persistedSettings.promptPresetMode ?? "default");
       setSelectedEnginePresetId(persistedSettings.selectedEnginePresetId ?? null);
       setCustomPresetJsonDraft(persistedSettings.customPresetJson || DEFAULT_MOCHI_PRESET_JSON);
       if (persistedSettings.formatGuidesJson) {
         try {
-          setFormatGuidesDraft(JSON.parse(persistedSettings.formatGuidesJson));
+          setFormatGuidesDraft(normalizeMochiFormatGuides(JSON.parse(persistedSettings.formatGuidesJson)));
         } catch {
           setFormatGuidesDraft(DEFAULT_FORMAT_GUIDES);
         }
@@ -745,15 +740,15 @@ export function MochiOsView({
     });
   }, [tempUnit]);
 
-  // Global active personas were retired; use the explicit Mochi choice or a stable first-persona fallback.
+  // A new phone follows this roleplay's selected ST persona. A phone-specific
+  // choice is saved with this chat, never reused as another chat's initial persona.
   const activeLinkedPersona = useMemo(() => {
-    if (linkedPersonaId) {
-      const found = allPersonas.find((p) => p.id === linkedPersonaId);
-      if (found) return found;
-    }
-    if (allPersonas.length > 0) return allPersonas[0];
-    return null;
-  }, [linkedPersonaId, allPersonas]);
+    const chatMeta = activeChatData ? parseChatMetadata(activeChatData.metadata) : {};
+    const chosenId = personaChoice?.chatId === activeChatId ? personaChoice.id : chatMeta.mochios?.linkedPersonaId;
+    return allPersonas.find((persona) => persona.id === chosenId) ||
+      allPersonas.find((persona) => persona.id === activeChatData?.personaId) ||
+      allPersonas.find((persona) => persona.isActive) || null;
+  }, [personaChoice, activeChatId, activeChatData, allPersonas]);
 
   // Profile Form State (Nickname, User ID, Email, Bio)
   const [profileNicknameDraft, setProfileNicknameDraft] = useState("");
@@ -764,39 +759,20 @@ export function MochiOsView({
   const [editingPersonFields, setEditingPersonFields] = useState<{
     name: string;
     contactname: string;
-    nickname: string;
+    socialhandle: string;
     email: string;
     onlineStyle: string;
-  }>({ name: "", contactname: "", nickname: "", email: "", onlineStyle: "" });
+  }>({ name: "", contactname: "", socialhandle: "", email: "", onlineStyle: "" });
 
+  // The phone's screen name belongs to phone_data, not the ST persona name.
+  // Reset missing fields as well so another chat's profile never leaks here.
   useEffect(() => {
-    if (activeLinkedPersona) {
-      setProfileNicknameDraft(activeLinkedPersona.comment ?? "");
-    } else {
-      setProfileNicknameDraft("");
-    }
-  }, [activeLinkedPersona]);
-
-  // Hydrate user profile info from saved phoneData if available
-  useEffect(() => {
-    if (savedPhoneDataResponse?.phoneData?.user) {
-      const u = savedPhoneDataResponse.phoneData.user;
-      if (u.id) {
-        setProfileUserIdDraft(u.id);
-      } else if (u.nickname) {
-        setProfileUserIdDraft(u.nickname);
-      }
-      if (u.bio) {
-        setProfileBioDraft(u.bio);
-      }
-      if (u.email) {
-        setProfileEmailDraft(u.email);
-      }
-      if (u.nickname && !activeLinkedPersona?.comment) {
-        setProfileNicknameDraft(u.nickname);
-      }
-    }
-  }, [savedPhoneDataResponse, activeLinkedPersona]);
+    const user = savedPhoneDataResponse?.phoneData?.user;
+    setProfileNicknameDraft(user?.nickname ?? activeLinkedPersona?.name ?? activeChatData?.userName ?? "");
+    setProfileUserIdDraft(user?.id ?? "");
+    setProfileBioDraft(user?.bio ?? "");
+    setProfileEmailDraft(user?.email ?? "");
+  }, [savedPhoneDataResponse, activeLinkedPersona?.id, activeLinkedPersona?.name, activeChatData?.userName]);
 
   // Save settings immediately helper
   const saveSettings = useCallback(
@@ -818,7 +794,7 @@ export function MochiOsView({
         wxCondition,
         wxPlace,
         wxAiDecide,
-        linkedPersonaId,
+        linkedPersonaId: persistedSettings?.linkedPersonaId ?? null,
         connectionProfileId: persistedSettings?.connectionProfileId ?? null,
         homeIndicatorMode: persistedSettings?.homeIndicatorMode ?? "both",
         promptPresetMode,
@@ -846,7 +822,7 @@ export function MochiOsView({
       wxCondition,
       wxPlace,
       wxAiDecide,
-      linkedPersonaId,
+      persistedSettings?.linkedPersonaId,
       persistedSettings?.connectionProfileId,
       promptPresetMode,
       selectedEnginePresetId,
@@ -909,32 +885,6 @@ export function MochiOsView({
   const { data: realCharacters = [] } = useCharacters();
   const { data: enginePresets = [] } = usePresets();
   const { generate, stop: stopEngineGenerate } = useGenerate();
-  const { data: activeChatData } = useChat(activeChatId ?? null);
-  const { data: activeLorebooksScan } = useActiveLorebookEntries(activeChatId ?? null, true);
-  const { data: allLorebooks = [] } = useLorebooks();
-
-  // Chat settings lorebooks derivation
-  const chatActiveLorebookIds = useMemo(
-    () => (activeChatData ? getChatActiveLorebookIds({ metadata: activeChatData.metadata }) : []),
-    [activeChatData],
-  );
-  const chatExcludedLorebookIds = useMemo(
-    () => (activeChatData ? getChatExcludedLorebookIds({ metadata: activeChatData.metadata }) : []),
-    [activeChatData],
-  );
-  const derivedChatLorebooks = useMemo(() => {
-    if (!activeChatData) return [];
-    return deriveActiveLorebookViews({
-      activeLorebookIds: chatActiveLorebookIds,
-      chat: activeChatData,
-      dropExcluded: true,
-      excludedLorebookIds: chatExcludedLorebookIds,
-      lorebooks: allLorebooks,
-    });
-  }, [chatActiveLorebookIds, activeChatData, chatExcludedLorebookIds, allLorebooks]);
-
-  const derivedChatLorebookIds = useMemo(() => derivedChatLorebooks.map((lb) => lb.id), [derivedChatLorebooks]);
-  const { entries: chatLorebookAllEntries = [] } = useEntriesAcrossLorebooks(derivedChatLorebookIds);
 
   // Messages for active selected chat
   // Phone threads are not separate ST chats. Their replies are generated by
@@ -1439,12 +1389,14 @@ export function MochiOsView({
       const lastMsg = restoredMsgs[restoredMsgs.length - 1];
       const preview = mochiMessagePreview(lastMsg);
 
-      const charInPhoneData = (
-        (savedPhoneDataResponse?.phoneData?.characters as MochiOsCharacterData[] | undefined) || []
-      ).find(
+      const charInPhoneData = [
+        ...(savedPhoneDataResponse?.phoneData?.characters || []),
+        ...(savedPhoneDataResponse?.phoneData?.private_contacts || []),
+      ].find(
         (c) =>
           c.name?.toLowerCase() === targetName.toLowerCase() ||
           c.contactname?.toLowerCase() === targetName.toLowerCase() ||
+          mochiSocialHandle(c).toLowerCase() === targetName.toLowerCase() ||
           (c.id && c.id.toLowerCase() === targetName.toLowerCase()),
       );
       const effectiveContactDisplayName =
@@ -1789,7 +1741,7 @@ export function MochiOsView({
       });
 
       if (activeChatId) {
-        const targetName = contact.name || "Character";
+        const targetName = location?.targetName || contact.name || "Character";
         // Only the records of this thread's own kind are candidates. A private
         // chat and a group can share an archive and even a name, so the record
         // type is what keeps one thread's regeneration from truncating the other.
@@ -2732,137 +2684,28 @@ export function MochiOsView({
       formatGuidesDraft?.formatGuide?.data !== undefined
         ? formatGuidesDraft.formatGuide.data
         : DEFAULT_FORMAT_GUIDES.formatGuide.data;
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
-
-    // Resolve Persona Name, Screen Name, and effective {{user}} substitution
-    const personaName = activeLinkedPersona?.name?.trim() || "User";
+    // Phone profile fields enrich ID cards; the persona's real name remains
+    // the roleplay {{user}}, just as in SillyTavern.
+    const personaName = activeLinkedPersona?.name?.trim() || activeChatData?.userName || "User";
     const screenName = profileNicknameDraft.trim() || personaName;
-    const effectiveUserValue = screenName !== personaName && screenName ? screenName : personaName;
 
-    // Helper to replace {{user}} in any string
-    const applyUserMacro = (text: string): string => {
-      if (!text) return "";
-      return text.replace(/\{\{user\}\}/gi, effectiveUserValue);
-    };
-
-    // Filter characters that belong to this chat (or fallback to all realCharacters)
+    // Only cards belonging to this roleplay may reach its data prompt.
     const chatCharIds = getChatCharacterIds(activeChatData);
     const relevantCharacters = (realCharacters as unknown as Character[]).filter((c) => {
       if (!c?.id) return false;
       if (chatCharIds.length > 0) return chatCharIds.includes(c.id);
-      return true;
+      return false;
     });
 
-    // Expand Character Info marker: comprehensive character fields (description, personality, scenario, appearance, etc.)
-    // If no specific chat character matched, fallback to using all loaded characters or first character
-    const effectiveCharList =
-      relevantCharacters.length > 0 ? relevantCharacters : (realCharacters as unknown as Character[]);
-    const charDescriptions = effectiveCharList
-      .map((c) => {
-        const parsed = parseCharacterMacroData(c);
-        const name = parsed?.name || (c.data as any)?.name || "Character";
-        const desc = parsed?.description || (c.data as any)?.description || "";
-        const personality = parsed?.personality || (c.data as any)?.personality || "";
-        const appearance = parsed?.appearance || (c.data as any)?.extensions?.appearance || "";
-        const backstory = parsed?.backstory || (c.data as any)?.extensions?.backstory || "";
-        const scenario = parsed?.scenario || (c.data as any)?.scenario || "";
-        const systemPrompt = parsed?.systemPrompt || (c.data as any)?.system_prompt || "";
-
-        const parts: string[] = [];
-        parts.push(`Name: ${name}`);
-        if (desc) parts.push(`Description: ${desc}`);
-        if (personality) parts.push(`Personality: ${personality}`);
-        if (appearance) parts.push(`Appearance: ${appearance}`);
-        if (backstory) parts.push(`Backstory: ${backstory}`);
-        if (scenario) parts.push(`Scenario: ${scenario}`);
-        if (systemPrompt) parts.push(`System Prompt: ${systemPrompt}`);
-        return parts.join("\n");
-      })
-      .filter((text) => text.trim().length > 0)
-      .join("\n\n");
-
-    // Expand User Persona marker
-    const personaDescriptionParts: string[] = [];
-    if (activeLinkedPersona) {
-      personaDescriptionParts.push(`Name: ${activeLinkedPersona.name}`);
-      if (activeLinkedPersona.description) {
-        personaDescriptionParts.push(`Description: ${activeLinkedPersona.description}`);
-      }
-    }
-    const personaText = personaDescriptionParts.join("\n");
+    const effectiveCharList = relevantCharacters;
 
     // Expand ID Macro Cards marker
-    const defaultFriendInfo = formatFriendInfo();
+    const phoneCharacters = aiDataYamlDraft.trim() ? [
+      ...(savedPhoneDataResponse?.phoneData?.characters || []),
+      ...(savedPhoneDataResponse?.phoneData?.private_contacts || []),
+    ] : [];
+    const defaultFriendInfo = phoneCharacters.length ? phoneCharacters.map(formatFriendInfo).join("\n\n") : formatFriendInfo();
     const idMacroCardsContent = `User Information:\nName: ${personaName}\nScreen Name: ${screenName !== personaName && screenName ? screenName : personaName}\nBio: ${profileBioDraft.trim() || "Not set"}\n\n${defaultFriendInfo}`;
-
-    // Read configured Lorebook Token Budget from active chat settings (or fallback to 2048)
-    const chatMeta = activeChatData ? parseChatMetadata(activeChatData.metadata) : {};
-    const configuredTokenBudget =
-      typeof chatMeta.lorebookTokenBudget === "number" && Number.isFinite(chatMeta.lorebookTokenBudget)
-        ? Math.max(0, Math.floor(chatMeta.lorebookTokenBudget))
-        : 2048;
-
-    // Expand Lorebook entries (using activeLorebooksScan and derived chat lorebook entries from roleplay chat settings)
-    const activeScanEntries = (activeLorebooksScan?.entries || []).filter(
-      (e: any) => e.enabled !== false && e.enabled !== "false",
-    );
-    const directChatEntries = chatLorebookAllEntries
-      .filter((e) => e.enabled !== false && (e as any).enabled !== "false")
-      .map((e) => ({
-        name: e.name || e.keys?.join(", ") || "Lorebook Entry",
-        content: e.content,
-        constant: Boolean(e.constant),
-        activationSources: ["chat_settings"],
-      }));
-    const combinedLorebookList = activeScanEntries.length > 0 ? activeScanEntries : directChatEntries;
-
-    // Budget-aware Lorebook entry compiler helper
-    const compileBudgetedLorebookContent = (entries: typeof combinedLorebookList) => {
-      const selectedParts: string[] = [];
-      let accumulatedTokens = 0;
-
-      for (const entry of entries) {
-        if (!entry.content) continue;
-        const entryBlock = `### ${entry.name || (entry as any).lorebookName || "Entry"}\n${entry.content}`;
-        const estimatedTokens = estimateTextTokens(entryBlock);
-
-        if (configuredTokenBudget > 0 && accumulatedTokens + estimatedTokens > configuredTokenBudget) {
-          // Exceeds token budget
-          continue;
-        }
-
-        selectedParts.push(entryBlock);
-        accumulatedTokens += estimatedTokens;
-      }
-
-      return selectedParts.join("\n\n");
-    };
-
-    const lorebookBeforeEntries = combinedLorebookList.filter(
-      (e: any) =>
-        e.constant ||
-        e.activationSources?.includes("constant") ||
-        e.activationSources?.includes("keyword") ||
-        e.activationSources?.includes("semantic") ||
-        e.activationSources?.includes("chat_settings"),
-    );
-    const lorebookBeforeContent = compileBudgetedLorebookContent(lorebookBeforeEntries);
-    const lorebookAfterContent = compileBudgetedLorebookContent(combinedLorebookList);
-
-    // Dialogue examples
-    const dialogueExamplesContent = effectiveCharList
-      .map((c) => {
-        const parsed = parseCharacterMacroData(c);
-        const d = (c.data as any) || {};
-        const parts: string[] = [];
-        const greeting = d.first_mes || "";
-        const examples = parsed?.example || d.mes_example || "";
-        if (greeting) parts.push(`Greeting: ${greeting}`);
-        if (examples) parts.push(`Examples:\n${examples}`);
-        return parts.join("\n");
-      })
-      .filter(Boolean)
-      .join("\n\n");
 
     // If YAML was cleared or empty, do NOT send old YAML to AI, and delete the saved file on server
     const trimmedYamlDraft = aiDataYamlDraft.trim();
@@ -2879,95 +2722,6 @@ export function MochiOsView({
     }
 
     const existingYaml = trimmedYamlDraft;
-    let injectedUserInput = false;
-
-    for (const block of activeBlocks) {
-      if (!block.enabled) continue;
-      const markerType = block.markerConfig?.type || block.identifier;
-
-      if (block.isMarker || !!block.markerConfig) {
-        if (markerType === "character" && charDescriptions) {
-          messages.push({
-            role: block.role || "system",
-            content: `<character>\n${applyUserMacro(charDescriptions)}\n</character>`,
-          });
-        } else if (markerType === "persona" && personaText) {
-          messages.push({
-            role: block.role || "system",
-            content: `<persona>\n${applyUserMacro(personaText)}\n</persona>`,
-          });
-        } else if (markerType === "id_macro_cards") {
-          messages.push({ role: block.role || "system", content: applyUserMacro(idMacroCardsContent) });
-        } else if (markerType === "world_info_before" && lorebookBeforeContent) {
-          messages.push({
-            role: block.role || "system",
-            content: `<world_info_before>\n${applyUserMacro(lorebookBeforeContent)}\n</world_info_before>`,
-          });
-        } else if ((markerType === "world_info_after" || markerType === "lorebook") && lorebookAfterContent) {
-          messages.push({
-            role: block.role || "system",
-            content: `<world_info_after>\n${applyUserMacro(lorebookAfterContent)}\n</world_info_after>`,
-          });
-        } else if (markerType === "dialogue_examples" && dialogueExamplesContent) {
-          messages.push({
-            role: block.role || "system",
-            content: `<dialogue_examples>\n${applyUserMacro(dialogueExamplesContent)}\n</dialogue_examples>`,
-          });
-        } else if (markerType === "chat_summary") {
-          const summary = (activeChatData?.metadata as any)?.summary;
-          if (summary) {
-            messages.push({
-              role: block.role || "system",
-              content: `<chat_summary>\n${applyUserMacro(summary)}\n</chat_summary>`,
-            });
-          }
-        } else if (markerType === "chat_history") {
-          const recent = activeChatRoleplayMessages
-            .map((m) => {
-              if (m.content.includes("<chat_history")) return m.content;
-              return `${m.role === "user" ? personaName : "Character"}: ${m.content}`;
-            })
-            .join("\n\n");
-          if (recent) {
-            messages.push({
-              role: block.role || "system",
-              content: `<chat_history>\n${applyUserMacro(recent)}\n</chat_history>`,
-            });
-          }
-        } else if (markerType === "format_guides") {
-          // This request generates `<phone_data>`, so only the data guide goes out.
-          const formatGuideBlockText = buildMochiDataGenerationGuideBlock({
-            existingYaml,
-            dataGuide: dataGuideContent,
-          });
-          messages.push({ role: block.role || "system", content: applyUserMacro(formatGuideBlockText) });
-        } else if (markerType === "user_input") {
-          const userReq = aiDataUserRequest.trim();
-          const baseContent = block.content || "按格式要求生成完整数据";
-          const userPromptContent = userReq ? `User Request: ${userReq}\n\n${baseContent}` : baseContent;
-          messages.push({ role: block.role || "user", content: applyUserMacro(userPromptContent) });
-          injectedUserInput = true;
-        }
-      } else {
-        messages.push({ role: block.role, content: applyUserMacro(block.content || "") });
-      }
-    }
-
-    // Fallback: If preset didn't have user_input marker, inject user message before assistant PREFILL
-    if (!injectedUserInput) {
-      const userPromptFinal = aiDataUserRequest.trim()
-        ? `User Request: ${aiDataUserRequest.trim()}\n\n按格式要求生成完整数据`
-        : existingYaml
-          ? "Update and generate the complete phone_data YAML according to the roleplay context, character information, and existing phone data now."
-          : "按格式要求生成完整数据";
-
-      const prefillIdx = messages.findIndex((m) => m.role === "assistant");
-      if (prefillIdx !== -1) {
-        messages.splice(prefillIdx, 0, { role: "user", content: applyUserMacro(userPromptFinal) });
-      } else {
-        messages.push({ role: "user", content: applyUserMacro(userPromptFinal) });
-      }
-    }
 
     try {
       const primaryCharName =
@@ -2975,12 +2729,26 @@ export function MochiOsView({
         (effectiveCharList[0]?.data as any)?.name ||
         primaryRoleplayCharName ||
         "Character";
+      const userInputBlock = activeBlocks.find((block) => block.enabled !== false && (block.markerConfig?.type || block.identifier) === "user_input");
+      const baseInput = userInputBlock?.content || "Generate complete phone_data YAML according to the format requirements.";
+      const messages = await buildMochiPresetMessages({
+        blocks: activeBlocks,
+        characters: effectiveCharList,
+        persona: activeLinkedPersona,
+        userName: personaName,
+        characterName: primaryCharName,
+        userInput: aiDataUserRequest.trim() ? `User Request: ${aiDataUserRequest.trim()}\n\n${baseInput}` : baseInput,
+        idMacroCards: idMacroCardsContent,
+        formatGuides: buildMochiDataGenerationGuideBlock({ existingYaml, dataGuide: dataGuideContent }),
+        historyConfig: formatGuidesDraft.historyConfig,
+      });
       const res = await generatePhoneDataMutation.mutateAsync({
         chatId: activeChatId,
         messages,
         userPrompt: aiDataUserRequest.trim() || undefined,
         category: "data_generation",
         characterName: primaryCharName,
+        userName: personaName,
       });
 
       if (res?.rawOutput) {
@@ -3021,9 +2789,6 @@ export function MochiOsView({
     profileNicknameDraft,
     profileBioDraft,
     activeChatData,
-    activeLorebooksScan,
-    chatLorebookAllEntries,
-    activeChatRoleplayMessages,
     aiDataUserRequest,
     generatePhoneDataMutation,
     savePhoneDataMutation,
@@ -3077,8 +2842,8 @@ export function MochiOsView({
     setProfileUserIdDraft("");
     setProfileEmailDraft("");
     setProfileBioDraft("");
-    setProfileNicknameDraft(activeLinkedPersona?.comment ?? "");
-  }, [activeLinkedPersona]);
+    setProfileNicknameDraft(activeLinkedPersona?.name ?? activeChatData?.userName ?? "");
+  }, [activeLinkedPersona, activeChatData?.userName]);
 
   /**
    * Delete the saved phone data and everything it filled in.
@@ -3150,10 +2915,9 @@ export function MochiOsView({
       // Hydrate profile immediately
       if (res?.phoneData?.user) {
         if (res.phoneData.user.id) setProfileUserIdDraft(res.phoneData.user.id);
-        else if (res.phoneData.user.nickname) setProfileUserIdDraft(res.phoneData.user.nickname);
         if (res.phoneData.user.bio) setProfileBioDraft(res.phoneData.user.bio);
         if (res.phoneData.user.email) setProfileEmailDraft(res.phoneData.user.email);
-        if (res.phoneData.user.nickname && !activeLinkedPersona?.comment) {
+        if (res.phoneData.user.nickname !== undefined) {
           setProfileNicknameDraft(res.phoneData.user.nickname);
         }
       }
@@ -3207,7 +2971,7 @@ export function MochiOsView({
   const handleSavePersonToPhoneData = useCallback(
     async (
       personId: string,
-      fields: { name: string; contactname: string; nickname: string; email: string; onlineStyle: string },
+      fields: { name: string; contactname: string; socialhandle: string; email: string; onlineStyle: string },
     ) => {
       if (!activeChatId) return;
       try {
@@ -3222,12 +2986,12 @@ export function MochiOsView({
           const newChar: any = {};
           // Preserve id first
           if (oldChar.id !== undefined) newChar.id = oldChar.id;
-          // Place name, then contactname, then nickname
+          // Contact display aliases stay separate from social-media handles.
           newChar.name = fields.name.trim();
           if (contactnameVal) {
             newChar.contactname = contactnameVal;
           }
-          newChar.nickname = fields.nickname.trim();
+          newChar.socialhandle = fields.socialhandle.trim();
           if (fields.email.trim()) {
             newChar.email = fields.email.trim();
           } else if (oldChar.email !== undefined) {
@@ -3244,6 +3008,9 @@ export function MochiOsView({
               key === "name" ||
               key === "contactname" ||
               key === "nickname" ||
+              key === "socialhandle" ||
+              key === "screenName" ||
+              key === "screen_name" ||
               key === "email" ||
               key === "onlineStyle" ||
               key === "onlinestyle" ||
@@ -3445,7 +3212,10 @@ export function MochiOsView({
     const targetContactObj = currentContactsMap[activeThreadId];
 
     // Find the matching character in phone_data to distinguish real character name from user's custom contact name
-    const genCharacters = (savedPhoneDataResponse?.phoneData?.characters as MochiOsCharacterData[] | undefined) || [];
+    const genCharacters: MochiOsCharacterData[] = [
+      ...(savedPhoneDataResponse?.phoneData?.characters || []),
+      ...(savedPhoneDataResponse?.phoneData?.private_contacts || []),
+    ];
     const matchedGenChar = isGroupThread
       ? undefined
       : genCharacters.find((p) => {
@@ -3453,7 +3223,7 @@ export function MochiOsView({
           const pId = (p.id || "").toLowerCase();
           const pName = (p.name || "").toLowerCase();
           const pContact = (p.contactname || "").toLowerCase();
-          const pNick = (p.nickname || "").toLowerCase();
+          const pNick = mochiSocialHandle(p).toLowerCase();
           const tId = activeThreadId.toLowerCase();
           const cName = (targetContactObj?.name || "").toLowerCase();
           return (
@@ -3527,23 +3297,8 @@ export function MochiOsView({
       }
 
       // Persona & User macro
-      const personaName = activeLinkedPersona?.name?.trim() || "User";
+      const personaName = activeLinkedPersona?.name?.trim() || activeChatData?.userName || "User";
       const screenName = profileNicknameDraft.trim() || personaName;
-      const effectiveUserValue = screenName !== personaName && screenName ? screenName : personaName;
-      const applyUserMacro = (text: string): string => {
-        if (!text) return "";
-        return text.replace(/\{\{user\}\}/gi, effectiveUserValue);
-      };
-      const applyHistoryMacro = (text: string): string => {
-        if (!text) return "";
-        // Preserve the canonical Mochi YAML user-marker key while still
-        // substituting {{user}} in ordinary history content.
-        const protectedKey = "__MOCHI_PRIVATE_USER_KEY__";
-        return applyUserMacro(text.replace(/(['"]?)\{\{user\}\}\1(?=\s*:)/gi, protectedKey)).replaceAll(
-          protectedKey,
-          "{{user}}",
-        );
-      };
 
       // Environment Time/Date/Weather instructions
       const envLines: string[] = [];
@@ -3588,29 +3343,26 @@ export function MochiOsView({
       // group, never from the roleplay chat's primary-character fallback.
       // {{Other party's name}} in <privatechat_history target="{{Other party's name}}" type="private">
       // must be the character's real name from data generation yaml (targetCharName).
-      // {{contactname}} is the custom contact name (targetContactName), whichever key
-      // carries it: the current guide writes `contactname:`, a guide saved before the
-      // rename still writes `name:`.
-      const chatGuideForRequest = chatGuideTemplate
+      // The private output has no contactname field. Read display aliases from
+      // phone_data instead; keep placeholder expansion for other legacy guides.
+      const chatGuideForRequest = (isGroupThread ? chatGuideTemplate : normalizeMochiPrivateChatGuide(chatGuideTemplate))
         .replace(
           /<privatechat_history\s+target="[^"]*"\s+type="private">/gi,
           `<privatechat_history target="${targetCharName}" type="private">`,
         )
-        .replace(/\{\{Other party's name\}\}/gi, targetCharName)
-        .replace(/\{\{contactname\}\}/gi, targetContactName)
-        .replace(/\{\{groupchatname\}\}/gi, targetCharName)
-        .replace(/\{\{name\}\}/gi, targetContactName);
+        .replace(/\{\{Other party's name\}\}/gi, () => targetCharName)
+        .replace(/\{\{contactname\}\}/gi, () => targetContactName)
+        .replace(/\{\{groupchatname\}\}/gi, () => targetCharName)
+        .replace(/\{\{name\}\}/gi, () => targetContactName);
       const formatGuideBlock = `${stickerLibraryBlock}${chatGuideForRequest}\n\n${timeDateWeatherBlock}`;
 
       // Character info
       const chatCharIds = getChatCharacterIds(activeChatData);
       const relevantCharacters = (realCharacters as unknown as Character[]).filter((c) => {
         if (!c?.id) return false;
-        if (chatCharIds.length > 0) return chatCharIds.includes(c.id);
-        return true;
+        return chatCharIds.includes(c.id);
       });
-      const effectiveCharList =
-        relevantCharacters.length > 0 ? relevantCharacters : (realCharacters as unknown as Character[]);
+      const effectiveCharList = relevantCharacters;
 
       // Match the specific character if 1-on-1. A group has no single counterpart,
       // so the roster decides which characters are described: sending the whole
@@ -3621,7 +3373,7 @@ export function MochiOsView({
             if (!c) return false;
             const parsed = parseCharacterMacroData(c);
             const name = (parsed?.name || (c.data as any)?.name || c.comment || "").toLowerCase();
-            const nickname = String((c.data as any)?.nickname || "").toLowerCase();
+            const nickname = mochiSocialHandle(c.data as any).toLowerCase();
             return rosterKeys.includes(name) || rosterKeys.includes(nickname);
           })
         : [];
@@ -3642,46 +3394,13 @@ export function MochiOsView({
           ? [matchedChar]
           : effectiveCharList;
 
-      const charDescriptions = targetCharList
-        .map((c) => {
-          const parsed = parseCharacterMacroData(c);
-          const name = parsed?.name || (c.data as any)?.name || targetCharName;
-          const desc = parsed?.description || (c.data as any)?.description || "";
-          const personality = parsed?.personality || (c.data as any)?.personality || "";
-          const appearance = parsed?.appearance || (c.data as any)?.extensions?.appearance || "";
-          const backstory = parsed?.backstory || (c.data as any)?.extensions?.backstory || "";
-          const scenario = parsed?.scenario || (c.data as any)?.scenario || "";
-          const systemPrompt = parsed?.systemPrompt || (c.data as any)?.system_prompt || "";
-
-          const parts: string[] = [];
-          parts.push(`Name: ${name}`);
-          if (desc) parts.push(`Description: ${desc}`);
-          if (personality) parts.push(`Personality: ${personality}`);
-          if (appearance) parts.push(`Appearance: ${appearance}`);
-          if (backstory) parts.push(`Backstory: ${backstory}`);
-          if (scenario) parts.push(`Scenario: ${scenario}`);
-          if (systemPrompt) parts.push(`System Prompt: ${systemPrompt}`);
-          return parts.join("\n");
-        })
-        .filter((text) => text.trim().length > 0)
-        .join("\n\n");
-
-      // User Persona & ID cards
-      const personaDescriptionParts: string[] = [];
-      if (activeLinkedPersona) {
-        personaDescriptionParts.push(`Name: ${activeLinkedPersona.name}`);
-        if (activeLinkedPersona.description) {
-          personaDescriptionParts.push(`Description: ${activeLinkedPersona.description}`);
-        }
-      }
-      const personaText = personaDescriptionParts.join("\n");
-
       // Format Friend Information for ID Macro Cards depending on private vs group chat
       let friendInfoContent = "";
       let parsedPhoneData = savedPhoneDataResponse?.phoneData;
       if (!parsedPhoneData && aiDataYamlDraft.trim()) {
         try {
-          parsedPhoneData = yaml.parse(cleanAndExtractRawYaml(aiDataYamlDraft));
+          const parsed = yaml.parse(extractPhoneDataEditorYaml(aiDataYamlDraft));
+          parsedPhoneData = parsed?.phone_data || parsed;
         } catch {
           // ignore yaml parse errors
         }
@@ -3702,7 +3421,7 @@ export function MochiOsView({
           if (allMemberNames.length === 0) return true;
           const pId = (p.id || "").toLowerCase();
           const pName = (p.name || "").toLowerCase();
-          const pNick = (p.nickname || "").toLowerCase();
+          const pNick = mochiSocialHandle(p).toLowerCase();
           return allMemberNames.includes(pId) || allMemberNames.includes(pName) || allMemberNames.includes(pNick);
         });
 
@@ -3726,181 +3445,20 @@ export function MochiOsView({
 
       const idMacroCardsContent = `User Information:\nName: ${personaName}\nScreen Name: ${screenName !== personaName && screenName ? screenName : personaName}\nBio: ${profileBioDraft.trim() || "Not set"}\n\n${friendInfoContent}`;
 
-      // Lorebook entries
-      const chatMeta = activeChatData ? parseChatMetadata(activeChatData.metadata) : {};
-      const configuredTokenBudget =
-        typeof chatMeta.lorebookTokenBudget === "number" && Number.isFinite(chatMeta.lorebookTokenBudget)
-          ? Math.max(0, Math.floor(chatMeta.lorebookTokenBudget))
-          : 2048;
-
-      const activeScanEntries = (activeLorebooksScan?.entries || []).filter(
-        (e: any) => e.enabled !== false && e.enabled !== "false",
-      );
-      const directChatEntries = chatLorebookAllEntries
-        .filter((e) => e.enabled !== false && (e as any).enabled !== "false")
-        .map((e) => ({
-          name: e.name || e.keys?.join(", ") || "Lorebook Entry",
-          content: e.content,
-          constant: Boolean(e.constant),
-          activationSources: ["chat_settings"],
-        }));
-      const combinedLorebookList = activeScanEntries.length > 0 ? activeScanEntries : directChatEntries;
-
-      const compileBudgetedLorebookContent = (entries: typeof combinedLorebookList) => {
-        const selectedParts: string[] = [];
-        let accumulatedTokens = 0;
-        for (const entry of entries) {
-          if (!entry.content) continue;
-          const entryBlock = `### ${entry.name || (entry as any).lorebookName || "Entry"}\n${entry.content}`;
-          const estimatedTokens = estimateTextTokens(entryBlock);
-          if (configuredTokenBudget > 0 && accumulatedTokens + estimatedTokens > configuredTokenBudget) {
-            continue;
-          }
-          selectedParts.push(entryBlock);
-          accumulatedTokens += estimatedTokens;
-        }
-        return selectedParts.join("\n\n");
-      };
-
-      const lorebookAfterContent = compileBudgetedLorebookContent(combinedLorebookList);
-
-      // Recent contact message history (exclude the pending trailing user messages so they aren't duplicated before user_input).
-      // `contactMessages` is the regeneration override when regenerating. Using
-      // targetContactObj.msgs here would reinsert the entire turn being replaced
-      // into <chat_history>, even though the persistence path already removed it.
-      const historyWithoutPending = contactMessages
-        .slice(-20)
-        .filter((m) => m.me !== 1 || !pendingUserMsgs.includes(m));
-
-      // Use the same persisted roleplay message stream as regular chat history.
-      // The thread on screen is replayed separately below as attributed lines, so
-      // its own archived records are cut from the stream: keeping them would send
-      // every group message twice, and a regeneration only excludes the rows it
-      // deleted, so a turn still present here would replay the messages the model
-      // was asked to replace.
-      const roleplayHistoryEntries = activeChatRoleplayMessages
-        .filter((message) => !excludedRoleplayMessageIds.includes(message.id))
-        .slice(-20)
-        .map((m) => {
-          // Only safe once the replay below can carry the thread itself; with no
-          // bubbles to replay, the archived record is the only copy of it.
-          const content =
-            isGroupThread && historyWithoutPending.length > 0
-              ? stripMochiThreadRecordsFromContent({
-                  content: m.content,
-                  targetName: groupThreadName,
-                  recordType: activeRecordType,
-                })
-              : m.content;
-          return {
-            role: m.role,
-            timestamp: m.createdAt,
-            content,
-          };
-        })
-        .filter((entry): entry is { role: "system" | "user" | "assistant"; timestamp: string; content: string } =>
-          Boolean(entry.content),
-        );
-      const formattedRoleplayHistory = roleplayHistoryEntries.map((entry) => ({
-        role: entry.role,
-        content: applyHistoryMacro(entry.content),
-      }));
-      // In private chat, the thread messages are preserved with their original tags,
-      // or formatted as `<privatechat_history target="{{targetName}}" type="private">` or
-      // `<groupchat_history target="{{groupThreadName}}">` for group chat,
-      // matching what the engine sends rather than stripping them into bare `<assistant>` blocks.
-      const historyEntries = formattedRoleplayHistory;
-      let contactHistoryBlock = "";
-      if (isGroupThread && historyWithoutPending.length > 0) {
-        contactHistoryBlock = serializeChatHistoryYaml({
-          targetName: groupThreadName,
-          recordType: "group",
-          members: activeGroupMemberNames.length || 2,
-          date: historyWithoutPending[0]?.d || "Today",
-          time: historyWithoutPending[historyWithoutPending.length - 1]?.t || "12:00 PM",
-          messages: historyWithoutPending,
-        });
-      }
-
-      const chatHistoryBlock = [
-        ...historyEntries.map(({ role, content }) => {
-          const trimmed = content.trim();
-          // If the entry already contains structured history tags (<chat_history...>, <privatechat_history...>, <groupchat_history...>), keep them intact
-          if (/<(?:chat_history|privatechat_history|groupchat_history|group_message)/i.test(trimmed)) {
-            return trimmed;
-          }
-          return `<${role}>\n${trimmed}\n</${role}>`;
-        }),
-        ...(contactHistoryBlock ? [contactHistoryBlock] : []),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-
-      // Assemble messages for preset
-      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
-      let injectedUserInput = false;
-      let injectedChatHistory = false;
-
-      for (const block of activeBlocks) {
-        if (!block.enabled) continue;
-        const markerType = block.markerConfig?.type || block.identifier;
-
-        if (block.isMarker || !!block.markerConfig) {
-          if (markerType === "character" && charDescriptions) {
-            messages.push({
-              role: block.role || "system",
-              content: `<character>\n${applyUserMacro(charDescriptions)}\n</character>`,
-            });
-          } else if (markerType === "persona" && personaText) {
-            messages.push({
-              role: block.role || "system",
-              content: `<persona>\n${applyUserMacro(personaText)}\n</persona>`,
-            });
-          } else if (markerType === "id_macro_cards") {
-            messages.push({ role: block.role || "system", content: applyUserMacro(idMacroCardsContent) });
-          } else if (
-            markerType === "world_info_before" ||
-            markerType === "world_info_after" ||
-            markerType === "lorebook"
-          ) {
-            if (lorebookAfterContent) {
-              messages.push({
-                role: block.role || "system",
-                content: `<lorebook>\n${applyUserMacro(lorebookAfterContent)}\n</lorebook>`,
-              });
-            }
-          } else if (markerType === "chat_history") {
-            if (chatHistoryBlock) {
-              injectedChatHistory = true;
-              messages.push({ role: "system", content: chatHistoryBlock });
-            }
-          } else if (markerType === "format_guides") {
-            messages.push({ role: block.role || "system", content: applyUserMacro(formatGuideBlock) });
-          } else if (markerType === "user_input") {
-            messages.push({ role: block.role || "user", content: applyUserMacro(combinedUserPrompt) });
-            injectedUserInput = true;
-          }
-        } else {
-          messages.push({ role: block.role, content: applyUserMacro(block.content || "") });
-        }
-      }
-
-      // History is required context for private-chat generation. Custom presets
-      // may omit the optional marker, so do not silently send only the new user
-      // input; inject the same canonical log-formatted history as a system block.
-      if (!injectedChatHistory && chatHistoryBlock) {
-        messages.unshift({ role: "system", content: chatHistoryBlock });
-      }
-
-      // If preset didn't have user_input marker, only then inject user input before assistant prefill
-      if (!injectedUserInput) {
-        const prefillIdx = messages.findIndex((m) => m.role === "assistant");
-        if (prefillIdx !== -1) {
-          messages.splice(prefillIdx, 0, { role: "user", content: applyUserMacro(combinedUserPrompt) });
-        } else {
-          messages.push({ role: "user", content: applyUserMacro(combinedUserPrompt) });
-        }
-      }
+      // One shared ST-style expansion path for every generation category. The
+      // history marker inserts real chronological role messages, once each.
+      const messages = await buildMochiPresetMessages({
+        blocks: activeBlocks,
+        characters: targetCharList,
+        persona: activeLinkedPersona,
+        userName: personaName,
+        characterName: targetCharName,
+        userInput: combinedUserPrompt,
+        idMacroCards: idMacroCardsContent,
+        formatGuides: formatGuideBlock,
+        historyConfig: formatGuidesDraft.historyConfig,
+        excludedMessageIds: excludedRoleplayMessageIds,
+      });
 
       const res = await generatePhoneDataMutation.mutateAsync({
         chatId: activeChatId,
@@ -4280,8 +3838,10 @@ export function MochiOsView({
         </div>
 
         {/* Mascots */}
-        <MascotRabbit1 className="mascot m1" />
-        <MascotRabbit2 className="mascot m2" />
+        <div className="mochi-wallpaper" aria-hidden="true">
+          <MascotRabbit1 className="mascot m1" />
+          <MascotRabbit2 className="mascot m2" />
+        </div>
 
         {/* Edit-mode Done button placed just above the apps grid */}
         {isAppEditingMode && (
@@ -4680,7 +4240,8 @@ export function MochiOsView({
                       (p: MochiOsCharacterData) =>
                         !peopleSearchText ||
                         (p.contactname || p.name || "").toLowerCase().includes(peopleSearchText.toLowerCase()) ||
-                        (p.name || "").toLowerCase().includes(peopleSearchText.toLowerCase()),
+                        (p.name || "").toLowerCase().includes(peopleSearchText.toLowerCase()) ||
+                        mochiSocialHandle(p).toLowerCase().includes(peopleSearchText.toLowerCase()),
                     )
                     .sort((a, b) => (a.contactname || a.name || "").localeCompare(b.contactname || b.name || ""));
 
@@ -4766,8 +4327,8 @@ export function MochiOsView({
                                         ({person.name})
                                       </span>
                                     ) : null}
-                                    {person.nickname && (
-                                      <span style={{ fontSize: 12, color: "var(--muted)" }}>@{person.nickname}</span>
+                                    {mochiSocialHandle(person) && (
+                                      <span style={{ fontSize: 12, color: "var(--muted)" }}>@{mochiSocialHandle(person).replace(/^@/, "")}</span>
                                     )}
                                   </div>
                                   <div className="mochi-person-actions" onClick={(e) => e.stopPropagation()}>
@@ -4893,17 +4454,18 @@ export function MochiOsView({
 
                                         <div className="profile-field-group">
                                           <label className="profile-field-label">
-                                            {localizeUi("ui.chat.mochiosview.nickname")}
+                                            {localizeUi("ui.chat.mochiosview.socialHandle")}
                                           </label>
                                           <div className="profile-field-input-wrap">
                                             <input
                                               type="text"
                                               className="profile-field-input"
-                                              value={editingPersonFields.nickname}
+                                              placeholder="@socialhandle"
+                                              value={editingPersonFields.socialhandle}
                                               onChange={(e) =>
                                                 setEditingPersonFields((prev) => ({
                                                   ...prev,
-                                                  nickname: e.target.value,
+                                                  socialhandle: e.target.value,
                                                 }))
                                               }
                                             />
@@ -4977,6 +4539,10 @@ export function MochiOsView({
                                           </span>
                                         </div>
                                         <div className="mochi-person-info-field">
+                                          <span className="mochi-person-info-label">{localizeUi("ui.chat.mochiosview.socialHandle")}</span>
+                                          <span className="mochi-person-info-value">{mochiSocialHandle(person) || "—"}</span>
+                                        </div>
+                                        <div className="mochi-person-info-field">
                                           <span className="mochi-person-info-label">
                                             {localizeUi("ui.chat.mochiosview.email")}
                                           </span>
@@ -5001,7 +4567,7 @@ export function MochiOsView({
                                             setEditingPersonFields({
                                               name: person.name || "",
                                               contactname: person.contactname || "",
-                                              nickname: person.nickname || "",
+                                              socialhandle: mochiSocialHandle(person),
                                               email: person.email || "",
                                               onlineStyle:
                                                 person.onlineStyle || person.online_style || person.onlinestyle || "",
@@ -5031,7 +4597,7 @@ export function MochiOsView({
           )}
 
           {activeTab === "profile" && (
-            <div id="emptyMain">
+            <div id="emptyMain" className="mochi-profile-view">
               <div className="profile-card">
                 <div className="p-ava">
                   {activeLinkedPersona?.avatarPath ? (
@@ -5063,12 +4629,6 @@ export function MochiOsView({
                         onChange={(e) => setProfileNicknameDraft(e.target.value)}
                         onBlur={() => {
                           const trimmed = profileNicknameDraft.trim();
-                          if (activeLinkedPersona && trimmed !== (activeLinkedPersona.comment ?? "")) {
-                            updatePersonaMutation.mutate({
-                              id: activeLinkedPersona.id,
-                              comment: trimmed,
-                            });
-                          }
                           handleSaveUserProfileToPhoneData({ nickname: trimmed });
                         }}
                       />
@@ -5134,7 +4694,7 @@ export function MochiOsView({
                     onBlur={() => {
                       handleSaveUserProfileToPhoneData({ bio: profileBioDraft.trim() });
                     }}
-                    rows={6}
+                    rows={4}
                   />
                 </div>
               </div>
@@ -5333,7 +4893,7 @@ export function MochiOsView({
                                           </div>
                                         )}
                                         <span className="mt">{ts}</span>
-                                        <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== (msg.id || idx)}>
+                                        <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
                                             onPick={(emoji, imageUrl) => {
@@ -5355,7 +4915,7 @@ export function MochiOsView({
                                           >
                                             <CornerUpLeft size={13} />
                                           </button>
-                                        </div>
+                                        </MochiMessageActions>
                                       </span>
                                     </div>
                                   ) : (
@@ -5405,7 +4965,7 @@ export function MochiOsView({
                                           </div>
                                         )}
                                         <span className="mt">{ts}</span>
-                                        <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== (msg.id || idx)}>
+                                        <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
                                             onPick={(emoji, imageUrl) => {
@@ -5427,7 +4987,7 @@ export function MochiOsView({
                                           >
                                             <CornerUpLeft size={13} />
                                           </button>
-                                        </div>
+                                        </MochiMessageActions>
                                           {((msg.swipeCount ?? 0) > 1 || idx === realChatMessages.length - 1) && (
                                             <div className="mochi-swipe-trigger" inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                               <button
@@ -5569,7 +5129,7 @@ export function MochiOsView({
                           const names = [character.data?.name, character.name, character.comment];
                           if (names.some((name) => typeof name === "string" && name.toLowerCase() === bubbleAuthor.toLowerCase())) return true;
                           const contact = savedPhoneDataResponse?.phoneData?.characters?.find((entry) =>
-                            [entry.name, entry.contactname, entry.nickname, entry.id].some((name) => name?.toLowerCase() === bubbleAuthor.toLowerCase()),
+                            [entry.name, entry.contactname, mochiSocialHandle(entry), entry.nickname, entry.id].some((name) => name?.toLowerCase() === bubbleAuthor.toLowerCase()),
                           );
                           return Boolean(contact && (character.id === contact.id || character.data?.name === contact.name));
                         });
@@ -5704,7 +5264,7 @@ export function MochiOsView({
                                     </div>
                                   )}
                                   <span className="mt">{ts}</span>
-                                  <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== msgBubbleId}>
+                                  <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
                                       onPick={(emoji, imageUrl) => handleDemoReaction(idx, emoji, imageUrl)}
@@ -5763,7 +5323,7 @@ export function MochiOsView({
                                     >
                                       <Trash2 size={13} />
                                     </button>
-                                  </div>
+                                  </MochiMessageActions>
                                 </span>
                               </div>
                             ) : (
@@ -5863,7 +5423,7 @@ export function MochiOsView({
                                     {isGroupThread && <MochiGroupSenderLabel name={bubbleSender} />}
                                     <span className="mt">{ts}</span>
                                   </span>
-                                  <div className="msg-actions-trigger" aria-label="Message actions" inert={activeMochiMsgActionId !== msgBubbleId}>
+                                  <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
                                       onPick={(emoji, imageUrl) => handleDemoReaction(idx, emoji, imageUrl)}
@@ -5934,7 +5494,7 @@ export function MochiOsView({
                                     >
                                       <Trash2 size={13} />
                                     </button>
-                                  </div>
+                                  </MochiMessageActions>
                                     {isRecordEndBubble && (bubbleSwipeCount > 1 || isLastBubbleInThread) && (
                                       <div className="mochi-swipe-trigger" inert={activeMochiMsgActionId !== msgBubbleId}>
                                         <button
@@ -7074,8 +6634,8 @@ export function MochiOsView({
       </div>
 
       {/* ================= SETTINGS MODAL (MASTER-DETAIL / SPLIT-VIEW) ================= */}
-      <div
-        className={`overlay ${settingsModalOpen ? "show" : ""}`}
+      {settingsModalOpen && <div
+        className="overlay show"
         onClick={(e) => {
           if (e.target === e.currentTarget) setSettingsModalOpen(false);
         }}
@@ -7841,8 +7401,9 @@ export function MochiOsView({
                                   try {
                                     const parsed = JSON.parse(text);
                                     if (parsed.formatGuide) {
-                                      setFormatGuidesDraft(parsed);
-                                      saveSettings({ formatGuidesJson: JSON.stringify(parsed) });
+                                      const normalized = normalizeMochiFormatGuides(parsed);
+                                      setFormatGuidesDraft(normalized);
+                                      saveSettings({ formatGuidesJson: JSON.stringify(normalized) });
                                     }
                                   } catch (err) {
                                     console.error("Invalid format guide JSON", err);
@@ -7909,6 +7470,28 @@ export function MochiOsView({
 
                   {/* Filter & Search Toolbar */}
                   <div className="format-guides-filter-bar">
+                    <div className="format-guide-search-wrap">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <input
+                        type="text"
+                        className="format-guide-search-input"
+                        placeholder={localizeUi("ui.chat.mochiosview.searchFormatGuides")}
+                        value={formatGuidesSearchQuery}
+                        onChange={(e) => setFormatGuidesSearchQuery(e.target.value)}
+                      />
+                      {formatGuidesSearchQuery && (
+                        <button
+                          type="button"
+                          className="format-guide-search-clear"
+                          onClick={() => setFormatGuidesSearchQuery("")}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                     <div className="format-guides-category-pills">
                       <button
                         type="button"
@@ -7936,28 +7519,6 @@ export function MochiOsView({
                       </button>
                     </div>
 
-                    <div className="format-guide-search-wrap">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      </svg>
-                      <input
-                        type="text"
-                        className="format-guide-search-input"
-                        placeholder={localizeUi("ui.chat.mochiosview.searchFormatGuides")}
-                        value={formatGuidesSearchQuery}
-                        onChange={(e) => setFormatGuidesSearchQuery(e.target.value)}
-                      />
-                      {formatGuidesSearchQuery && (
-                        <button
-                          type="button"
-                          className="format-guide-search-clear"
-                          onClick={() => setFormatGuidesSearchQuery("")}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
                   </div>
 
                   {/* Accordion / Cards List */}
@@ -8032,20 +7593,16 @@ export function MochiOsView({
                                   <div className="format-guide-header-buttons">
                                     <button
                                       type="button"
-                                      className="btn btn-sm"
+                                      className="btn btn-sm format-guide-copy-btn"
+                                      title={localizeUi(copiedGuideKey === item.key ? "ui.chat.mochiosview.formatGuideCopied" : "ui.chat.mochiosview.formatGuideCopy")}
+                                      aria-label={localizeUi(copiedGuideKey === item.key ? "ui.chat.mochiosview.formatGuideCopied" : "ui.chat.mochiosview.formatGuideCopy")}
                                       onClick={() => {
                                         navigator.clipboard.writeText(contentValue);
                                         setCopiedGuideKey(item.key);
                                         setTimeout(() => setCopiedGuideKey(null), 2000);
                                       }}
                                     >
-                                      {copiedGuideKey === item.key
-                                        ? localizeUi("ui.chat.mochiosview.value1", {
-                                            value1: localizeUi("ui.chat.mochiosview.formatGuideCopied"),
-                                          })
-                                        : localizeUi("ui.chat.mochiosview.value1_4ef231e", {
-                                            value1: localizeUi("ui.chat.mochiosview.formatGuideCopy"),
-                                          })}
+                                      <span aria-hidden="true">📋</span>
                                     </button>
                                     {isModified && (
                                       <button
@@ -8187,7 +7744,7 @@ export function MochiOsView({
             </div>
           </MochiSettingsSplit>
         </div>
-      </div>
+      </div>}
 
       {/* ================= VOICE NOTE MODAL ================= */}
       <div
@@ -8404,7 +7961,7 @@ export function MochiOsView({
 
           <div className="persona-pick-list">
             {allPersonas
-              .filter((p) => !personaSearchText || p.name.toLowerCase().includes(personaSearchText.toLowerCase()))
+              .filter((p) => !personaSearchText || `${p.name} ${p.title || ""}`.toLowerCase().includes(personaSearchText.toLowerCase()))
               .map((p) => {
                 const isSelected = activeLinkedPersona?.id === p.id;
                 return (
@@ -8413,8 +7970,13 @@ export function MochiOsView({
                     type="button"
                     className={`persona-pick-item ${isSelected ? "active" : ""}`}
                     onClick={() => {
-                      setLinkedPersonaId(p.id);
-                      saveSettings({ linkedPersonaId: p.id });
+                      setPersonaChoice({ chatId: activeChatId, id: p.id });
+                      if (activeChatId) updateMochiPersona.mutate(p.id, {
+                        onError: (error) => {
+                          setPersonaChoice(null);
+                          toast.error(error instanceof Error ? error.message : "Could not save persona");
+                        },
+                      });
                       setPersonaPickerOpen(false);
                     }}
                   >
@@ -8426,7 +7988,7 @@ export function MochiOsView({
                       )}
                     </div>
                     <div className="persona-pick-info">
-                      <div className="persona-pick-name">{p.name}</div>
+                      <div className="persona-pick-name">{p.name}{p.title?.trim() ? ` (${p.title.trim()})` : ""}</div>
                       {p.description && <div className="persona-pick-desc">{p.description}</div>}
                     </div>
                     {isSelected && <span style={{ fontWeight: 900, color: "var(--acc)", fontSize: 16 }}>✓</span>}

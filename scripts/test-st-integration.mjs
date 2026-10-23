@@ -18,6 +18,11 @@ const result = await build({
       export { mergeMochiChatHistoryBlocks, locateMochiMessageInRoleplay, mochiRoleplayBubbleId, parseChatHistoryBlocks, parseMochiChatResponse, serializeChatHistoryYaml, cleanAndExtractRawYaml, stripMochiReasoning, reconcileMochiContactHistory } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { splitPhoneTranscript } from './src/st/phone-transcript.ts';
       export { createStickerLibrary, MAX_STICKER_BYTES, normalizeStickerName, stickerName } from './src/st/stickers.ts';
+      export { buildMochiPresetMessages, formatMochiPromptHistory, formatMochiDialogueExamples, substituteMochiPromptMacros } from './src/st/preset.ts';
+      export { formatFriendInfo, mochiSocialHandle, parseMochiPrivateChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
+      export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
+      export { getMochiWorldInfoPrompt } from './src/st/lorebooks.ts';
+      export { selectTestPersona } from '/scripts/personas.js';
     `,
     resolveDir: root,
     loader: 'ts',
@@ -32,10 +37,17 @@ const result = await build({
     setup(builder) {
       builder.onResolve({ filter: /^\/scripts\/st-context\.js$/ }, () => ({ path: 'context', namespace: 'mock' }));
       builder.onResolve({ filter: /^\/scripts\/world-info\.js$/ }, () => ({ path: 'world-info', namespace: 'mock' }));
+      builder.onResolve({ filter: /^\/scripts\/personas\.js$/ }, () => ({ path: 'personas', namespace: 'mock' }));
+      builder.onResolve({ filter: /^\/scripts\/extensions\/regex\/engine\.js$/ }, () => ({ path: 'regex', namespace: 'mock' }));
+      builder.onResolve({ filter: /^\/scripts\/chats\.js$/ }, () => ({ path: 'attachments', namespace: 'mock' }));
       builder.onLoad({ filter: /.*/, namespace: 'mock' }, (args) => ({
-        contents: args.path === 'context'
-          ? 'export function getContext() { return globalThis.__mochiTestHost; }'
-          : 'export function getWorldInfoSettings() { return { world_info: globalThis.__mochiTestWorldInfo }; }',
+        contents: {
+          context: 'export function getContext() { return globalThis.__mochiTestHost; }',
+          'world-info': 'export const world_info_include_names = true; export function getWorldInfoSettings() { return { world_info: globalThis.__mochiTestWorldInfo }; }',
+          personas: 'export let user_avatar = ""; export function selectTestPersona(id) { user_avatar = id; }',
+          regex: 'export const regex_placement={USER_INPUT:1,AI_OUTPUT:2}; export function getRegexedString(text, placement, options) { return globalThis.__mochiTestHost.promptRegex?.(text, placement, options) ?? text; }',
+          attachments: 'export async function appendFileContent(message,text) { const files = (message.extra?.files || []).map(file=>file.text); if (!files.length) return text; const prefix=files.join("\\n\\n")+"\\n\\n"; message.extra.fileLength=prefix.length; return prefix+text; }',
+        }[args.path],
         loader: 'js',
       }));
     },
@@ -52,11 +64,11 @@ const lifecycle = [];
 const loadedBooks = [];
 const worldBooks = {
   Random: { entries: { 1: { content: 'UNATTACHED_LORE', key: ['random'] } } },
-  Chat: { entries: { 1: { content: 'CHAT_LORE', key: ['chat'] }, 2: { content: 'DISABLED_LORE', disable: true } } },
-  Character: { entries: { 1: { content: 'CHARACTER_LORE' } } },
-  Extra: { entries: { 1: { content: 'EXTRA_LORE' } } },
-  Global: { entries: { 1: { content: 'GLOBAL_LORE' } } },
-  Persona: { entries: { 1: { content: 'PERSONA_LORE' } } },
+  Chat: { entries: { 1: { content: 'CHAT_LORE', key: ['chat'], constant: true }, 2: { content: 'DISABLED_LORE', disable: true } } },
+  Character: { entries: { 1: { content: 'CHARACTER_LORE', constant: true } } },
+  Extra: { entries: { 1: { content: 'EXTRA_LORE', constant: true } } },
+  Global: { entries: { 1: { content: 'GLOBAL_LORE', constant: true } } },
+  Persona: { entries: { 1: { content: 'PERSONA_LORE', constant: true } } },
 };
 globalThis.__mochiTestWorldInfo = { globalSelect: [], charLore: [] };
 globalThis.window = { localStorage: { getItem: () => null } };
@@ -70,6 +82,10 @@ globalThis.__mochiTestHost = {
   groups: [{ id: 'group-42', name: 'Test Group', members: ['char.png'], chat_id: 'group-chat' }],
   name1: 'User',
   name2: 'Character',
+  substituteParams(text, { name1Override, name2Override, dynamicMacros = {} } = {}) {
+    return text.replace(/\{\{(\w+)\}\}/gi, (match, key) => key.toLowerCase() === 'user' ? name1Override || this.name1
+      : key.toLowerCase() === 'char' ? name2Override || this.name2 : dynamicMacros[key] ?? (key.toLowerCase() === 'time' ? 'HOST CLOCK' : match));
+  },
   extensionSettings: { disabledExtensions: [] },
   powerUserSettings: {},
   eventTypes: { CHAT_CHANGED: 'chat_changed' },
@@ -309,10 +325,10 @@ await api.request('PATCH', editPath, { targetName: 'Test Group', recordType: 'gr
 assert.ok(!host.chat.at(-1).mes.includes('chat_history') && host.chat.at(-1).mes.startsWith('Before.') && host.chat.at(-1).mes.endsWith('After.'), 'Deleting the final bubble retains unrelated roleplay prose');
 await api.request('DELETE', `${chatPath}/messages/${proseTurn.id}`);
 
-const aliasContent = api.serializeChatHistoryYaml({ targetName: 'Character', contactName: 'Nickname', recordType: 'private', date: 'Day 2', time: '12:04', environmentYaml: environment, messages: [
+const aliasContent = api.serializeChatHistoryYaml({ targetName: 'Character', recordType: 'private', date: 'Day 2', time: '12:04', environmentYaml: environment, messages: [
   { me: 0, type: 'image', rawItem: { c: 'A saved photo', url: 'https://example.test/photo.png', extra: 'Keep this field' }, t: '12:04' },
   { me: 0, type: 'quote', text: 'Quote reply', rawItem: { quote: { name: 'User', t: 'text', c: 'Quoted text' } }, t: '12:05' },
-] });
+] }).replace('\ndate:', '\ncontactname: Nickname\ndate:');
 const aliasTurn = await api.request('POST', `${chatPath}/messages`, { role: 'assistant', content: aliasContent });
 await api.request('PATCH', `${chatPath}/messages/${aliasTurn.id}/phone-reactions`, { targetName: 'Nickname', recordType: 'private', recordIndex: 0, itemIndex: 0, reactions });
 const aliasRecord = api.parseChatHistoryBlocks(host.chat.at(-1).mes)[0];
@@ -404,7 +420,237 @@ assert.ok(!/^\s*(?:-\s*)?id:/m.test(senderIdFree) && senderIdFree.includes('name
 rawReply = '<privatechat_history target="Character" type="private">\nmessages:\n  - t: text\n    c: Private reply\n</privatechat_history>';
 const aliasGenerated = await api.request('POST', `${phonePath}/generate`, { category: 'private_chats', characterName: 'Character', contactName: 'Nickname', userName: 'User', userMessages: authored, messages: [{ role: 'user', content: 'Hi' }] });
 assert.equal(api.parseChatHistoryBlocks(aliasGenerated.rawOutput)[0].target, 'Character');
-assert.equal(api.parseChatHistoryBlocks(aliasGenerated.rawOutput)[0].contactname, 'Nickname', 'Private canonical generation retains the stable character target and display alias');
+assert.equal(api.parseChatHistoryBlocks(aliasGenerated.rawOutput)[0].contactname, undefined, 'New private output uses target only; aliases stay in phone_data');
+assert.ok(!/^contactname:|^name:/m.test(aliasGenerated.rawOutput), 'Private serialization does not invent a name field');
+
+const datedPrivate = '<privatechat_history target="Character" type="private">\ndate: Day 7\ntime: "18:42"\nmessages:\n  - t: text\n    c: Target-only reply\n    time: "18:43"\n</privatechat_history>\n<environment>\ndate: Day 7\ntime: "18:44"\nweather: Snowy\n</environment>';
+rawReply = datedPrivate;
+const targetOnly = await api.request('POST', `${phonePath}/generate`, { category: 'private_chats', characterName: 'Character', contactName: 'Nickname', continuationOnly: true, messages: [{ role: 'user', content: 'Continue.' }] });
+assert.equal(api.parseChatHistoryBlocks(targetOnly.rawOutput)[0].date, 'Day 7');
+assert.equal(api.parseChatHistoryBlocks(targetOnly.rawOutput)[0].time, '18:42', 'The record clock, not a wall-clock fallback, is retained');
+const widgetRecord = api.parseMochiPrivateChatContent(targetOnly.rawOutput).find((part) => part.type === 'widget').value;
+assert.equal(widgetRecord.chat.target, 'Character', 'Inline widgets accept the new target-only envelope');
+assert.equal(widgetRecord.chat.messages[0].text, 'Target-only reply');
+const targetOnlyTurn = await api.request('POST', `${chatPath}/messages`, { role: 'assistant', content: targetOnly.rawOutput });
+await api.request('PATCH', `${chatPath}/messages/${targetOnlyTurn.id}/phone-message`, { targetName: 'Character', recordType: 'private', recordIndex: 0, itemIndex: 0, content: 'Edited target-only reply' });
+assert.ok(!/^contactname:|^name:/m.test(host.chat.at(-1).mes), 'Editing target-only output never restores removed alias fields');
+await api.request('DELETE', `${chatPath}/messages/${targetOnlyTurn.id}`);
+
+assert.ok(!api.DEFAULT_FORMAT_GUIDES.formatGuide.privateChat.includes('contactname:'), 'The default private guide uses the new output format');
+const guides = { ...api.DEFAULT_FORMAT_GUIDES, formatGuide: { ...api.DEFAULT_FORMAT_GUIDES.formatGuide,
+  privateChat: api.DEFAULT_FORMAT_GUIDES.formatGuide.privateChat.replace('\ndate:', '\ncontactname: {{contactname}}\ndate:'),
+  data: 'characters:\n  - contactname: Keep data aliases\n    socialhandle: {{Character username}}',
+  groupChat: 'contactname: Do not edit another guide',
+} };
+const normalizedGuides = api.normalizeMochiFormatGuides(guides);
+assert.ok(!normalizedGuides.formatGuide.privateChat.includes('contactname:'));
+assert.equal(normalizedGuides.formatGuide.data, guides.formatGuide.data, 'Guide migration is restricted to private output');
+assert.equal(normalizedGuides.formatGuide.groupChat, guides.formatGuide.groupChat);
+assert.ok(guides.formatGuide.privateChat.includes('contactname:'), 'Migration does not mutate saved input');
+assert.equal(api.mochiSocialHandle({ socialhandle: '@new_handle', screenName: 'old_screen', nickname: 'old_nickname' }), '@new_handle');
+assert.equal(api.mochiSocialHandle({ socialhandle: '', screenName: 'old_screen' }), '', 'A cleared social handle stays cleared');
+assert.equal(api.mochiSocialHandle({ screenName: 'legacy_screen' }), 'legacy_screen');
+assert.equal(api.mochiSocialHandle({ nickname: 'legacy_nickname' }), 'legacy_nickname');
+assert.match(api.formatFriendInfo({ name: 'Character', contactname: 'Nickname', socialhandle: '@social', email: 'example@example.test', onlineStyle: 'Short replies' }), /Name: Character\nContact Name: Nickname\nSocial Handle: @social/);
+
+// A new phone follows the live roleplay persona, not an old global phone choice.
+host.powerUserSettings = {
+  personas: { 'first.png': 'First Persona', 'selected avatar.png': 'Chosen Persona' },
+  persona_descriptions: { 'first.png': { title: 'Default title' }, 'selected avatar.png': { title: 'Roleplay title', description: 'Chosen description' } },
+  default_persona: 'first.png',
+};
+host.chatMetadata.persona = 'first.png';
+api.selectTestPersona('selected avatar.png');
+assert.equal(api.activePersonaId(), 'selected avatar.png', 'The live selected persona takes precedence over a chat/default lock');
+const chosenPersona = api.listPersonas().find((persona) => persona.isActive);
+assert.equal(chosenPersona.name, 'Chosen Persona');
+assert.equal(chosenPersona.title, 'Roleplay title');
+assert.equal(chosenPersona.avatarPath, '/User Avatars/selected%20avatar.png');
+assert.equal((await api.request('GET', chatPath)).personaId, chosenPersona.id);
+const personaSettingsBefore = JSON.stringify(host.extensionSettings);
+await api.request('PUT', `${chatPath}/mochi-persona`, { personaId: 'first.png' });
+assert.equal(host.chatMetadata.mochios.linkedPersonaId, 'first.png');
+assert.equal(api.activePersonaId(), chosenPersona.id, 'A phone-specific choice does not change the roleplay persona');
+assert.equal(JSON.stringify(host.extensionSettings), personaSettingsBefore, 'Phone persona choices are not saved globally');
+await assert.rejects(api.request('PUT', `${chatPath}/mochi-persona`, { personaId: 'missing.png' }), /no longer exists/);
+const previousMetadata = host.chatMetadata;
+host.chatMetadata = {};
+assert.equal((await api.request('GET', chatPath)).metadata.mochios?.linkedPersonaId, undefined, 'Another roleplay does not inherit the previous phone choice');
+host.chatMetadata = previousMetadata;
+delete host.chatMetadata.persona;
+delete host.chatMetadata.mochios.linkedPersonaId;
+api.selectTestPersona('');
+host.powerUserSettings = {};
+
+// Every preset category shares chronological role messages and the same markers.
+const savedPromptChat = host.chat;
+const savedPromptMetadata = host.chatMetadata;
+host.chatMetadata = { scenario: 'Chat scenario override' };
+const ignore = Symbol('ignore');
+host.symbols = { ignore };
+host.chat = [
+  { name: 'Character', is_user: false, mes: 'Greeting for {{user}}', extra: {} },
+  { name: 'User', is_user: true, mes: 'User turn', extra: { files: [{ text: 'Attached file content' }], media: [{ append_title: true, title: 'Media title' }] } },
+  { name: 'Character', is_user: false, mes: 'OLD TEXT', extra: {} },
+  { name: 'Narrator', is_user: false, mes: 'Narration', extra: { type: 'narrator' } },
+  { name: 'System', is_system: true, mes: 'Hidden system message', extra: {} },
+  { name: 'Character', is_user: false, mes: 'Ignored message', extra: { [ignore]: true } },
+  { name: 'Character', is_user: false, mes: datedPrivate, extra: {} },
+];
+const regexCalls = [];
+host.promptRegex = (text, placement, options) => { regexCalls.push({ text, placement, options }); return text.replace('OLD TEXT', 'Regexed assistant turn'); };
+host.chatCompletionSettings = { names_behavior: 0, new_chat_prompt: '[Start a new chat]', new_example_chat_prompt: '[Start example]', personality_format: 'Personality: {{personality}}', scenario_format: 'Scenario: {{scenario}}', wi_format: 'Lore: {0}' };
+host.extensionPrompts = {
+  '1_memory': { value: 'Rolling summary', role: 0, position: 1, depth: 2 },
+  '2_floating_prompt': { value: 'Author note', role: 0, position: 1, depth: 1 },
+  agent: { value: 'Agent output', role: 1, position: 0 },
+  blocked: { value: 'Filtered extension', role: 0, position: 0, filter: async () => false },
+  excluded: { value: 'Disabled extension', role: 0, position: -1 },
+  customDepthWI_0_0: { value: 'Stale depth lore', role: 0, position: 1, depth: 0 },
+};
+const wiCalls = [];
+const originalAuthorNote = { ...host.extensionPrompts['2_floating_prompt'] };
+const injectedAuthorNote = 'AN_BEFORE\nAuthor note\nAN_AFTER';
+host.getWorldInfoPrompt = async (...args) => {
+  wiCalls.push(args);
+  host.extensionPrompts['2_floating_prompt'] = { ...host.extensionPrompts['2_floating_prompt'], value: injectedAuthorNote };
+  return { worldInfoBefore: 'BEFORE_LORE', worldInfoAfter: 'AFTER_LORE', worldInfoExamples: [{ position: 0, content: '<START>\nUser: Lore example\nCharacter: Lore example answer' }],
+    worldInfoDepth: [{ depth: 0, role: 0, entries: ['DEPTH_ZERO'] }, { depth: 2, role: 0, entries: ['DEPTH_TWO'] }], anBefore: ['AN_BEFORE'], anAfter: ['AN_AFTER'] };
+};
+const marker = (type, options = {}) => ({ identifier: type, isMarker: true, enabled: true, ...options });
+const promptInput = {
+  blocks: [{ role: 'system', content: 'Preset start' }, marker('world_info_before'), marker('character'), marker('persona'), marker('dialogue_examples'), marker('chat_history'),
+    marker('chat_summary'), marker('world_info_after'), marker('lorebook'), marker('id_macro_cards'), marker('agent_data'), marker('format_guides'), marker('user_input'), { role: 'assistant', content: 'Prefill' }],
+  characters: [{ id: 'char.png', name: 'Character', data: { name: 'Character', description: 'Card description for {{user}}', personality: 'Card personality', scenario: 'Card scenario', first_mes: 'Must not duplicate greeting', mes_example: '<START>\n{{user}}: Example question\n{{char}}: Example answer' } }],
+  persona: { id: 'persona.png', name: 'User', description: 'Persona description' }, userName: 'User', characterName: 'Character', userInput: 'New task',
+  formatGuides: 'date: {{Time}}\n{{user}}: true', idMacroCards: 'Social Handle: @social', historyConfig: { maxMessages: 0, includeSystem: false, includeUser: true, tagFilters: [] },
+};
+const prompt = await api.buildMochiPresetMessages(promptInput);
+const promptContent = prompt.map((message) => message.content);
+assert.equal(promptContent[0], 'Preset start');
+assert.ok(promptContent.includes('Card description for User') && promptContent.includes('Personality: Card personality') && promptContent.includes('Scenario: Chat scenario override'));
+assert.ok(promptContent.includes('Persona description'));
+assert.equal(promptContent.filter((content) => content === 'Lore: BEFORE_LORE').length, 1, 'Before lore appears once, not in both markers');
+assert.equal(promptContent.filter((content) => content === 'Lore: AFTER_LORE').length, 1, 'After lore appears once even with a legacy combined marker');
+assert.equal(promptContent.filter((content) => content === 'Greeting for User').length, 1);
+assert.ok(!promptContent.some((content) => /Must not duplicate greeting|Hidden system message|Ignored message|Stale depth lore|Filtered extension|Disabled extension/.test(content)));
+assert.deepEqual(prompt.find((message) => message.content.includes('User turn')), { role: 'user', content: 'Attached file content\n\nUser turn\n\nMedia title' });
+assert.equal(host.chat[1].extra.fileLength, undefined, 'Preparing attachments does not modify saved messages');
+assert.equal(prompt.find((message) => message.content === 'Narration').role, 'system');
+assert.equal(prompt.find((message) => message.content === datedPrivate).role, 'assistant', 'Structured phone records remain an assistant turn, not a system history blob');
+assert.ok(promptContent.indexOf('DEPTH_TWO') < promptContent.indexOf('Narration') && promptContent.indexOf('Narration') < promptContent.indexOf(injectedAuthorNote) && promptContent.indexOf(injectedAuthorNote) < promptContent.indexOf(datedPrivate) && promptContent.indexOf(datedPrivate) < promptContent.indexOf('DEPTH_ZERO'), 'Depth lore uses original chronology even after other injections');
+assert.equal(promptContent.filter((content) => content.includes('AN_BEFORE')).length, 1, 'Author-note lore stays in the request exactly once');
+assert.deepEqual(host.extensionPrompts['2_floating_prompt'], originalAuthorNote, 'A phone scan restores the roleplay Author\'s Note');
+assert.equal(promptContent.filter((content) => content === 'Rolling summary').length, 1, 'The summary marker does not duplicate the depth memory');
+assert.equal(prompt.find((message) => message.content === 'Agent output').role, 'user');
+assert.deepEqual(prompt.filter((message) => message.name).map((message) => [message.role, message.name]), [['system', 'example_user'], ['system', 'example_assistant'], ['system', 'example_user'], ['system', 'example_assistant']]);
+assert.ok(promptContent.includes('date: {{Time}}\n{{user}}: true'), 'Format placeholders and YAML user flags stay literal');
+assert.deepEqual(prompt.slice(-2), [{ role: 'user', content: 'New task' }, { role: 'assistant', content: 'Prefill' }]);
+assert.ok(regexCalls.every((call) => call.options.isPrompt) && regexCalls.find((call) => call.text === datedPrivate).options.depth === 0);
+assert.equal(wiCalls[0][0][0], 'New task');
+assert.ok(wiCalls[0][0].includes('User: Attached file content\n\nUser turn\n\nMedia title'), 'World-info scanning includes speaker names like ST');
+assert.equal(wiCalls[0][3].personaDescription, 'Persona description');
+assert.equal(wiCalls[0][3].scenario, 'Chat scenario override');
+const noHistory = await api.buildMochiPresetMessages({ ...promptInput, blocks: [marker('chat_history', { enabled: false }), { role: 'assistant', content: 'Prefill' }] });
+assert.deepEqual(noHistory, [{ role: 'user', content: 'New task' }, { role: 'assistant', content: 'Prefill' }], 'A disabled history marker stays disabled; fallback input precedes only the trailing prefill');
+const repeatedHistory = await api.buildMochiPresetMessages({ ...promptInput, blocks: [marker('chat_history'), marker('chat_history'), marker('user_input')] });
+assert.equal(repeatedHistory.filter((message) => message.content === 'Greeting for User').length, 1, 'Duplicate marker blocks never replay a roleplay turn twice');
+const excludedTurn = api.listMessages().at(-1).id;
+const regenerationPrompt = await api.buildMochiPresetMessages({ ...promptInput, blocks: [marker('chat_history')], excludedMessageIds: [excludedTurn] });
+assert.ok(!regenerationPrompt.some((message) => message.content === datedPrivate), 'Regeneration excludes the turn being replaced');
+
+// Restore only the scanner's exact note mutation, never a user edit or a new chat.
+const savedWiScanner = host.getWorldInfoPrompt;
+const noteScanInput = { history: [], userInput: '', personaDescription: '', characters: [] };
+const noteScanResult = { worldInfoBefore: '', worldInfoAfter: '', anBefore: ['Before note'], anAfter: ['After note'] };
+for (const noteValue of ['', '\nAuthor note\n', 'Author note']) {
+  const original = { ...originalAuthorNote, value: noteValue, filter: async () => true };
+  host.extensionPrompts['2_floating_prompt'] = original;
+  const injected = `Before note\n${noteValue}\nAfter note`.replace(/(^\n)|(\n$)/g, '');
+  host.getWorldInfoPrompt = async () => {
+    host.extensionPrompts['2_floating_prompt'] = { ...original, value: injected, filter: null };
+    return noteScanResult;
+  };
+  const scanned = await api.getMochiWorldInfoPrompt(noteScanInput);
+  assert.deepEqual(host.extensionPrompts['2_floating_prompt'], original, 'Empty notes, newlines and original note metadata survive a dry scan');
+  assert.equal(scanned.authorNote.value, injected, 'The request retains the exact native Author\'s Note/lore combination');
+}
+host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote };
+host.getWorldInfoPrompt = async () => {
+  host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote, value: 'User edited the note during scanning' };
+  return noteScanResult;
+};
+assert.equal((await api.getMochiWorldInfoPrompt(noteScanInput)).authorNote, undefined);
+assert.equal(host.extensionPrompts['2_floating_prompt'].value, 'User edited the note during scanning', 'A concurrent note edit is not overwritten');
+host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote };
+const savedScanChatId = host.chatId;
+host.getWorldInfoPrompt = async () => {
+  host.chatId = 'switched-during-wi-scan';
+  host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote, value: 'Before note\nAuthor note\nAfter note' };
+  return noteScanResult;
+};
+assert.equal((await api.getMochiWorldInfoPrompt(noteScanInput)).authorNote, undefined);
+assert.equal(host.extensionPrompts['2_floating_prompt'].value, 'Before note\nAuthor note\nAfter note', 'Switching chats prevents restoration even when the host reuses its chat array');
+host.chatId = savedScanChatId;
+host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote };
+host.getWorldInfoPrompt = async () => {
+  host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote, value: 'A newer note after a scanner failure' };
+  throw new Error('Scanner failure');
+};
+await assert.rejects(api.getMochiWorldInfoPrompt(noteScanInput), /Scanner failure/);
+assert.equal(host.extensionPrompts['2_floating_prompt'].value, 'A newer note after a scanner failure', 'A failed scanner does not guess which note changes to undo');
+host.getWorldInfoPrompt = savedWiScanner;
+host.extensionPrompts['2_floating_prompt'] = { ...originalAuthorNote };
+
+const nameHistory = [{ id: '1', role: 'user', name: 'User', content: 'Hello' }, { id: '2', role: 'assistant', name: 'Other-Character', forceAvatar: 'avatar.png', content: 'Reply' }, { id: '3', role: 'system', name: 'Narrator', content: 'Scene', extra: { type: 'narrator' } }];
+assert.deepEqual(api.formatMochiPromptHistory(nameHistory, { userName: 'User', characterName: 'Character', namesBehavior: 1 }).map((message) => message.name), ['User', 'Other_Character', 'Narrator'], 'Completion names are sanitized using ST name rules');
+assert.deepEqual(api.formatMochiPromptHistory(nameHistory, { userName: 'User', characterName: 'Character', namesBehavior: 2 }).map((message) => message.content), ['User: Hello', 'Other-Character: Reply', 'Scene']);
+assert.deepEqual(api.formatMochiPromptHistory(nameHistory, { userName: 'User', characterName: 'Character', namesBehavior: -1 }).map((message) => message.content), ['Hello', 'Reply', 'Scene']);
+const groupExamples = api.formatMochiDialogueExamples('<START>\nUser: Group question\nOther: Other answer\nCharacter: Main answer', 'User', 'Character', true, ['Character', 'Other']);
+assert.deepEqual(groupExamples[0].map((message) => message.content), ['User: Group question', 'Other: Other answer', 'Character: Main answer'], 'Group examples retain all speakers');
+assert.equal(api.substituteMochiPromptMacros('{{user}}: true\n{{char}} replies to {{user}} at {{Time}}', 'Chosen', 'Other'), '{{user}}: true\nOther replies to Chosen at HOST CLOCK');
+
+// Fill context with newest whole turns, respecting ST's pinned-example setting.
+host.chatMetadata = {};
+host.extensionPrompts = {};
+delete host.getWorldInfoPrompt;
+host.chatCompletionSettings = { openai_max_context: 4120, names_behavior: -1 };
+host.chat = [{ name: 'User', is_user: true, mes: 'Older turn', extra: {} }, { name: 'Character', is_user: false, mes: 'Newest turn', extra: {} }];
+host.getTokenCountAsync = async () => 1;
+const budgetInput = { ...promptInput, blocks: [marker('dialogue_examples'), marker('chat_history')], characters: [{ id: 'char.png', name: 'Character', data: { mes_example: '<START>\nUser: Example question\nCharacter: Example answer' } }] };
+const budgetPrompt = await api.buildMochiPresetMessages(budgetInput);
+assert.ok(budgetPrompt.some((message) => message.content === 'Newest turn') && !budgetPrompt.some((message) => message.name), 'Unpinned examples yield context to real chat history');
+host.powerUserSettings.pin_examples = true;
+const pinnedPrompt = await api.buildMochiPresetMessages(budgetInput);
+assert.equal(pinnedPrompt.filter((message) => message.name).length, 2, 'Pinned examples are kept together');
+assert.ok(pinnedPrompt.some((message) => message.content === 'Newest turn'));
+host.chat = Array.from({ length: 120 }, (_, index) => ({ name: 'Character', mes: `History ${index}`, extra: {} }));
+host.chatCompletionSettings = {};
+delete host.getTokenCountAsync;
+delete host.powerUserSettings.pin_examples;
+const longPrompt = await api.buildMochiPresetMessages({ ...promptInput, blocks: [marker('chat_history')] });
+assert.equal(longPrompt.filter((message) => message.content.startsWith('History ')).length, 120, 'Default history is limited by available context, not a hardcoded 20/100 turns');
+const filteredHistory = api.formatMochiPromptHistory([{ id: 'filtered', role: 'assistant', content: '<think>Hidden</think>Visible history' }], {
+  userName: 'User', characterName: 'Character', config: api.DEFAULT_FORMAT_GUIDES.historyConfig,
+});
+assert.equal(filteredHistory[0].content, 'Visible history', 'Saved history tag filters still apply before sending');
+const providerPrompt = [{ role: 'system', name: 'example_user', content: 'Named example' }, { role: 'user', name: 'User', content: 'New task' }];
+rawReply = sampleReply('data_generation');
+for (const profileId of [null, 'profile-1']) {
+  await choose(profileId);
+  await api.request('POST', `${phonePath}/generate`, { category: 'data_generation', messages: providerPrompt });
+  const outgoing = calls.at(-1).type === 'default' ? calls.at(-1).options.prompt : calls.at(-1).messages;
+  assert.deepEqual(outgoing.map((message) => message.name), ['example_user', 'User'], 'Named examples and history survive both provider routes');
+}
+host.chatCompletionSettings.openai_max_context = 4097;
+await assert.rejects(api.buildMochiPresetMessages({ ...promptInput, blocks: [marker('format_guides')] }), /exceed the selected context/);
+delete host.chatCompletionSettings;
+delete host.getWorldInfoPrompt;
+delete host.extensionPrompts;
+delete host.promptRegex;
+delete host.symbols;
+host.chat = savedPromptChat;
+host.chatMetadata = savedPromptMetadata;
 
 // Only the requested transcript and its environment may enter roleplay history.
 for (const category of ['private_chats', 'group_chats']) {
@@ -578,4 +824,4 @@ assert.equal(api.stickerName(':happy_cat:'), 'happy_cat');
 assert.equal(api.stickerName('sticker:happy_cat:'), 'happy_cat');
 assert.equal(JSON.stringify(host.chatMetadata), metadataBeforeStickers);
 assert.equal(JSON.stringify(host.extensionSettings), settingsBeforeStickers);
-console.log('PASS: filtered response tags, deleted-thread reconciliation, one ST turn per phone response, sender preservation, reactions/edits/swipes/reload, legacy compatibility, global sticker storage, explicit lorebook assignments, connections, chat isolation, viewport bounds, and launcher themes');
+console.log('PASS: ST-style preset markers and chronological history, selected personas, social handles, target-only private output, filtered response tags, deleted-thread reconciliation, one ST turn per response, reactions/edits/swipes/reload, legacy compatibility, global stickers, lorebook assignments, connections, chat isolation, viewport bounds, and launcher themes');

@@ -20,6 +20,7 @@ import {
   cleanAndExtractRawYaml,
   isMochiGroupRecordTag,
   parseMochiChatResponse,
+  parseChatHistoryBlocks,
   parseEnvironmentYaml,
   serializeChatHistoryYaml,
   type MochiChatRecordType,
@@ -209,7 +210,7 @@ function userItems(
 
 export interface GeneratePhoneDataInput {
   chatId: string;
-  messages: Array<{ role: 'system' | 'user' | 'assistant' | string; content: string }>;
+  messages: Array<{ role: 'system' | 'user' | 'assistant' | string; content: string; name?: string }>;
   userPrompt?: string;
   category?: string;
   contactName?: string;
@@ -319,10 +320,13 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
 
   const environment = parseEnvironmentYaml([...threadOutput.matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].at(-1)?.[0] || '');
+  const record = parseChatHistoryBlocks(threadOutput)[0];
   const finalOutput = serializeChatHistoryYaml({
     targetName,
-    contactName: input.contactName,
     recordType,
+    date: record?.date || environment?.date,
+    time: record?.time || environment?.time,
+    members: record?.members,
     messages: messages as any,
     environmentYaml: environment ? yaml.stringify(environment).trim() : undefined,
   });

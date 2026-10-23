@@ -53,7 +53,7 @@ export function useGenerateMochiOSPhoneData() {
     Error,
     {
       chatId: string;
-      messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+      messages: Array<{ role: "system" | "user" | "assistant"; content: string; name?: string }>;
       connectionId?: string;
       userPrompt?: string;
       category?: "data_generation" | "private_chats" | "group_chats" | string;

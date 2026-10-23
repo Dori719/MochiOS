@@ -69,6 +69,8 @@ type AvatarCropLike = import('../types/avatar-crop').AvatarCrop;
 export interface Persona {
   id: string;
   name: string;
+  title?: string;
+  isActive?: boolean;
   comment?: string;
   description?: string;
   personality?: string;
@@ -142,6 +144,9 @@ export interface Message {
   id: string;
   chatId?: string;
   role: 'system' | 'user' | 'assistant' | string;
+  name?: string;
+  isSystem?: boolean;
+  forceAvatar?: string;
   content: string;
   characterId?: string | null;
   personaId?: string | null;

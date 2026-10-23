@@ -4,11 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
+const port = Number(process.env.MOCHI_PREVIEW_PORT || 8127);
 const context = `
-const initialMetadata = { mochios: { phoneDataYaml: 'phone_data:\\n  user:\\n    nickname: Preview User\\n  characters:\\n    - id: preview.png\\n      name: Preview Character\\n      contactname: Preview Contact\\n  groups:\\n    - id: preview-group\\n      name: Preview Group\\n      main_members: [Preview Character, Other Character]' } };
+const initialMetadata = { mochios: { phoneDataYaml: 'phone_data:\\n  user:\\n    nickname: Preview User\\n  characters:\\n    - id: preview.png\\n      name: Preview Character\\n      contactname: Preview Contact\\n      socialhandle: preview_social\\n  groups:\\n    - id: preview-group\\n      name: Preview Group\\n      main_members: [Preview Character, Other Character]' } };
 const settings = JSON.parse(localStorage.getItem('mochi-preview-extension-settings') || 'null') || { disabledExtensions: [], mochi_os: {} };
 const listeners = new Map();
-const privateContent = '<privatechat_history target="Preview Character" type="private">\\ncontactname: Preview Contact\\ndate: Today\\ntime: "12:00"\\nmessages:\\n  - t: text\\n    c: A long message that should wrap comfortably inside the phone without horizontal scrolling. https://example.test/this-is-a-very-long-unbroken-address-to-check-wrapping\\n</privatechat_history>\\n<environment>\\ndate: Today\\ntime: "12:00"\\nweather: Sunny\\n</environment>';
+const privateContent = '<privatechat_history target="Preview Character" type="private">\\ndate: Today\\ntime: "12:00"\\nmessages:\\n  - t: text\\n    c: A long message that should wrap comfortably inside the phone without horizontal scrolling. https://example.test/this-is-a-very-long-unbroken-address-to-check-wrapping\\n</privatechat_history>\\n<environment>\\ndate: Today\\ntime: "12:00"\\nweather: Sunny\\n</environment>';
 const groupContent = '<groupchat_history target="Preview Group">\\nname: Preview Group\\ndate: Today\\ntime: "12:01"\\nmembers: 2\\nmessages:\\n  - t: text\\n    c: Hello from the first group member.\\n    sender: {name: Preview Character}\\n  - t: text\\n    c: Another long reply from the other group member, kept within the phone width even on a small device.\\n    sender: {name: Other Character}\\n</groupchat_history>\\n<environment>\\ndate: Today\\ntime: "12:01"\\nweather: Sunny\\n</environment>';
 const initialChat = [{ name: 'Preview Character', is_user: false, mes: privateContent, extra: {} }, { name: 'Other Character', is_user: false, mes: 'Preview prologue.\\n\\n' + groupContent + '\\n\\nPreview epilogue.', extra: {} }];
 let state = JSON.parse(sessionStorage.getItem('mochi-preview-chat-state') || 'null') || { chatId: 'preview-chat', chat: initialChat, metadata: initialMetadata };
@@ -43,7 +44,7 @@ export function getContext() {
     characters: [{ avatar: 'preview.png', name: 'Preview Character', chat: 'preview-chat', data: { name: 'Preview Character', description: 'Offline preview character' } }, { avatar: 'other.png', name: 'Other Character', data: { name: 'Other Character' } }],
     characterId: 0, groupId: null, chatId: state.chatId, chat: state.chat, groups: [],
     name1: 'Preview User', name2: 'Preview Character', chatMetadata: state.metadata,
-    powerUserSettings: { personas: {}, persona_descriptions: {} }, extensionSettings: settings,
+    powerUserSettings: { personas: { 'first-persona.png': 'First Persona', 'chosen-persona.png': 'Preview User' }, persona_descriptions: { 'first-persona.png': { title: 'Not selected', description: 'First test persona' }, 'chosen-persona.png': { title: 'Roleplay persona', description: 'The selected roleplay persona' } }, default_persona: 'first-persona.png' }, extensionSettings: settings,
     updateChatMetadata(patch) { Object.assign(state.metadata, patch); },
     saveMetadataDebounced: persist, saveSettingsDebounced() { localStorage.setItem('mochi-preview-extension-settings', JSON.stringify(settings)); },
     async saveChat() { persist(); preview.lifecycle.push(['save']); },
@@ -71,7 +72,7 @@ export function getContext() {
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Mochi OS — isolated UI test</title><link rel="stylesheet" href="/style.css"><style>
 body{margin:0;background:#252525;color:#ddd;font-family:system-ui}#top-bar{height:40px;max-width:720px;margin:auto;background:#1c1c1c;padding:0 12px;box-sizing:border-box;display:flex;align-items:center;font-size:12px}#preview-status{padding:12px;font-size:14px}#preview-tools{position:fixed;right:8px;bottom:8px;z-index:4001;background:#252525;display:flex;flex-wrap:wrap;gap:4px;max-width:230px}#extensions_settings2{max-width:280px;margin:12px}.inline-drawer-header{display:flex;justify-content:space-between;padding:8px;cursor:pointer;background:#333}.inline-drawer-content{display:none;padding:8px;background:#303030}.checkbox_label{display:flex;gap:8px;align-items:center}#chat{max-width:720px;margin:auto}.mes{padding:10px;border-bottom:1px solid #444}.mes_text{min-width:0}button{cursor:pointer}
-</style></head><body><div id="top-bar">Offline Mochi OS test — no live API calls</div><div id="preview-status"></div><div id="extensions_settings2"></div><div id="extensionsMenu"></div><div id="chat"></div><div id="preview-tools"><button id="reopen">Reopen</button><button id="test-saved">Saved API</button><button id="test-default">Default API</button><button id="test-keyboard">Keyboard viewport</button><button id="test-reset-viewport">Full viewport</button><button id="test-layout">Check responsive controls</button><button id="test-features">Check chat features</button><button id="test-reload">Check saved stickers after reload</button><button id="test-browser-small">Use 320 × 568 test viewport</button></div><script type="module">
+</style></head><body><div id="top-bar">Offline Mochi OS test — no live API calls</div><div id="preview-status"></div><div id="extensions_settings2"></div><div id="extensionsMenu"></div><div id="chat"></div><div id="preview-tools"><button id="reopen">Reopen</button><button id="test-saved">Saved API</button><button id="test-default">Default API</button><button id="test-keyboard">Keyboard viewport</button><button id="test-reset-viewport">Full viewport</button><button id="test-layout">Check responsive controls</button><button id="test-updates">Check requested updates</button><button id="test-features">Check chat features</button><button id="test-reload">Check saved stickers after reload</button><button id="test-browser-small">Use 320 × 568 test viewport</button></div><script type="module">
 import { ready, openMochiOs, closeMochiOs, isMochiOsOpen, refreshMochiWidgets } from '/app.js';
 import { init } from '/index.js';
 import { getContext, preview } from '/scripts/st-context.js';
@@ -204,9 +205,13 @@ http.createServer((request, response) => {
   if (url.pathname === '/') { response.setHeader('Content-Type', 'text/html'); response.end(html); return; }
   if (url.pathname === '/scripts/st-context.js') { response.setHeader('Content-Type', 'text/javascript'); response.end(context); return; }
   if (url.pathname === '/scripts/world-info.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const selected_world_info=[]; export function getWorldInfoSettings(){return {world_info:{globalSelect:[],charLore:[]}};}'); return; }
+  if (url.pathname === '/scripts/personas.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const user_avatar="chosen-persona.png";'); return; }
+  if (url.pathname === '/scripts/extensions/regex/engine.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const regex_placement={USER_INPUT:1,AI_OUTPUT:2}; export function getRegexedString(text){return text;}'); return; }
+  if (url.pathname === '/scripts/chats.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export async function appendFileContent(message,text){return text;}'); return; }
   if (/^\/characters\/(?:preview|other)\.png$/.test(url.pathname)) { response.setHeader('Content-Type', 'image/png'); response.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=', 'base64')); return; }
+  if (/^\/User%20Avatars\/(?:first|chosen)-persona\.png$/.test(url.pathname)) { response.setHeader('Content-Type', 'image/png'); response.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=', 'base64')); return; }
   const file = { '/index.js': 'index.js', '/app.js': 'app.js', '/style.css': 'style.css', '/scripts/preview-regressions.js': 'scripts/preview-regressions.js' }[url.pathname];
   if (!file) { response.writeHead(404); response.end(); return; }
   response.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : 'text/javascript');
   fs.createReadStream(path.join(root, file)).pipe(response);
-}).listen(8127, '127.0.0.1', () => console.log('Isolated preview: http://127.0.0.1:8127'));
+}).listen(port, '127.0.0.1', () => console.log(`Isolated preview: http://127.0.0.1:${port}`));

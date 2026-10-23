@@ -10,6 +10,7 @@ import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS, type MochiOsCharacterData } from "@marinara-engine/shared";
 import {
   parseMochiPrivateChatContent,
+  mochiSocialHandle,
   formatMochiTransferDisplay,
   isMochiTransferType,
   mochiTransferNote,
@@ -121,10 +122,10 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: phoneDataRes } = useMochiOSPhoneData(activeChatId);
   const [open, setOpen] = useState(false);
-  // The private record names the contact with `contactname:` (older records still
-  // use `name:`), and `target=` holds the character's real name as a last resort.
+  // New private output needs only target=. Display aliases are read from the
+  // phone document; legacy record aliases remain a fallback for old transcripts.
   const rawTargetName =
-    data.chat.contactname?.trim() || data.chat.name?.trim() || data.chat.target?.trim() || "Character";
+    data.chat.target?.trim() || data.chat.contactname?.trim() || data.chat.name?.trim() || "Character";
 
   // Check phone_data to see if there is a contact name configured for this character.
   // Both names the record carries are candidates: `target=` is the character's real
@@ -132,15 +133,18 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
   const recordNames = [data.chat.contactname, data.chat.name, data.chat.target]
     .map((value) => (value || "").trim().toLowerCase())
     .filter(Boolean);
-  const characters = (phoneDataRes?.phoneData?.characters as MochiOsCharacterData[] | undefined) || [];
+  const characters: MochiOsCharacterData[] = [
+    ...(phoneDataRes?.phoneData?.characters || []),
+    ...(phoneDataRes?.phoneData?.private_contacts || []),
+  ];
   const matchedChar = characters.find((c) => {
     if (!c) return false;
-    const keys = [c.id, c.name, c.contactname, c.nickname].map((value) => (value || "").trim().toLowerCase());
+    const keys = [c.id, c.name, c.contactname, mochiSocialHandle(c), c.nickname].map((value) => (value || "").trim().toLowerCase());
     return recordNames.some((recordName) => keys.includes(recordName));
   });
-  const name = matchedChar?.contactname?.trim() || rawTargetName;
+  const name = matchedChar?.contactname?.trim() || data.chat.contactname?.trim() || data.chat.name?.trim() || rawTargetName;
   const initial = Array.from(name)[0]?.toUpperCase() || "C";
-  const contactColor = getMochiCharacterColor(rawTargetName);
+  const contactColor = getMochiCharacterColor(matchedChar?.name || rawTargetName);
   const rgb = settings.customRgb;
   const customColor = `#${[rgb.r, rgb.g, rgb.b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
   // The widget renders inside a chat message, so it has to apply the same
