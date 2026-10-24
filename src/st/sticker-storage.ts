@@ -6,7 +6,7 @@ import {
 } from './sticker-format';
 
 const API = '/api/plugins/mochi-os-stickers';
-const SETUP_ERROR = 'Extension-folder sticker storage is unavailable. Install the Mochi OS sticker server plugin, enable enableServerPlugins in SillyTavern config.yaml, and restart SillyTavern. No stickers were saved to browser storage.';
+const SETUP_ERROR = 'Extension-folder sticker storage is unavailable. Install the Mochi OS sticker server plugin: copy sticker-storage.mjs from the installed extension to plugins/mochi-os-stickers.mjs in the running SillyTavern installation. Set enableServerPlugins: true in its active config.yaml and fully restart SillyTavern. The setting alone does not install the plugin. No stickers were saved to browser storage.';
 
 /** The runtime folder can be MochiOS, mochi-os, or the name chosen at installation. */
 export function stickerExtensionFolder(moduleUrl = import.meta.url): string {

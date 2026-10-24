@@ -606,8 +606,8 @@
   min-width: 0;
 }
 
-/* The footprint includes every action, even for short text and stickers.
-   Controls may compact on small devices, but never break into another row. */
+/* Reserve the action footprint on the message wrapper, not on the image.
+   Ordinary text and unavailable-sticker fallbacks keep their existing sizing. */
 .mochi-scope .wmsg > :is(.b, .sticker) {
   box-sizing: border-box;
   width: 100%;
@@ -617,6 +617,14 @@
 .mochi-scope .wmsg > .sticker {
   display: flex;
   justify-content: center;
+}
+
+.mochi-scope .wmsg > .sticker:has(> img.mochi-chat-sticker-image) {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0;
 }
 
 .mochi-scope.mochi-private-widget {
@@ -663,18 +671,58 @@
   border-radius: 12px !important;
 }
 
-/* Compact only sticker quotes, leaving the action-row footprint and ordinary
-   text quotes untouched. Both the phone and embedded transcripts use this. */
+/* An image, not its sender, reply text, or controls, sets a sticker bubble's
+   dimensions. Image sizing itself stays in the original stylesheets. */
+.mochi-scope .mochi-private-bubble-wrap:has(> .mochi-private-bubble img.mochi-private-sticker) {
+  width: max-content;
+  min-width: 0;
+}
+
+.mochi-scope .mochi-private-bubble-wrap.is-sticker:has(img.mochi-private-sticker) > .mochi-private-bubble {
+  width: max-content;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.mochi-scope .mochi-private-bubble-wrap:has(img.mochi-private-sticker) > :is(.mochi-private-bubble-meta, .mochi-private-time) {
+  contain: inline-size;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-inline: 0;
+}
+
+/* Keep the original padded quote card. Its width is the sticker plus equal
+   insets, not the wider control footprint: no excess right/left space for
+   incoming/outgoing replies. Original vertical spacing and corners remain. */
+.mochi-scope .wmsg:has(> .mochi-quote-bubble > .mochi-quoted-message > img.mochi-chat-sticker-image) {
+  /* Add only the insets and border to the old width cap, so a narrow phone
+     does not take the restored padding out of the sticker's image width. */
+  max-width: min(calc(66.666cqw + 22px), calc(100% - 36px));
+}
+
+.mochi-scope .mrow.out .wmsg:has(> .mochi-quote-bubble > .mochi-quoted-message > img.mochi-chat-sticker-image) {
+  max-width: min(calc(66.666cqw + 22px), 100%);
+}
+
+.mochi-scope .mochi-quoted-message > img.mochi-chat-sticker-image {
+  max-width: min(66.666cqw, 100%);
+}
+
 .mochi-scope .wmsg > .mochi-quote-bubble:has(> .mochi-quoted-message > img.mochi-chat-sticker-image),
 .mochi-scope .mochi-private-bubble-wrap > .mochi-private-bubble:has(> .mochi-private-quoted-message > img.mochi-private-sticker) {
+  width: max-content;
+  min-height: 0;
   padding-inline: 6px;
 }
 
 .mochi-scope :is(.mochi-quoted-message, .mochi-private-quoted-message):has(> :is(img.mochi-chat-sticker-image, img.mochi-private-sticker)) {
-  width: fit-content;
+  width: max-content;
   max-width: 100%;
   box-sizing: border-box;
-  padding-inline: 4px;
+  padding: 6px 4px;
   border-radius: 12px;
 }
 
@@ -686,6 +734,12 @@
 
 .mochi-scope :is(.mochi-quoted-message, .mochi-private-quoted-message):has(> :is(img.mochi-chat-sticker-image, img.mochi-private-sticker)) > strong {
   /* The image sets the quote width; long sender names ellipsize within it. */
+  contain: inline-size;
+  min-width: 0;
+}
+
+.mochi-scope .mochi-quote-bubble:has(> .mochi-quoted-message > img.mochi-chat-sticker-image) > .mochi-reply-message,
+.mochi-scope .mochi-private-bubble:has(> .mochi-private-quoted-message > img.mochi-private-sticker) > div:not(.mochi-private-quoted-message) {
   contain: inline-size;
   min-width: 0;
 }
@@ -704,12 +758,12 @@
   min-height: 32px;
   flex-wrap: nowrap;
   max-width: 100%;
-  width: 100%;
+  width: var(--mochi-actions-inline-size, 100%);
   contain: inline-size;
   gap: 4px;
   box-sizing: border-box;
   padding-right: 36px;
-  margin: calc(-1 * var(--mochi-actions-meta-height, 0px)) 0 0;
+  margin: calc(-1 * var(--mochi-actions-meta-height, 0px)) 0 0 var(--mochi-actions-inline-offset, 0px);
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
@@ -729,6 +783,49 @@
 
 .mochi-scope .msg-actions-trigger > .mochi-reaction-btn {
   width: 28px;
+}
+
+/* Keep metadata against the image edge. Controls get their own reserved row
+   and can extend outside a narrow sticker, without padding or resizing it. */
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > :is(.mt, .mochi-bubble-meta) {
+  width: var(--mochi-sticker-inline-size, max-content);
+  max-width: 100%;
+  align-self: flex-start;
+  contain: inline-size;
+}
+
+.mochi-scope .mrow.out .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > :is(.mt, .mochi-bubble-meta) {
+  align-self: flex-end;
+}
+
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .mt,
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) .mochi-bubble-meta > .mt,
+.mochi-scope .mochi-private-bubble-wrap:has(img.mochi-private-sticker) .mochi-private-time {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger {
+  margin-top: 4px;
+  padding-right: 0;
+}
+
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger > * {
+  flex: 0 0 min(28px, calc((var(--mochi-actions-inline-size) - (var(--mochi-actions-count) - 1) * 4px) / var(--mochi-actions-count)));
+  box-sizing: border-box;
+}
+
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) .msg-actions-trigger .mochi-reaction-btn {
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) .mochi-reaction-add-popover {
+  width: min(224px, calc(100cqw - 64px), var(--mochi-actions-wrapper-inline-size));
+}
+
+.mochi-scope .mrow.out .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) .mochi-reaction-add-popover {
+  left: min(0px, calc(var(--mochi-actions-inline-size) - min(224px, calc(100cqw - 64px), var(--mochi-actions-wrapper-inline-size))));
 }
 
 .mochi-scope .mrow {

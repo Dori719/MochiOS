@@ -136,9 +136,13 @@ use **Export browser JSON**, then **Import JSON** to review and resolve conflict
 If a previous-name alias itself conflicts, edit that alias in the recovery JSON before importing.
 New saves never write image bytes to browser storage.
 
-Quoted stickers use the same **12px image corners** as their original sent
-stickers and compact horizontal padding, in both the phone and embedded
-transcripts. Ordinary text quotes and unavailable-image fallbacks keep their normal layout.
+Sent sticker bubbles fit their existing image dimensions exactly, without a
+stretched container or empty space on the right. Sent and quoted stickers retain
+the same **12px image corners** and image sizing in both the phone and embedded transcripts.
+Sticker quotes keep their original padded cards and vertical spacing, with equal
+left/right insets for character and user messages instead of excess empty space.
+Message controls keep a separate footprint without widening small or portrait
+stickers. Ordinary text quotes and unavailable-image fallbacks keep their normal layout.
 
 ## Installing
 
@@ -184,6 +188,35 @@ second differently named install. It updates only runtime/helper files, preservi
 runtime/helper files themselves are replaced, so back those up first. If several
 Mochi OS installs exist, select one explicitly with `--folder MochiOS`.
 
+### Repairing sticker storage when plugins are already enabled
+
+**`enableServerPlugins: true` is not a plugin installer.** SillyTavern scans its
+own `plugins/` folder when the server starts; it does not load the helper just
+because it is bundled inside a browser extension. Installing or updating Mochi OS
+through the browser therefore does not install its server plugin.
+
+If the setting is already true but stickers still show the setup error, run this
+from the Mochi OS directory to install **only** the missing server helper:
+
+```powershell
+node scripts/install.mjs --target "D:\path\to\SillyTavern" --sticker-storage-only
+```
+
+This writes only `plugins/mochi-os-stickers.mjs`; back up any local edits to that
+helper first. Browser runtime files, extension source files, sticker libraries,
+and server configuration are untouched. For a runtime-only manual installation without the
+installer script, copy the installed extension's `sticker-storage.mjs` to
+`SillyTavern/plugins/mochi-os-stickers.mjs` instead.
+
+Target the installation printed as **`Server directory:`** when SillyTavern starts,
+not another copy of SillyTavern or the extension folder. Keep the setting enabled
+in that server's active configuration, then **stop and start SillyTavern**; reloading
+the web page is not a server restart. Startup should initialize
+`plugins/mochi-os-stickers.mjs` and report a loaded server plugin. Reopen the picker
+or choose **Retry storage** afterward. An authenticated GET to
+`/api/plugins/mochi-os-stickers/library?extension=MochiOS` (use your actual extension
+folder name) should return the library JSON, not an unregistered-route 404.
+
 ### Offline checks
 
 `npm run typecheck` and `npm test` check types, integration contracts, real disk
@@ -203,7 +236,10 @@ controls.
 renaming without breaking old bubbles, JSON backup/restore, and rounded compact
 sticker quotes in private/group chats and embedded transcripts. It uses the real
 server helper with an isolated temporary extension folder, then removes only its
-own test stickers. Resize the
+own test stickers. **Inspect sticker layout** checks wide, portrait, and small
+images, incoming/outgoing quotes, long sender names and replies, and fixed image
+bounds when controls appear, in both phone chats and embedded widgets. It keeps
+the isolated fixtures visible until **Clear sticker layout** is selected. Resize the
 preview to a mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
 visible area deterministically. Feature results report the measured visible size,
 not the browser panel's preset label. None of these checks calls a live model or

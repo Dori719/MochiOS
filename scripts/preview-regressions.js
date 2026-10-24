@@ -122,12 +122,12 @@ async function importJson(json) {
   await until(() => q('form[aria-label="Review sticker names"]') || q('.mochi-media-error'), 'JSON import review');
 }
 
-async function stickerFile() {
+async function stickerFile(width = 180, height = 144) {
   const canvas = document.createElement('canvas');
-  canvas.width = 180; canvas.height = 144;
+  canvas.width = width; canvas.height = height;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#6fa2cc'; context.fillRect(0, 0, 180, 144);
-  context.fillStyle = '#ffffff'; context.beginPath(); context.arc(90, 72, 45, 0, Math.PI * 2); context.fill();
+  context.fillStyle = '#6fa2cc'; context.fillRect(0, 0, width, height);
+  context.fillStyle = '#ffffff'; context.beginPath(); context.arc(width / 2, height / 2, Math.min(width, height) * 5 / 16, 0, Math.PI * 2); context.fill();
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   return new File([blob], `Mochi Browser ${Date.now()}.png`, { type: 'image/png' });
 }
@@ -150,10 +150,77 @@ function quotedStickerTranscript(tag, target, name) {
   return `<${tag} target="${target}" type="${type}">\nmessages:\n  - t: sticker\n    c: ${JSON.stringify(name)}\n  - t: quote\n    c: OK\n    quote: {name: "A very long sticker sender name that should stay inside the image width", t: sticker, c: ${JSON.stringify(`[Sticker] ${name}`)}}\n  - t: quote\n    c: OK\n    "{{user}}": true\n    quote: {name: Sender, t: sticker, c: ${JSON.stringify(`:${name}:`)}}\n  - t: quote\n    c: Plain reply\n    quote: {name: Sender, t: text, c: Plain quoted text}\n  - t: quote\n    c: Missing image reply\n    quote: {name: Sender, t: sticker, c: No saved sticker with this fixture name}\n</${tag}>\n<environment>\ntime: "12:05"\nweather: Sunny\n</environment>`;
 }
 
+function stickerLayoutTranscript(tag, target, names) {
+  const messages = names.flatMap((name) => [
+    `  - t: sticker\n    c: ${JSON.stringify(name)}\n    time: "12:05"\n    sender: {name: "A long sticker sender name that must not widen the image"}`,
+    `  - t: sticker\n    c: ${JSON.stringify(name)}\n    time: "12:05"\n    "{{user}}": true`,
+    `  - t: quote\n    c: OK\n    time: "12:05"\n    quote: {name: "A very long quoted sender name that must not widen the image", t: sticker, c: ${JSON.stringify(`[Sticker] ${name}`)}}`,
+    `  - t: quote\n    c: "A longer reply must wrap within the sticker bubble, not stretch it with empty space on the right."\n    time: "12:05"\n    "{{user}}": true\n    quote: {name: Sender, t: sticker, c: ${JSON.stringify(`:${name}:`)}}`,
+  ]);
+  const type = tag === 'privatechat_history' ? 'private' : 'group';
+  return `<${tag} target="${target}" type="${type}">\nmessages:\n${messages.join('\n')}\n</${tag}>\n<environment>\ntime: "12:05"\nweather: Sunny\n</environment>`;
+}
+
+async function checkStickerLayout(root, embedded, assert, label) {
+  const imageClass = embedded ? '.mochi-private-sticker' : '.mochi-chat-sticker-image';
+  const quoteClass = embedded ? '.mochi-private-quoted-message' : '.mochi-quoted-message';
+  const bubbleClass = embedded ? '.mochi-private-bubble' : '.sticker';
+  const images = Array.from(root.querySelectorAll(imageClass));
+  await until(() => images.length === 12 && images.every((image) => image.naturalWidth > 0), `${label} layout images decode`);
+  const originals = new Map(images.filter((image) => !image.closest(quoteClass)).map((image) => [image.src, image]));
+  const measurements = images.map((image) => {
+    const quote = image.closest(quoteClass);
+    const container = quote || image.closest(bubbleClass);
+    const bounds = image.getBoundingClientRect();
+    const box = container.getBoundingClientRect();
+    const outer = quote ? image.closest(embedded ? '.mochi-private-bubble' : '.mochi-quote-bubble') : container;
+    const outerBox = outer.getBoundingClientRect();
+    const style = getComputedStyle(outer);
+    const border = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    const original = originals.get(image.src).getBoundingClientRect();
+    if (quote) {
+      const inner = getComputedStyle(quote);
+      const leftInset = bounds.left - outerBox.left - parseFloat(style.borderLeftWidth);
+      const rightInset = outerBox.right - bounds.right - parseFloat(style.borderRightWidth);
+      assert(Math.abs(leftInset - 10) < 1 && Math.abs(rightInset - 10) < 1, `${label}: incoming/outgoing ${image.naturalWidth} × ${image.naturalHeight} sticker quotes have matching original left/right padding`);
+      assert(Math.abs(box.width - bounds.width - parseFloat(inner.paddingLeft) - parseFloat(inner.paddingRight)) < 1, `${label}: padded quote card has no additional empty space beside the sticker`);
+    } else assert(Math.abs(box.width - bounds.width) < 1 && Math.abs(box.right - bounds.right) < 1, `${label}: sent ${image.naturalWidth} × ${image.naturalHeight} sticker container has no empty right-side space`);
+    if (!quote) assert(Math.abs(box.height - bounds.height) < 1, `${label}: sent sticker container matches the image height without a minimum-height spacer`);
+    else assert(Math.abs(outerBox.width - bounds.width - 20 - border) < 1, `${label}: quote sender and long reply do not add asymmetric space to the padded sticker bubble`);
+    assert(Math.abs(bounds.width - original.width) < 1 && Math.abs(bounds.height - original.height) < 1, `${label}: quoted stickers use the same rendered image dimensions as sent stickers`);
+    assert(getComputedStyle(image).borderRadius === '12px' && Math.abs(bounds.width / bounds.height - image.naturalWidth / image.naturalHeight) < 0.01, `${label}: existing sticker corners and aspect ratio are preserved`);
+    return { label, quoted: Boolean(quote), natural: [image.naturalWidth, image.naturalHeight], image: [bounds.width, bounds.height], container: [box.width, box.height], bubbleWidth: outerBox.width };
+  });
+  if (!embedded) {
+    for (const row of root.querySelectorAll('.mrow:has(.sticker img)')) {
+      row.querySelector('.sticker').scrollIntoView({ block: 'center' }); await settle();
+      const image = row.querySelector(imageClass); const before = image.getBoundingClientRect();
+      press(row.querySelector('.sticker')); await settle();
+      const after = image.getBoundingClientRect(); const actions = row.querySelector('.msg-actions-trigger');
+      assert(before.width === after.width && before.height === after.height && before.top === after.top && !actions.inert, `${label}: showing message actions leaves sticker dimensions and position fixed`);
+      const count = actions.children.length;
+      const minimum = Math.min(24, (actions.parentElement.clientWidth - Math.max(0, count - 1) * 4) / count);
+      assert(actions.scrollWidth <= actions.clientWidth + 1 && Array.from(actions.children).every((control) => control.getBoundingClientRect().width >= minimum - 1), `${label}: small stickers keep evenly sized controls that use the available message width without clipping`);
+      const reaction = row.querySelector('.mochi-reaction-add > button');
+      press(reaction); await settle();
+      const popup = row.querySelector('.mochi-reaction-add-popover').getBoundingClientRect();
+      const thread = root.querySelector('.c-body').getBoundingClientRect();
+      assert(popup.left >= thread.left - 1 && popup.right <= thread.right + 1, `${label}: incoming/outgoing sticker reaction pickers stay inside the conversation`);
+      press(reaction); key(row, 'Escape');
+    }
+  }
+  assert(Array.from(root.querySelectorAll(embedded ? '.mochi-private-bubble-wrap:has(img) .mochi-private-time' : '.wmsg:has(.sticker img) .mt')).every((time) => getComputedStyle(time).whiteSpace === 'nowrap'), `${label}: sticker timestamps stay on one line beside long sender names`);
+  const thread = root.querySelector(embedded ? '.mochi-private-thread' : '.c-body');
+  assert(thread.scrollWidth <= thread.clientWidth + 1, `${label}: sticker layout does not overflow the conversation`);
+  return measurements;
+}
+
 async function checkStickerQuotes(root, embedded, assert, label) {
   const quoteClass = embedded ? '.mochi-private-quoted-message' : '.mochi-quoted-message';
   const bubbleClass = embedded ? '.mochi-private-bubble' : '.mochi-quote-bubble';
   const stickerClass = embedded ? '.mochi-private-sticker' : '.mochi-chat-sticker-image';
+  const textQuotes = Array.from(root.querySelectorAll(quoteClass)).filter((quote) => !quote.querySelector('img'));
+  const originalBubbleStyle = getComputedStyle(textQuotes[0].closest(bubbleClass));
   const original = root.querySelector(embedded ? '.is-sticker .mochi-private-sticker' : '.sticker .mochi-chat-sticker-image');
   await until(() => original?.naturalWidth > 0 && Array.from(root.querySelectorAll(`${quoteClass} img`)).every((image) => image.naturalWidth > 0), `${label} quoted images decode`);
   const images = Array.from(root.querySelectorAll(`${quoteClass} ${stickerClass}`));
@@ -165,15 +232,25 @@ async function checkStickerQuotes(root, embedded, assert, label) {
   assert(images.every((image) => {
     const quote = image.closest(quoteClass); const bubble = image.closest(bubbleClass);
     const outer = getComputedStyle(bubble); const inner = getComputedStyle(quote);
+    const bounds = image.getBoundingClientRect(); const box = bubble.getBoundingClientRect();
     return outer.paddingLeft === '6px' && outer.paddingRight === '6px' && inner.paddingLeft === '4px' && inner.paddingRight === '4px'
-      && getComputedStyle(quote).borderRadius === '12px' && quote.getBoundingClientRect().width <= image.getBoundingClientRect().width + 9;
-  }), `${label}: quoted sticker blocks fit their image with compact horizontal insets`);
+      && getComputedStyle(quote).borderRadius === '12px' && Math.abs(quote.getBoundingClientRect().width - bounds.width - 8) < 1
+      && Math.abs(bounds.left - box.left - parseFloat(outer.borderLeftWidth) - 10) < 1
+      && Math.abs(box.right - bounds.right - parseFloat(outer.borderRightWidth) - 10) < 1;
+  }), `${label}: character/user quoted stickers keep the old insets with equal left/right padding`);
+  assert(images.every((image) => {
+    const quote = image.closest(quoteClass); const bubble = image.closest(bubbleClass);
+    const outer = getComputedStyle(bubble); const inner = getComputedStyle(quote);
+    return outer.paddingTop === originalBubbleStyle.paddingTop && outer.paddingBottom === originalBubbleStyle.paddingBottom
+      && outer.borderTopLeftRadius === originalBubbleStyle.borderTopLeftRadius
+      && inner.paddingTop === '6px' && inner.paddingBottom === '6px'
+      && (embedded ? inner.marginBottom === '5px' : outer.gap === '10px');
+  }), `${label}: original quote-card vertical spacing and bubble corners are restored`);
   if (!embedded) assert(images.every((image) => {
     const bubble = image.closest(bubbleClass); const actions = bubble.closest('.mrow').querySelector('.msg-actions-trigger');
     return Math.abs(actions.getBoundingClientRect().left - bubble.getBoundingClientRect().left) < 1
       && actions.scrollWidth <= actions.clientWidth + 1;
   }), `${label}: incoming/outgoing quotes retain left-aligned single-row message actions`);
-  const textQuotes = Array.from(root.querySelectorAll(quoteClass)).filter((quote) => !quote.querySelector('img'));
   assert(textQuotes.length === 2 && textQuotes.every((quote) => getComputedStyle(quote).paddingLeft === '10px' && getComputedStyle(quote).paddingRight === '10px'), `${label}: text quotes and missing-image fallback retain normal padding`);
   const thread = root.querySelector(embedded ? '.mochi-private-thread' : '.c-body');
   assert(thread.scrollWidth <= thread.clientWidth + 1, `${label}: quoted stickers add no horizontal scrolling`);
@@ -188,6 +265,64 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
   const within = (bounds) => bounds.left >= -1 && bounds.top >= -1 && bounds.right <= viewport.width + 1 && bounds.bottom <= viewport.height + 1;
   const report = q('#preview-status');
   const button = q('#test-features');
+  const layoutControl = document.createElement('button');
+  layoutControl.id = 'test-sticker-layout'; layoutControl.textContent = 'Inspect sticker layout';
+  q('#preview-tools').append(layoutControl);
+  let layoutNames = null;
+  layoutControl.onclick = async () => {
+    layoutControl.disabled = true;
+    try {
+      if (layoutNames) {
+        openMochiOs(); await settle(350); await openThread('Preview Group'); await openPicker('Stickers');
+        for (const name of layoutNames) {
+          const cell = all('.mochi-sticker-cell').find((cell) => cell.querySelector('.mochi-sticker-send span').textContent === name);
+          if (!cell) continue;
+          press(cell.querySelector('.mochi-sticker-delete'));
+          await until(() => !cell.isConnected, 'layout fixture cleanup');
+        }
+        layoutNames = null; preview.reset(); await getContext().printMessages();
+        await getContext().eventSource.emit('CHAT_CHANGED');
+        report.textContent = 'Sticker layout fixtures cleared.';
+        return;
+      }
+      closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
+      await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
+      await openThread('Preview Group'); await openPicker('Stickers');
+      await until(() => !q('.mochi-sticker-tools button').disabled, 'layout sticker library');
+      const token = Date.now();
+      layoutNames = ['Wide', 'Tall', 'Small'].map((shape) => `Layout ${shape} ${token}`);
+      await importFiles(await Promise.all([[180, 144], [72, 144], [64, 32]].map(([width, height]) => stickerFile(width, height))), false);
+      all('form[aria-label="Review sticker names"] .mochi-sticker-name-input').forEach((input, index) => value(input, layoutNames[index]));
+      await settle(); press(q('.mochi-sticker-save'));
+      await until(() => !q('form[aria-label="Review sticker names"]'), 'layout stickers saved');
+      key(document, 'Escape'); await settle();
+      const host = getContext(); const start = host.chat.length;
+      host.chat.push(
+        { name: 'Preview Group', is_user: false, mes: stickerLayoutTranscript('groupchat_history', 'Preview Group', layoutNames), extra: {} },
+        { name: 'Preview Character', is_user: false, mes: stickerLayoutTranscript('privatechat_history', 'Preview Character', layoutNames), extra: {} },
+      );
+      await host.printMessages(); refreshMochiWidgets();
+      await host.eventSource.emit('CHARACTER_MESSAGE_RENDERED', start + 1); await settle(450);
+      const checks = []; const failures = []; const measurements = [];
+      const assert = (ok, description) => (ok ? checks : failures).push(description);
+      measurements.push(...await checkStickerLayout(q('#chatView'), false, assert, 'Group phone'));
+      await openThread('Preview Contact');
+      measurements.push(...await checkStickerLayout(q('#chatView'), false, assert, 'Private phone'));
+      closeMochiOs(); await settle();
+      for (const [offset, label] of [[0, 'Group widget'], [1, 'Private widget']]) {
+        const selector = `#chat .mes[mesid="${start + offset}"] .mochi-private-widget`;
+        await until(() => q(selector), `${label} renders`);
+        const widget = q(selector);
+        press(widget.querySelector('.mochi-private-contact-open')); await settle();
+        measurements.push(...await checkStickerLayout(widget, true, assert, label));
+      }
+      openMochiOs(); await settle(350); await openThread('Preview Group');
+      q('#chatView .mrow:has(.sticker img)').scrollIntoView({ block: 'start' });
+      report.dataset.stickerLayout = JSON.stringify({ checks, failures, measurements });
+      report.textContent = failures.length ? `FAIL: ${failures.length} sticker-layout checks. ${failures[0]}` : `PASS: ${checks.length} sticker-layout checks. Wide, tall, and small fixtures are ready for inspection.`;
+    } catch (error) { report.textContent = `Sticker layout fixture failed: ${error.message}`; console.error(error); }
+    finally { layoutControl.disabled = false; layoutControl.textContent = layoutNames ? 'Clear sticker layout' : 'Inspect sticker layout'; }
+  };
 
   q('#test-updates').onclick = async () => {
     const checks = [];
