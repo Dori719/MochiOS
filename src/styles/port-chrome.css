@@ -556,6 +556,21 @@
   font-size: 16px !important;
 }
 
+/* Host themes can decorate headings with a pink rule. The persona name is a
+   plain heading, not a themed host section title. Keep the reset local to it. */
+#mochi-os-host .mochi-scope .profile-card h3 {
+  border: none !important;
+  padding-inline: 0 !important;
+  box-shadow: none !important;
+  background: none !important;
+}
+
+#mochi-os-host .mochi-scope .profile-card h3::before,
+#mochi-os-host .mochi-scope .profile-card h3::after {
+  content: none !important;
+  display: none !important;
+}
+
 /* ── Conversations stay within their device ───────────────────────────── */
 
 .mochi-scope :is(.c-body, .mochi-private-thread) {
@@ -641,6 +656,38 @@
 .mochi-scope :is(.msg-image-thumb, .mochi-chat-sticker-image, .mochi-private-sticker) {
   max-width: 100%;
   height: auto;
+}
+
+/* Host message-image styles must not square off an inline quoted sticker. */
+.mochi-scope :is(img.mochi-chat-sticker-image, img.mochi-private-sticker) {
+  border-radius: 12px !important;
+}
+
+/* Compact only sticker quotes, leaving the action-row footprint and ordinary
+   text quotes untouched. Both the phone and embedded transcripts use this. */
+.mochi-scope .wmsg > .mochi-quote-bubble:has(> .mochi-quoted-message > img.mochi-chat-sticker-image),
+.mochi-scope .mochi-private-bubble-wrap > .mochi-private-bubble:has(> .mochi-private-quoted-message > img.mochi-private-sticker) {
+  padding-inline: 6px;
+}
+
+.mochi-scope :is(.mochi-quoted-message, .mochi-private-quoted-message):has(> :is(img.mochi-chat-sticker-image, img.mochi-private-sticker)) {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-inline: 4px;
+  border-radius: 12px;
+}
+
+.mochi-scope :is(.mochi-quoted-message, .mochi-private-quoted-message) > :is(img.mochi-chat-sticker-image, img.mochi-private-sticker) {
+  /* A stretched object-fit box rounds empty space, not the visible bitmap. */
+  align-self: flex-start;
+  justify-self: start;
+}
+
+.mochi-scope :is(.mochi-quoted-message, .mochi-private-quoted-message):has(> :is(img.mochi-chat-sticker-image, img.mochi-private-sticker)) > strong {
+  /* The image sets the quote width; long sender names ellipsize within it. */
+  contain: inline-size;
+  min-width: 0;
 }
 
 .mochi-scope :is(.mochi-bubble-meta, .mochi-private-bubble-meta, .mochi-private-appbar strong) {
@@ -759,6 +806,125 @@
   gap: 8px;
 }
 
+.mochi-scope .mochi-sticker-tools .mochi-media-empty-action {
+  margin-top: 0;
+  font-size: 11px;
+  padding: 8px 10px;
+}
+
+.mochi-scope .mochi-sticker-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--paper-dim);
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.mochi-scope .mochi-sticker-editor .mochi-media-empty-hint {
+  margin: 0;
+}
+
+.mochi-scope .mochi-sticker-upload {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mochi-scope .mochi-sticker-upload-preview {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.mochi-scope .mochi-sticker-name-field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.mochi-scope .mochi-sticker-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-media-picker-popover .mochi-sticker-name-input {
+  flex: none;
+  order: 0;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.mochi-scope .mochi-sticker-name-input:is(:focus, [aria-invalid="true"]) {
+  border-color: var(--acc);
+  outline: none;
+}
+
+.mochi-scope .mochi-sticker-name-error {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.mochi-scope .mochi-sticker-editor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mochi-scope :is(.mochi-sticker-cancel, .mochi-sticker-discard, .mochi-sticker-rename) {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mochi-scope .mochi-sticker-discard {
+  flex: 0 0 28px;
+  padding: 6px;
+  font-size: 18px;
+}
+
+.mochi-scope .mochi-sticker-rename {
+  width: 100%;
+  min-height: 32px;
+  font-size: 11px;
+}
+
+.mochi-scope .mochi-sticker-rename:hover {
+  background: var(--acc-soft);
+  color: var(--text);
+}
+
+.mochi-scope .mochi-media-picker-popover button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
 .mochi-scope .mochi-sticker-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
@@ -794,11 +960,14 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
   background: var(--paper);
   color: var(--muted);
+  font-size: 20px;
 }
 
 .mochi-scope .mochi-media-picker-popover [hidden] {
@@ -846,7 +1015,7 @@
     flex-wrap: wrap;
   }
 
-  #mochi-os-host .mochi-scope .c-bar input {
+  #mochi-os-host .mochi-scope .c-bar > input {
     flex: 1 1 100%;
     order: -1;
   }

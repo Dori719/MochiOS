@@ -7,6 +7,31 @@ const rows = () => all('#chatView .mrow[data-msg-id]');
 const incoming = () => rows().filter((row) => !row.classList.contains('out'));
 const outgoing = () => rows().filter((row) => row.classList.contains('out'));
 
+/** Inspection tabs can suspend the compositor while timers keep running.
+ * Advance only finite entrance animations/transitions on a wall clock, so
+ * geometry checks see the same settled state as a foreground browser. */
+function startPreviewAnimationClock() {
+  const clocks = new WeakMap();
+  const timer = setInterval(() => {
+    const now = performance.now();
+    for (const animation of document.getAnimations()) {
+      if (!animation.effect || ['finished', 'idle'].includes(animation.playState) || animation.playbackRate !== 1) continue;
+      const end = animation.effect.getComputedTiming().endTime;
+      if (!Number.isFinite(end)) continue;
+      let clock = clocks.get(animation);
+      if (!clock) {
+        if (animation.playState === 'paused') continue;
+        clock = { start: now, offset: Number(animation.currentTime ?? 0) };
+        clocks.set(animation, clock); animation.pause();
+      }
+      const time = clock.offset + now - clock.start;
+      try { if (time >= end) animation.finish(); else animation.currentTime = time; }
+      catch { clocks.delete(animation); }
+    }
+  }, 16);
+  window.addEventListener('pagehide', () => clearInterval(timer), { once: true });
+}
+
 async function until(condition, description) {
   const deadline = performance.now() + 6000;
   while (performance.now() < deadline) {
@@ -75,43 +100,83 @@ function sendText(text) {
   key(input, 'Enter');
 }
 
-async function importFiles(files) {
+async function importFiles(files, save = true) {
   const transfer = new DataTransfer();
   files.forEach((file) => transfer.items.add(file));
   const input = q('input[aria-label="Import sticker images"]');
   input.files = transfer.files;
   input.dispatchEvent(new Event('change', { bubbles: true }));
+  await until(() => q('form[aria-label="Review sticker names"]') || q('.mochi-media-error'), 'sticker upload review');
+  if (save && q('.mochi-sticker-save') && !q('.mochi-sticker-save').disabled) {
+    press(q('.mochi-sticker-save'));
+    await until(() => !q('form[aria-label="Review sticker names"]') || q('.mochi-media-error'), 'sticker save');
+  }
+}
+
+async function importJson(json) {
+  const transfer = new DataTransfer();
+  transfer.items.add(new File([json], 'mochi-stickers.json', { type: 'application/json' }));
+  const input = q('input[aria-label="Import sticker JSON backup"]');
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await until(() => q('form[aria-label="Review sticker names"]') || q('.mochi-media-error'), 'JSON import review');
 }
 
 async function stickerFile() {
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 48;
+  canvas.width = 180; canvas.height = 144;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#6fa2cc'; context.fillRect(0, 0, 48, 48);
-  context.fillStyle = '#ffffff'; context.beginPath(); context.arc(24, 24, 15, 0, Math.PI * 2); context.fill();
+  context.fillStyle = '#6fa2cc'; context.fillRect(0, 0, 180, 144);
+  context.fillStyle = '#ffffff'; context.beginPath(); context.arc(90, 72, 45, 0, Math.PI * 2); context.fill();
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   return new File([blob], `Mochi Browser ${Date.now()}.png`, { type: 'image/png' });
 }
 
 async function savedStickers() {
-  if (typeof navigator.storage?.getDirectory === 'function') {
-    const root = await navigator.storage.getDirectory();
-    const mochi = await root.getDirectoryHandle('mochi-os');
-    const folder = await mochi.getDirectoryHandle('stickers');
-    const manifest = JSON.parse(await (await (await folder.getFileHandle('library.json')).getFile()).text());
-    return { list: manifest, async image(entry) { return (await folder.getFileHandle(entry.fileName)).getFile(); } };
-  }
-  const database = await new Promise((resolve, reject) => {
-    const request = indexedDB.open('mochi-os-stickers');
-    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
-  });
-  const list = await new Promise((resolve, reject) => {
-    const transaction = database.transaction('stickers', 'readonly');
-    const request = transaction.objectStore('stickers').getAll();
-    transaction.oncomplete = () => resolve(request.result); transaction.onerror = () => reject(transaction.error);
-  });
-  database.close();
-  return { list, image: async (entry) => entry.blob };
+  const api = '/api/plugins/mochi-os-stickers';
+  const query = '?extension=mochi-os';
+  const response = await fetch(`${api}/library${query}`, { cache: 'no-store' });
+  const library = await response.json();
+  if (!response.ok) throw new Error(library.error || 'The isolated disk sticker fixture is unavailable');
+  return { list: library.stickers, location: library.location, async image(entry) {
+    const response = await fetch(`${api}/images/${encodeURIComponent(entry.fileName)}${query}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('The fixture sticker image is missing from disk');
+    return response.blob();
+  } };
+}
+
+function quotedStickerTranscript(tag, target, name) {
+  const type = tag === 'privatechat_history' ? 'private' : 'group';
+  return `<${tag} target="${target}" type="${type}">\nmessages:\n  - t: sticker\n    c: ${JSON.stringify(name)}\n  - t: quote\n    c: OK\n    quote: {name: "A very long sticker sender name that should stay inside the image width", t: sticker, c: ${JSON.stringify(`[Sticker] ${name}`)}}\n  - t: quote\n    c: OK\n    "{{user}}": true\n    quote: {name: Sender, t: sticker, c: ${JSON.stringify(`:${name}:`)}}\n  - t: quote\n    c: Plain reply\n    quote: {name: Sender, t: text, c: Plain quoted text}\n  - t: quote\n    c: Missing image reply\n    quote: {name: Sender, t: sticker, c: No saved sticker with this fixture name}\n</${tag}>\n<environment>\ntime: "12:05"\nweather: Sunny\n</environment>`;
+}
+
+async function checkStickerQuotes(root, embedded, assert, label) {
+  const quoteClass = embedded ? '.mochi-private-quoted-message' : '.mochi-quoted-message';
+  const bubbleClass = embedded ? '.mochi-private-bubble' : '.mochi-quote-bubble';
+  const stickerClass = embedded ? '.mochi-private-sticker' : '.mochi-chat-sticker-image';
+  const original = root.querySelector(embedded ? '.is-sticker .mochi-private-sticker' : '.sticker .mochi-chat-sticker-image');
+  await until(() => original?.naturalWidth > 0 && Array.from(root.querySelectorAll(`${quoteClass} img`)).every((image) => image.naturalWidth > 0), `${label} quoted images decode`);
+  const images = Array.from(root.querySelectorAll(`${quoteClass} ${stickerClass}`));
+  assert(images.length === 2 && images.every((image) => getComputedStyle(image).borderRadius === getComputedStyle(original).borderRadius && getComputedStyle(image).borderRadius === '12px'), `${label}: incoming/outgoing quoted stickers match the original 12px image corners`);
+  assert(images.every((image) => {
+    const bounds = image.getBoundingClientRect();
+    return Math.abs(bounds.width / bounds.height - image.naturalWidth / image.naturalHeight) < 0.01;
+  }), `${label}: sticker images do not stretch into square-cornered object-fit boxes, even with long sender names`);
+  assert(images.every((image) => {
+    const quote = image.closest(quoteClass); const bubble = image.closest(bubbleClass);
+    const outer = getComputedStyle(bubble); const inner = getComputedStyle(quote);
+    return outer.paddingLeft === '6px' && outer.paddingRight === '6px' && inner.paddingLeft === '4px' && inner.paddingRight === '4px'
+      && getComputedStyle(quote).borderRadius === '12px' && quote.getBoundingClientRect().width <= image.getBoundingClientRect().width + 9;
+  }), `${label}: quoted sticker blocks fit their image with compact horizontal insets`);
+  if (!embedded) assert(images.every((image) => {
+    const bubble = image.closest(bubbleClass); const actions = bubble.closest('.mrow').querySelector('.msg-actions-trigger');
+    return Math.abs(actions.getBoundingClientRect().left - bubble.getBoundingClientRect().left) < 1
+      && actions.scrollWidth <= actions.clientWidth + 1;
+  }), `${label}: incoming/outgoing quotes retain left-aligned single-row message actions`);
+  const textQuotes = Array.from(root.querySelectorAll(quoteClass)).filter((quote) => !quote.querySelector('img'));
+  assert(textQuotes.length === 2 && textQuotes.every((quote) => getComputedStyle(quote).paddingLeft === '10px' && getComputedStyle(quote).paddingRight === '10px'), `${label}: text quotes and missing-image fallback retain normal padding`);
+  const thread = root.querySelector(embedded ? '.mochi-private-thread' : '.c-body');
+  assert(thread.scrollWidth <= thread.clientWidth + 1, `${label}: quoted stickers add no horizontal scrolling`);
 }
 
 function groupReply(stickerName) {
@@ -119,6 +184,7 @@ function groupReply(stickerName) {
 }
 
 export function installPreviewRegressions({ getContext, preview, openMochiOs, closeMochiOs, isMochiOsOpen, refreshMochiWidgets, viewport, setKeyboard }) {
+  startPreviewAnimationClock();
   const within = (bounds) => bounds.left >= -1 && bounds.top >= -1 && bounds.right <= viewport.width + 1 && bounds.bottom <= viewport.height + 1;
   const report = q('#preview-status');
   const button = q('#test-features');
@@ -147,6 +213,8 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       press(q('#chatView .c-head > button:first-child')); await settle();
       press(q('#listView .mtabs button:last-child')); await settle();
       assert(q('.profile-card h3').textContent === 'Preview User', 'First entry selects the roleplay persona instead of the first/default persona');
+      const heading = q('.profile-card h3');
+      assert(getComputedStyle(heading).borderLeftWidth === '0px' && getComputedStyle(heading, '::before').content === 'none' && getComputedStyle(heading, '::after').content === 'none', 'Persona name has no host-theme pink border or decorative pseudo-element');
       assert(q('.profile-card .p-ava').getBoundingClientRect().width === 64 && q('.profile-bio-textarea').rows === 4 && parseFloat(getComputedStyle(q('.profile-bio-textarea')).minHeight) <= 96, 'Profile avatar and bio are scaled down without shrinking editable text');
       press(q('.edit-profile-btn')); await settle();
       const chosen = all('.persona-pick-item').find((item) => item.classList.contains('active'));
@@ -205,6 +273,145 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
     } finally { control.disabled = false; }
   };
 
+  q('#test-stickers').onclick = async () => {
+    const checks = [];
+    const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
+    const control = q('#test-stickers');
+    const token = Date.now();
+    const firstName = `Edited sticker ${token}`;
+    const secondName = `Second sticker ${token}`;
+    const renamedName = `Renamed sticker ${token}`;
+    const ownedNames = new Set([firstName, secondName, renamedName]);
+    const cells = () => all('.mochi-sticker-cell');
+    const cellFor = (name) => cells().find((cell) => cell.querySelector('.mochi-sticker-send span').textContent === name);
+    const reviewInputs = () => all('form[aria-label="Review sticker names"] .mochi-sticker-name-input');
+    control.disabled = true;
+    report.textContent = 'Checking disk stickers, names, JSON backups, and quote styling without live requests…';
+    let baseline;
+    try {
+      closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
+      await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
+      await openThread('Preview Group'); await openPicker('Stickers');
+      await until(() => !q('.mochi-sticker-tools button').disabled, 'loaded sticker library');
+      baseline = cells().length;
+      const file = await stickerFile();
+      await importFiles([file, file], false);
+      assert(reviewInputs().length === 2 && reviewInputs()[0].value !== reviewInputs()[1].value && cells().length === baseline, 'Image uploads get unique suggested names and are not saved until confirmed');
+      const inputs = reviewInputs();
+      value(inputs[0], firstName); value(inputs[1], firstName.toUpperCase()); await settle();
+      assert(q('.mochi-sticker-save').disabled && all('.mochi-sticker-name-error').length === 2, 'Duplicate batch names are blocked case-insensitively before saving');
+      value(inputs[1], secondName); value(inputs[0], '   '); await settle();
+      assert(q('.mochi-sticker-save').disabled && inputs[0].getAttribute('aria-invalid') === 'true', 'Empty sticker names cannot be saved');
+      press(q('.mochi-sticker-cancel')); await settle();
+      assert(cells().length === baseline && !reviewInputs().length, 'Cancel discards uploads without changing saved stickers');
+      await importFiles([file, file], false);
+      value(reviewInputs()[0], firstName); value(reviewInputs()[1], secondName); await settle();
+      const editorBody = q('.mochi-media-picker-body');
+      assert(editorBody.scrollWidth <= editorBody.clientWidth + 1 && reviewInputs().every((input) => parseFloat(getComputedStyle(input).fontSize) >= 16), 'Upload naming fields fit the phone and keep mobile text readable');
+      press(q('.mochi-sticker-save'));
+      await until(() => cellFor(firstName) && cellFor(secondName), 'edited sticker names saved');
+      const saved = await savedStickers();
+      const original = saved.list.find((entry) => entry.name === firstName);
+      assert(cells().length === baseline + 2 && saved.location === 'mochi-os/stickers' && (await saved.image(original)).size === file.size, 'Edited names and image bytes persist in the isolated extension folder, not browser storage');
+      press(cellFor(firstName).querySelector('.mochi-sticker-send')); await settle();
+      await until(() => outgoing().some((row) => row.querySelector('.sticker img')?.naturalWidth > 0), 'uploaded sticker sends');
+      await openPicker('Stickers');
+      press(cellFor(firstName).querySelector('.mochi-sticker-rename')); await settle();
+      const renameInput = q('input[aria-label="New sticker name"]');
+      value(renameInput, secondName.toUpperCase()); await settle();
+      assert(q('.mochi-sticker-rename-save').disabled && q('#mochi-sticker-rename-error'), 'Saved stickers cannot be renamed to another saved name');
+      value(renameInput, renamedName); await settle(); press(q('.mochi-sticker-rename-save'));
+      await until(() => cellFor(renamedName) && !q('form[aria-label="Rename saved sticker"]'), 'sticker renamed');
+      const afterRename = (await savedStickers()).list.find((entry) => entry.name === renamedName);
+      assert(afterRename.id === original.id && afterRename.fileName === original.fileName && afterRename.aliases.includes(firstName), 'Renaming keeps the same saved image and remembers its previous name');
+      await until(() => outgoing().some((row) => row.querySelector('.sticker img')?.naturalWidth > 0), 'old sticker image after rename');
+      assert(outgoing().some((row) => row.querySelector('.sticker img')?.alt === firstName), 'Already-sent sticker bubbles keep their images after a rename');
+
+      // Intercept only this fixture's download; inspect its bytes without saving a file.
+      const nativeClick = HTMLAnchorElement.prototype.click;
+      let download;
+      HTMLAnchorElement.prototype.click = function () {
+        if (this.download.startsWith('mochi-stickers-') && this.download.endsWith('.json')) {
+          download = fetch(this.href).then((response) => response.text()); return;
+        }
+        return nativeClick.call(this);
+      };
+      let backup;
+      try {
+        press(all('.mochi-sticker-tools button').find((button) => button.textContent.trim() === 'Export JSON'));
+        await until(() => download, 'sticker JSON download');
+        backup = JSON.parse(await download);
+        await until(() => !q('.mochi-sticker-tools button').disabled, 'export completes');
+      } finally { HTMLAnchorElement.prototype.click = nativeClick; }
+      const entries = backup.stickers.filter((entry) => entry.name === renamedName || entry.name === secondName);
+      assert(backup.format === 'mochi-os-stickers' && backup.version === 1 && entries.length === 2 && entries.every((entry) => entry.data.startsWith('data:image/png;base64,')), 'Export JSON includes portable image data, names, and rename history');
+      const portable = JSON.stringify({ ...backup, stickers: entries });
+      await importJson(portable);
+      assert(q('.mochi-sticker-save').disabled && cells().length === baseline + 2, 'JSON import reviews name conflicts without overwriting saved stickers');
+      press(q('.mochi-sticker-cancel')); await settle();
+      for (const name of [renamedName, secondName]) {
+        press(cellFor(name).querySelector('.mochi-sticker-delete'));
+        await until(() => !cellFor(name), 'fixture sticker removed before restore');
+      }
+      await importJson(portable);
+      assert(reviewInputs().map((input) => input.value).join('|') === `${renamedName}|${secondName}` && cells().length === baseline, 'JSON backup names can be reviewed before restoring');
+      press(q('.mochi-sticker-save'));
+      await until(() => cellFor(renamedName) && cellFor(secondName), 'JSON backup restored');
+      const restored = await savedStickers();
+      const restoredFirst = restored.list.find((entry) => entry.name === renamedName);
+      assert(restoredFirst.id !== original.id && (await restored.image(restoredFirst)).size === file.size && restoredFirst.aliases.includes(firstName), 'JSON import restores the image and previous names using fresh storage identities');
+      await until(() => outgoing().some((row) => row.querySelector('.sticker img')?.naturalWidth > 0), 'old bubble resolves after JSON restore');
+      await importJson('{invalid json');
+      assert(q('.mochi-media-error')?.textContent.includes('valid Mochi OS sticker JSON') && cells().length === baseline + 2, 'Malformed JSON is rejected without changing the library');
+
+      // Add only local fixture transcripts, without requesting a model response.
+      key(document, 'Escape'); await settle();
+      const host = getContext(); const quoteStart = host.chat.length;
+      host.chat.push(
+        { name: 'Preview Group', is_user: false, mes: quotedStickerTranscript('groupchat_history', 'Preview Group', firstName), extra: {} },
+        { name: 'Preview Character', is_user: false, mes: quotedStickerTranscript('privatechat_history', 'Preview Character', firstName), extra: {} },
+      );
+      await host.printMessages(); refreshMochiWidgets();
+      await host.eventSource.emit('CHARACTER_MESSAGE_RENDERED', quoteStart + 1); await settle(450);
+      await checkStickerQuotes(q('#chatView'), false, assert, 'Group phone chat');
+      await openThread('Preview Contact');
+      await checkStickerQuotes(q('#chatView'), false, assert, 'Private phone chat');
+      for (const [offset, label] of [[0, 'Embedded group transcript'], [1, 'Embedded private transcript']]) {
+        const selector = `#chat .mes[mesid="${quoteStart + offset}"] .mochi-private-widget`;
+        await until(() => q(selector), `${label} renders`);
+        if (!q(`${selector}.is-open`)) press(q(`${selector} .mochi-private-contact-open`));
+        await settle();
+        await checkStickerQuotes(q(selector), true, assert, label);
+      }
+      host.chat.splice(quoteStart, 2); await host.printMessages();
+      await host.eventSource.emit('MESSAGE_DELETED', host.chat.length); await settle(350);
+      await openPicker('Stickers');
+      setKeyboard(true); await settle(250);
+      press(cellFor(renamedName).querySelector('.mochi-sticker-rename')); await settle();
+      const body = q('.mochi-media-picker-body');
+      assert(body.scrollWidth <= body.clientWidth + 1 && within(q('[data-conversation-media-picker]').getBoundingClientRect()) && parseFloat(getComputedStyle(q('input[aria-label="New sticker name"]')).fontSize) >= 16, 'Sticker renaming stays reachable in a keyboard-reduced mobile viewport');
+      press(q('.mochi-sticker-cancel')); setKeyboard(false); await settle();
+      assert(preview.requests.length === 0, 'Sticker management does not send any model requests');
+      report.textContent = `PASS: ${checks.length} sticker-management checks at ${Math.round(viewport.width)} × ${Math.round(viewport.height)}.`;
+      report.dataset.stickerChecks = JSON.stringify(checks);
+    } catch (error) {
+      report.textContent = `FAIL after ${checks.length} sticker-management checks: ${error.message}`;
+      report.dataset.stickerChecks = JSON.stringify(checks); console.error(error);
+    } finally {
+      setKeyboard(false);
+      try {
+        if (q('.mochi-sticker-cancel') && !q('.mochi-sticker-cancel').disabled) { press(q('.mochi-sticker-cancel')); await settle(); }
+        await openPicker('Stickers');
+        for (const cell of cells().filter((cell) => ownedNames.has(cell.querySelector('.mochi-sticker-send span').textContent))) {
+          press(cell.querySelector('.mochi-sticker-delete'));
+          await until(() => !cell.isConnected, 'sticker-management fixture cleanup');
+        }
+        if (baseline !== undefined && cells().length !== baseline) throw new Error('Fixture-owned stickers were not fully cleaned up');
+      } catch (error) { report.textContent += ` Cleanup failed: ${error.message}`; console.error(error); }
+      control.disabled = false;
+    }
+  };
+
   button.onclick = async () => {
     const checks = [];
     const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
@@ -228,7 +435,9 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       press(bubble); await settle();
       assert(getComputedStyle(actionRow).visibility === 'visible' && !actionRow.inert, 'Bubble click reveals usable actions');
       assert(first.getBoundingClientRect().height === initial.message.height && bubble.getBoundingClientRect().top === initial.bubble.top && incoming()[1].getBoundingClientRect().top === initial.next.top, 'Revealing actions does not move content');
-      assert(actionRow.parentElement.classList.contains('wmsg') && actionRow.getBoundingClientRect().top >= bubble.getBoundingClientRect().bottom && Math.abs(actionRow.getBoundingClientRect().left - actionRow.parentElement.getBoundingClientRect().left) < 1, 'Actions sit below and left-align with the message bubble');
+      const actionsAligned = () => actionRow.parentElement.classList.contains('wmsg') && actionRow.getBoundingClientRect().top >= bubble.getBoundingClientRect().bottom && Math.abs(actionRow.getBoundingClientRect().left - actionRow.parentElement.getBoundingClientRect().left) < 1;
+      await until(actionsAligned, 'measured message-action alignment');
+      assert(actionsAligned(), 'Actions sit below and left-align with the message bubble');
       assert(getComputedStyle(first.querySelector('.mt')).position === 'static' && getComputedStyle(first.querySelector('.mochi-bubble-meta')).position === 'static' && first.querySelector('.mochi-bubble-meta').getBoundingClientRect().height > 0, 'Timestamp retains its original in-flow position beside the group sender');
       assert(getComputedStyle(actionRow).flexWrap === 'nowrap', 'Message actions remain on one horizontal row');
       assert(Math.abs(actionRow.getBoundingClientRect().top - first.querySelector('.mochi-bubble-meta').getBoundingClientRect().top) < 1, 'Only actions move to the original timestamp metadata top edge');
@@ -267,7 +476,10 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
         const delays = controls.map((control) => parseFloat(getComputedStyle(control).transitionDelay));
         assert(delays[3] === 0 && delays[2] < delays[1] && delays[1] < delays[0] && parseFloat(getComputedStyle(transfer).transitionDuration) > 0, 'More buttons keep the original bottom-to-top staggered animation');
         if (transferBounds) assert(bounds.top === transferBounds.top && bounds.left === transferBounds.left, 'Transfer does not shift between openings');
-        transferBounds = bounds; press(q('#plusBtn')); await settle(220);
+        transferBounds = bounds; press(q('#plusBtn'));
+        // Background inspection tabs can throttle CSS transitions independently
+        // of the fixture's timers. Wait for the rendered closing state.
+        await until(() => getComputedStyle(transfer).opacity === '0', 'More closing animation');
         assert(q('.plus-menu').inert && getComputedStyle(transfer).opacity === '0' && getComputedStyle(transfer).transform !== 'none', 'Closed More buttons return to their original translated/scaled animation state');
       }
       press(q('#plusBtn')); await settle(); press(q('#transferBtn')); await settle();
@@ -305,7 +517,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       await until(() => savedButton.querySelector('img').naturalWidth > 0, 'sticker image decode');
       const backend = await savedStickers();
       const entry = backend.list.find((item) => item.name === name);
-      assert(entry && (await backend.image(entry)).size === file.size, 'Imported image is saved in real global Mochi storage');
+      assert(entry && backend.location === 'mochi-os/stickers' && (await backend.image(entry)).size === file.size, 'Imported image is saved in real extension-folder Mochi storage');
       const countBeforeInvalid = all('.mochi-sticker-cell').length;
       await importFiles([new File(['<svg onload="bad()"/>'], 'renamed.png', { type: 'image/png' })]);
       await until(() => q('.mochi-media-error'), 'invalid sticker rejection');

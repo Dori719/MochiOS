@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { build } from 'esbuild';
+import { runStickerStorageTests } from './test-sticker-storage.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -17,7 +18,8 @@ const result = await build({
       export { deriveActiveLorebookViews } from './src/lib/chat-lorebooks.ts';
       export { mergeMochiChatHistoryBlocks, locateMochiMessageInRoleplay, mochiRoleplayBubbleId, parseChatHistoryBlocks, parseMochiChatResponse, serializeChatHistoryYaml, cleanAndExtractRawYaml, stripMochiReasoning, reconcileMochiContactHistory } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { splitPhoneTranscript } from './src/st/phone-transcript.ts';
-      export { createStickerLibrary, MAX_STICKER_BYTES, normalizeStickerName, stickerName } from './src/st/stickers.ts';
+      export { createStickerLibrary, MAX_STICKER_BYTES, MAX_STICKER_NAME_LENGTH, normalizeStickerName, readStickerBackup, stickerName, stickerNameError, stickerNameKey, suggestStickerName } from './src/st/stickers.ts';
+      export * from './src/st/sticker-storage.ts';
       export { buildMochiPresetMessages, formatMochiPromptHistory, formatMochiDialogueExamples, substituteMochiPromptMacros } from './src/st/preset.ts';
       export { formatFriendInfo, mochiSocialHandle, parseMochiPrivateChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
@@ -791,10 +793,10 @@ assert.match(api.launcherPalette({ theme: 'dark', colorPreset: 'custom', customR
 const floating = { style: {}, getBoundingClientRect() { return { left: parseFloat(this.style.left) - 25, top: parseFloat(this.style.top) - 120 }; } };
 api.setFloatingPosition(floating, { left: 50, top: 60 });
 assert.deepEqual(floating.getBoundingClientRect(), { left: 50, top: 60 }, 'Scrolled/transformed ST root must not shift a floating element offscreen');
-// Sticker persistence is global and owns a dedicated folder, never ST settings/metadata.
+// The library contract owns a dedicated extension folder, never ST settings/metadata.
 let storedStickers = [];
 let failStickerWrite = false;
-const stickerBackend = { location: 'mochi-os/stickers', async read() { return [...storedStickers]; }, async write(next) { if (failStickerWrite) throw new Error('Disk full'); storedStickers = [...next]; } };
+const stickerBackend = { location: 'MochiOS/stickers', async read() { return [...storedStickers]; }, async write(next) { if (failStickerWrite) throw new Error('Disk full'); storedStickers = [...next]; } };
 const revoked = [];
 let urlSeq = 0;
 const objectUrls = { createObjectURL() { return `blob:offline-${++urlSeq}`; }, revokeObjectURL(url) { revoked.push(url); } };
@@ -804,7 +806,7 @@ const metadataBeforeStickers = JSON.stringify(host.chatMetadata);
 const settingsBeforeStickers = JSON.stringify(host.extensionSettings);
 await stickerLibrary.add([png, png]);
 assert.deepEqual(stickerLibrary.getSnapshot().list.map((item) => item.name), ['happy_cat', 'happy_cat_2']);
-assert.equal(stickerLibrary.getSnapshot().location, 'mochi-os/stickers');
+assert.equal(stickerLibrary.getSnapshot().location, 'MochiOS/stickers');
 await Promise.all([stickerLibrary.add([png]), stickerLibrary.add([png])]);
 assert.equal(stickerLibrary.getSnapshot().list.length, 4, 'Concurrent imports do not overwrite each other');
 await assert.rejects(stickerLibrary.add([new File(['<svg onload="bad()"/>'], 'renamed.png', { type: 'image/png' })]), /PNG, JPEG, GIF, or WebP/);
@@ -822,6 +824,133 @@ assert.ok(revoked.length > 0, 'Replaced sticker object URLs are released');
 assert.equal(api.stickerName('[Sticker] happy_cat'), 'happy_cat');
 assert.equal(api.stickerName(':happy_cat:'), 'happy_cat');
 assert.equal(api.stickerName('sticker:happy_cat:'), 'happy_cat');
+
+// Editable names are validated at the persistence boundary, not just in the UI.
+assert.equal(api.stickerNameKey('  Ｈａｐｐｙ Cat  '), 'happy cat');
+assert.match(api.stickerNameError('   '), /Enter a sticker name/);
+assert.match(api.stickerNameError('bad:name'), /colons/);
+assert.match(api.stickerNameError('[Sticker] reserved'), /start with \[Sticker\]/);
+assert.match(api.stickerNameError('line\nbreak'), /control characters/);
+assert.match(api.stickerNameError('line\u2028break'), /control characters/);
+assert.match(api.stickerNameError('x'.repeat(api.MAX_STICKER_NAME_LENGTH + 1)), /characters or fewer/);
+assert.equal(api.suggestStickerName('Happy Cat.png', ['HAPPY_CAT', 'happy_cat_2']), 'happy_cat_3');
+let namedRecords = [];
+let namedWriteFailure = false;
+let namedWrites = 0;
+const namedBackend = {
+  location: 'offline named stickers',
+  async read() { return [...namedRecords]; },
+  async write(next) { if (namedWriteFailure) throw new Error('Disk full'); namedWrites++; namedRecords = [...next]; },
+};
+const namedLibrary = api.createStickerLibrary(async () => namedBackend, objectUrls);
+await namedLibrary.add([{ file: png, name: ' Happy Cat ' }, { file: png, name: 'Sleepy Cat 😴' }]);
+assert.deepEqual(namedLibrary.getSnapshot().list.map((item) => item.name), ['Happy Cat', 'Sleepy Cat 😴'], 'Upload names are editable, trimmed, and preserve friendly text');
+const originalSticker = namedRecords[0];
+const beforeRejectedNames = namedWrites;
+for (const name of ['happy cat', '  HAPPY CAT  ', 'Ｈａｐｐｙ Cat', '', 'bad:name', '[Sticker] bad']) {
+  await assert.rejects(namedLibrary.add([{ file: png, name }]), /already exists|Enter a sticker name|colons/);
+}
+await assert.rejects(namedLibrary.add([{ file: png, name: 'Batch name' }, { file: png, name: ' BATCH NAME ' }]), /already exists/);
+assert.equal(namedWrites, beforeRejectedNames, 'Invalid or duplicate batches must not write any stickers');
+assert.equal(namedRecords.length, 2);
+await assert.rejects(namedLibrary.add([new File([new Uint8Array(api.MAX_STICKER_BYTES + 1)], 'too-large.png', { type: 'image/png' })]), /under 10 MB/);
+await namedLibrary.rename(originalSticker.id, 'HAPPY CAT');
+await namedLibrary.rename(originalSticker.id, 'Renamed Cat');
+assert.equal(namedRecords[0].id, originalSticker.id);
+assert.equal(namedRecords[0].fileName, originalSticker.fileName);
+assert.equal(namedRecords[0].blob, originalSticker.blob, 'Renaming changes metadata, not the saved image');
+assert.deepEqual(namedRecords[0].aliases, ['Happy Cat', 'HAPPY CAT'], 'Previous names remain usable in old transcripts');
+await assert.rejects(namedLibrary.rename(originalSticker.id, ' sleepy cat 😴 '), /already exists/);
+await assert.rejects(namedLibrary.rename(namedRecords[1].id, 'happy cat'), /already exists/, 'Historical names remain owned by their original sticker');
+await assert.rejects(namedLibrary.add([{ file: png, name: 'Happy Cat' }]), /already exists/);
+await assert.rejects(namedLibrary.rename('missing-sticker', 'Missing'), /no longer saved/);
+await assert.rejects(namedLibrary.rename(originalSticker.id, '   '), /Enter a sticker name/);
+const beforeFailedRename = namedLibrary.getSnapshot().list;
+namedWriteFailure = true;
+await assert.rejects(namedLibrary.rename(originalSticker.id, 'Unsaved rename'), /Disk full/);
+assert.equal(namedLibrary.getSnapshot().list, beforeFailedRename);
+assert.equal(namedRecords[0].name, 'Renamed Cat', 'A failed rename cannot mutate persisted records');
+namedWriteFailure = false;
+const renamedReload = api.createStickerLibrary(async () => namedBackend, objectUrls);
+await renamedReload.load();
+assert.deepEqual(renamedReload.getSnapshot().list.map((item) => [item.name, item.aliases]), namedLibrary.getSnapshot().list.map((item) => [item.name, item.aliases]));
+
+// JSON backups contain all bytes and names, and import atomically without overwrites.
+const backupJson = await namedLibrary.exportJson();
+const backup = JSON.parse(backupJson);
+assert.equal(backup.format, 'mochi-os-stickers');
+assert.equal(backup.version, 1);
+assert.deepEqual(backup.stickers.map((item) => item.name), ['Renamed Cat', 'Sleepy Cat 😴']);
+assert.deepEqual(backup.stickers[0].aliases, ['Happy Cat', 'HAPPY CAT']);
+assert.ok(backup.stickers.every((item) => item.data.startsWith('data:image/png;base64,')));
+assert.ok(!backupJson.includes('blob:') && !backupJson.includes('fileName'), 'Backups cannot depend on temporary URLs or this device\'s paths');
+const reviewedBackup = await api.readStickerBackup(new File([backupJson], 'stickers.json', { type: 'application/json' }));
+assert.equal(reviewedBackup[0].file.size, png.size);
+assert.equal(namedRecords.length, 2, 'Reading a JSON backup prepares editable uploads without saving');
+let restoredRecords = [];
+let restoredWrites = 0;
+const restoreBackend = { location: 'other browser', async read() { return [...restoredRecords]; }, async write(next) { restoredWrites++; restoredRecords = [...next]; } };
+const restoredLibrary = api.createStickerLibrary(async () => restoreBackend, objectUrls);
+await restoredLibrary.importJson(backupJson);
+assert.deepEqual(restoredRecords.map((item) => [item.name, item.aliases]), namedRecords.map((item) => [item.name, item.aliases]));
+assert.notEqual(restoredRecords[0].id, originalSticker.id, 'Import creates fresh storage identities');
+assert.deepEqual(new Uint8Array(await restoredRecords[0].blob.arrayBuffer()), new Uint8Array(await originalSticker.blob.arrayBuffer()));
+await assert.rejects(restoredLibrary.importJson(backupJson), /already exists/);
+assert.equal(restoredRecords.length, 2);
+assert.equal(restoredWrites, 1, 'An import conflict must not overwrite the existing library');
+const pack = (stickers) => JSON.stringify({ format: 'mochi-os-stickers', version: 1, stickers });
+const backupImage = { name: 'New backup sticker', mimeType: 'image/png', data: backup.stickers[0].data };
+const invalidBackups = [
+  ['{bad json', /valid Mochi OS sticker JSON/],
+  ['null', /invalid/],
+  [JSON.stringify({ ...backup, version: 2 }), /not supported/],
+  [JSON.stringify({ ...backup, format: 'other-format' }), /not supported/],
+  [JSON.stringify({ ...backup, stickers: {} }), /stickers array/],
+  [pack([{ name: 'No data' }]), /must include/],
+  [pack([{ ...backupImage, name: '' }]), /Enter a sticker name/],
+  [pack([{ ...backupImage, data: 'https://example.test/image.png' }]), /image data.*invalid/],
+  [pack([{ ...backupImage, data: 'data:image/png;base64,not-base64!' }]), /base64.*invalid/],
+  [pack([{ ...backupImage, data: 'data:image/png;base64,' + btoa('<svg onload="bad()"/>') }]), /PNG, JPEG, GIF, or WebP/],
+  [pack([{ ...backupImage, mimeType: 'image/jpeg', data: backupImage.data.replace('image/png', 'image/jpeg') }]), /does not match/],
+  [pack([{ ...backupImage, data: 'data:image/png;base64,' + 'A'.repeat(4 * Math.ceil(api.MAX_STICKER_BYTES / 3) + 4) }]), /under 10 MB/],
+  [pack([backupImage, { ...backupImage, name: ' new BACKUP sticker ' }]), /already exists/],
+  [pack([backupImage, { ...backupImage, name: 'Other', aliases: ['New backup sticker'] }]), /already exists/],
+  [pack([backupImage, { ...backupImage, name: 'Bad second sticker', data: 'data:image/png;base64,!!!!' }]), /base64.*invalid/],
+];
+for (const [json, error] of invalidBackups) {
+  await assert.rejects(restoredLibrary.importJson(json), error);
+  assert.equal(restoredRecords.length, 2);
+  assert.equal(restoredWrites, 1, 'Malformed, oversized, or duplicate backups must leave the whole library unchanged');
+}
+const concurrentNames = await Promise.allSettled([
+  restoredLibrary.add([{ file: png, name: 'Concurrent sticker' }]),
+  restoredLibrary.add([{ file: png, name: ' CONCURRENT STICKER ' }]),
+]);
+assert.deepEqual(concurrentNames.map((result) => result.status), ['fulfilled', 'rejected']);
+assert.equal(restoredRecords.length, 3, 'Concurrent explicit names are checked against the latest saved library');
+const concurrentRenames = await Promise.allSettled([
+  restoredLibrary.rename(restoredRecords[0].id, 'Shared rename'),
+  restoredLibrary.rename(restoredRecords[1].id, 'shared rename'),
+]);
+assert.deepEqual(concurrentRenames.map((result) => result.status), ['fulfilled', 'rejected']);
+assert.equal(new Set(restoredRecords.map((item) => api.stickerNameKey(item.name))).size, 3);
+let rasterRecords = [];
+const rasterBackend = { location: 'raster backups', async read() { return [...rasterRecords]; }, async write(next) { rasterRecords = [...next]; } };
+const rasterLibrary = api.createStickerLibrary(async () => rasterBackend, objectUrls);
+await rasterLibrary.add([
+  png,
+  new File([Uint8Array.from([255, 216, 255, 224])], 'Photo.jpg', { type: 'image/jpeg' }),
+  new File(['GIF89a\0\0\0\0\0\0'], 'Animated.gif', { type: 'image/gif' }),
+  new File(['RIFF\0\0\0\0WEBP'], 'Web sticker.webp', { type: 'image/webp' }),
+]);
+const rasterJson = await rasterLibrary.exportJson();
+assert.deepEqual((await api.readStickerBackup(rasterJson)).map((item) => item.file.type), ['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const chunkedBytes = Uint8Array.from({ length: 32768 * 3 + 5 }, (_, index) => index % 256);
+chunkedBytes.set(new Uint8Array(await png.slice(0, 8).arrayBuffer()));
+await rasterLibrary.add([{ file: new File([chunkedBytes], 'chunked.png', { type: 'image/png' }), name: 'Chunked image' }]);
+const chunkedBackup = await api.readStickerBackup(await rasterLibrary.exportJson());
+assert.deepEqual(new Uint8Array(await chunkedBackup.at(-1).file.arrayBuffer()), chunkedBytes, 'Base64 backups preserve all bytes across encoder chunk boundaries');
 assert.equal(JSON.stringify(host.chatMetadata), metadataBeforeStickers);
 assert.equal(JSON.stringify(host.extensionSettings), settingsBeforeStickers);
-console.log('PASS: ST-style preset markers and chronological history, selected personas, social handles, target-only private output, filtered response tags, deleted-thread reconciliation, one ST turn per response, reactions/edits/swipes/reload, legacy compatibility, global stickers, lorebook assignments, connections, chat isolation, viewport bounds, and launcher themes');
+await runStickerStorageTests(api);
+console.log('PASS: ST-style preset markers and chronological history, selected personas, social handles, target-only private output, filtered response tags, deleted-thread reconciliation, one ST turn per response, reactions/edits/swipes/reload, legacy compatibility, global stickers with editable unique names, persistent renames and portable validated JSON backups, lorebook assignments, connections, chat isolation, viewport bounds, and launcher themes');

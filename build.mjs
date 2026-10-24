@@ -8,6 +8,7 @@
  *   index.js        the entry point it loads — self-contained
  *   app.js          the phone, fetched on demand by index.js
  *   style.css       the launcher's styles
+ *   sticker-storage.mjs  optional SillyTavern server plugin for disk stickers
  *
  * There is deliberately no `chunks/` folder and no `dist/` hop. SillyTavern
  * loads one module and lets the browser resolve whatever that module imports; a
@@ -97,6 +98,17 @@ const entryOptions = {
   plugins: [appIsExternal],
 };
 
+/** One dependency-free Node module, also included for manual/plugin installs. */
+const stickerOptions = {
+  entryPoints: [path.join(ROOT, 'server', 'sticker-storage.mjs')],
+  outfile: path.join(ROOT, 'sticker-storage.mjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  logLevel: 'info',
+};
+
 /**
  * Refuses to ship an entry point that depends on another file.
  *
@@ -116,13 +128,12 @@ function assertEntryIsSelfContained() {
 }
 
 async function buildOnce() {
-  await esbuild.build(appOptions);
-  await esbuild.build(entryOptions);
+  await Promise.all([esbuild.build(appOptions), esbuild.build(entryOptions), esbuild.build(stickerOptions)]);
   assertEntryIsSelfContained();
 }
 
 async function buildWatched() {
-  const contexts = await Promise.all([esbuild.context(appOptions), esbuild.context(entryOptions)]);
+  const contexts = await Promise.all([esbuild.context(appOptions), esbuild.context(entryOptions), esbuild.context(stickerOptions)]);
   await Promise.all(contexts.map((context) => context.watch()));
   console.log('Watching src/ …');
 }
