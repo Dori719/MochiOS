@@ -2,9 +2,20 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import * as stickerPlugin from '../sticker-storage.mjs';
+import { createStickerFixture } from './sticker-fixture.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const port = Number(process.env.MOCHI_PREVIEW_PORT || 8127);
+const temporaryRoot = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA, 'Temp', 'opencode') : os.tmpdir();
+const fixtureRoot = fs.mkdtempSync(path.join(temporaryRoot, 'mochi-disk-preview-'));
+const extensionRoot = path.join(fixtureRoot, 'public/scripts/extensions/third-party/mochi-os');
+fs.mkdirSync(extensionRoot, { recursive: true });
+fs.copyFileSync(path.join(root, 'manifest.json'), path.join(extensionRoot, 'manifest.json'));
+const stickerFixture = createStickerFixture(stickerPlugin, { serverRoot: fixtureRoot, user: {
+  profile: { handle: 'preview', admin: true }, directories: { extensions: path.join(fixtureRoot, 'data/preview/extensions') },
+} });
 const context = `
 const initialMetadata = { mochios: { phoneDataYaml: 'phone_data:\\n  user:\\n    nickname: Preview User\\n  characters:\\n    - id: preview.png\\n      name: Preview Character\\n      contactname: Preview Contact\\n      socialhandle: preview_social\\n  groups:\\n    - id: preview-group\\n      name: Preview Group\\n      main_members: [Preview Character, Other Character]' } };
 const settings = JSON.parse(localStorage.getItem('mochi-preview-extension-settings') || 'null') || { disabledExtensions: [], mochi_os: {} };
@@ -44,6 +55,7 @@ export function getContext() {
     characters: [{ avatar: 'preview.png', name: 'Preview Character', chat: 'preview-chat', data: { name: 'Preview Character', description: 'Offline preview character' } }, { avatar: 'other.png', name: 'Other Character', data: { name: 'Other Character' } }],
     characterId: 0, groupId: null, chatId: state.chatId, chat: state.chat, groups: [],
     name1: 'Preview User', name2: 'Preview Character', chatMetadata: state.metadata,
+    getRequestHeaders: () => ({ 'Content-Type': 'application/json', 'X-CSRF-Token': 'offline-preview' }),
     powerUserSettings: { personas: { 'first-persona.png': 'First Persona', 'chosen-persona.png': 'Preview User' }, persona_descriptions: { 'first-persona.png': { title: 'Not selected', description: 'First test persona' }, 'chosen-persona.png': { title: 'Roleplay persona', description: 'The selected roleplay persona' } }, default_persona: 'first-persona.png' }, extensionSettings: settings,
     updateChatMetadata(patch) { Object.assign(state.metadata, patch); },
     saveMetadataDebounced: persist, saveSettingsDebounced() { localStorage.setItem('mochi-preview-extension-settings', JSON.stringify(settings)); },
@@ -72,7 +84,11 @@ export function getContext() {
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Mochi OS — isolated UI test</title><link rel="stylesheet" href="/style.css"><style>
 body{margin:0;background:#252525;color:#ddd;font-family:system-ui}#top-bar{height:40px;max-width:720px;margin:auto;background:#1c1c1c;padding:0 12px;box-sizing:border-box;display:flex;align-items:center;font-size:12px}#preview-status{padding:12px;font-size:14px}#preview-tools{position:fixed;right:8px;bottom:8px;z-index:4001;background:#252525;display:flex;flex-wrap:wrap;gap:4px;max-width:230px}#extensions_settings2{max-width:280px;margin:12px}.inline-drawer-header{display:flex;justify-content:space-between;padding:8px;cursor:pointer;background:#333}.inline-drawer-content{display:none;padding:8px;background:#303030}.checkbox_label{display:flex;gap:8px;align-items:center}#chat{max-width:720px;margin:auto}.mes{padding:10px;border-bottom:1px solid #444}.mes_text{min-width:0}button{cursor:pointer}
-</style></head><body><div id="top-bar">Offline Mochi OS test — no live API calls</div><div id="preview-status"></div><div id="extensions_settings2"></div><div id="extensionsMenu"></div><div id="chat"></div><div id="preview-tools"><button id="reopen">Reopen</button><button id="test-saved">Saved API</button><button id="test-default">Default API</button><button id="test-keyboard">Keyboard viewport</button><button id="test-reset-viewport">Full viewport</button><button id="test-layout">Check responsive controls</button><button id="test-updates">Check requested updates</button><button id="test-features">Check chat features</button><button id="test-reload">Check saved stickers after reload</button><button id="test-browser-small">Use 320 × 568 test viewport</button></div><script type="module">
+/* Simulate a mobile host theme's decorative heading rule. Mochi's persona name must remain plain. */
+@media(max-width:700px){h3{border-left:3px solid hotpink;padding-left:8px}h3::before{content:"";display:inline-block;width:3px;height:1em;background:hotpink}}
+/* Host message image rules must not make embedded stickers square. */
+#chat .mes_text img{border-radius:0}
+</style></head><body><div id="top-bar">Offline Mochi OS test — no live API calls</div><div id="preview-status"></div><div id="extensions_settings2"></div><div id="extensionsMenu"></div><div id="chat"></div><div id="preview-tools"><button id="reopen">Reopen</button><button id="test-saved">Saved API</button><button id="test-default">Default API</button><button id="test-keyboard">Keyboard viewport</button><button id="test-reset-viewport">Full viewport</button><button id="test-layout">Check responsive controls</button><button id="test-updates">Check requested updates</button><button id="test-stickers">Check sticker management</button><button id="test-features">Check chat features</button><button id="test-reload">Check saved stickers after reload</button><button id="test-browser-small">Use 320 × 568 test viewport</button></div><script type="module">
 import { ready, openMochiOs, closeMochiOs, isMochiOsOpen, refreshMochiWidgets } from '/app.js';
 import { init } from '/index.js';
 import { getContext, preview } from '/scripts/st-context.js';
@@ -200,8 +216,18 @@ document.querySelector('#test-layout').onclick=async()=>{
 };
 </script></body></html>`;
 
-http.createServer((request, response) => {
+const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, 'http://localhost');
+  if (url.pathname.startsWith('/api/plugins/mochi-os-stickers/')) {
+    try {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const result = await stickerFixture.fetch(url.href, { method: request.method, headers: request.headers, body: chunks.length ? Buffer.concat(chunks).toString('utf8') : undefined });
+      response.writeHead(result.status, Object.fromEntries(result.headers));
+      response.end(Buffer.from(await result.arrayBuffer()));
+    } catch (error) { response.writeHead(500); response.end(JSON.stringify({ error: error.message })); }
+    return;
+  }
   if (url.pathname === '/') { response.setHeader('Content-Type', 'text/html'); response.end(html); return; }
   if (url.pathname === '/scripts/st-context.js') { response.setHeader('Content-Type', 'text/javascript'); response.end(context); return; }
   if (url.pathname === '/scripts/world-info.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const selected_world_info=[]; export function getWorldInfoSettings(){return {world_info:{globalSelect:[],charLore:[]}};}'); return; }
@@ -214,4 +240,13 @@ http.createServer((request, response) => {
   if (!file) { response.writeHead(404); response.end(); return; }
   response.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : 'text/javascript');
   fs.createReadStream(path.join(root, file)).pipe(response);
-}).listen(port, '127.0.0.1', () => console.log(`Isolated preview: http://127.0.0.1:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`Isolated preview: http://127.0.0.1:${port}\nTemporary sticker extension: ${extensionRoot}`));
+
+async function stop() {
+  server.close();
+  await stickerPlugin.exit();
+  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  process.exit(0);
+}
+process.once('SIGINT', stop);
+process.once('SIGTERM', stop);

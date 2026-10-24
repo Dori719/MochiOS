@@ -7,6 +7,7 @@ export type ConversationSticker = MochiSticker;
 export function useConversationCustomStickers() {
   const snapshot = useSyncExternalStore(subscribeStickers, getStickerSnapshot, getStickerSnapshot);
   useEffect(() => { void loadMochiStickers().catch(() => {}); }, []);
-  const map = useMemo(() => new Map(snapshot.list.map((sticker) => [sticker.name, sticker.url])), [snapshot.list]);
+  const map = useMemo(() => new Map(snapshot.list.flatMap((sticker) =>
+    [sticker.name, ...sticker.aliases ?? []].map((name) => [name, sticker.url] as const))), [snapshot.list]);
   return useMemo(() => ({ ...snapshot, map }), [snapshot, map]);
 }

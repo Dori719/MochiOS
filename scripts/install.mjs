@@ -4,12 +4,13 @@
  *
  * SillyTavern only looks for extensions under
  * `public/scripts/extensions/third-party/<folder>`, so the build output has to be
- * copied there. The extension is four files, and all four are copied every time,
+ * copied there. The runtime files and sticker helper are copied every time,
  * so an install can never end up half-present — which is what produces
  * "Extension failed to load: [object Event]".
  *
  *   node scripts/install.mjs                     # every checkout found
  *   node scripts/install.mjs --target D:/ST     # one specific checkout
+ *   node scripts/install.mjs --target D:/ST --with-sticker-storage
  *   SILLYTAVERN_DIR=D:/ST node scripts/install.mjs
  */
 import fs from 'node:fs';
@@ -20,8 +21,8 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 /** The folder name SillyTavern serves the extension from. */
 const FOLDER = 'mochi-os';
 
-/** Everything SillyTavern needs, named in `manifest.json`. */
-const FILES = ['manifest.json', 'index.js', 'app.js', 'style.css'];
+/** Browser runtime files plus the standalone sticker server helper. */
+const FILES = ['manifest.json', 'index.js', 'app.js', 'style.css', 'sticker-storage.mjs'];
 
 /** Third-party extension directory inside a SillyTavern checkout. */
 const THIRD_PARTY = path.join('public', 'scripts', 'extensions', 'third-party');
@@ -61,32 +62,57 @@ function assertBuilt() {
 }
 
 /**
- * Replaces what is in `destination`.
- *
- * The previous version of this extension may be there, and it has to go — a
- * leftover `chunks/` from an older build would be served alongside the new files.
- * Only a folder that is empty or holds an extension manifest is removed.
+ * Updates only our runtime files. In-folder stickers, source checkouts, and
+ * unrelated local files must survive an extension update.
  */
-function replace(destination) {
+function copyRuntime(destination) {
   if (fs.existsSync(destination)) {
     const entries = fs.readdirSync(destination);
     if (entries.length > 0 && !entries.includes('manifest.json')) {
       throw new Error(`${destination} does not look like an extension folder; refusing to replace it`);
     }
-    fs.rmSync(destination, { recursive: true, force: true });
+    if (entries.includes('manifest.json')) {
+      const manifest = JSON.parse(fs.readFileSync(path.join(destination, 'manifest.json'), 'utf8'));
+      if (manifest.display_name !== 'Mochi OS' || manifest.js !== 'index.js') {
+        throw new Error(`${destination} is not a Mochi OS extension; refusing to overwrite another extension`);
+      }
+    }
   }
 
   fs.mkdirSync(destination, { recursive: true });
   for (const file of FILES) {
-    fs.copyFileSync(path.join(ROOT, file), path.join(destination, file));
+    const source = path.join(ROOT, file);
+    const target = path.join(destination, file);
+    if (path.resolve(source) !== path.resolve(target)) fs.copyFileSync(source, target);
   }
 }
 
-/** Copies the four files into one SillyTavern checkout. Returns the path written. */
-export function install(target) {
+function extensionFolder(target, requested) {
+  if (requested !== undefined) {
+    if (!requested || requested === '.' || requested === '..' || /[\\/<>:"|?*\p{Cc}]/u.test(requested) || requested.endsWith('.') || requested.endsWith(' ')) throw new Error('Choose a single extension folder name with --folder.');
+    return requested;
+  }
+  const parent = path.join(target, THIRD_PARTY);
+  if (!fs.existsSync(parent)) return FOLDER;
+  const matches = fs.readdirSync(parent, { withFileTypes: true }).filter((entry) => {
+    if (!entry.isDirectory()) return false;
+    try { return JSON.parse(fs.readFileSync(path.join(parent, entry.name, 'manifest.json'), 'utf8')).display_name === 'Mochi OS'; }
+    catch { return false; }
+  });
+  if (matches.length > 1) throw new Error('Several Mochi OS installations exist; choose one with --folder <name>.');
+  return matches[0]?.name ?? FOLDER;
+}
+
+/** Copies runtime files in place; server-plugin activation is explicitly opt-in. */
+export function install(target, { folder, withStickerStorage = false } = {}) {
   assertBuilt();
-  const destination = path.join(target, THIRD_PARTY, FOLDER);
-  replace(destination);
+  const destination = path.join(target, THIRD_PARTY, extensionFolder(target, folder));
+  copyRuntime(destination);
+  if (withStickerStorage) {
+    const plugins = path.join(target, 'plugins');
+    fs.mkdirSync(plugins, { recursive: true });
+    fs.copyFileSync(path.join(ROOT, 'sticker-storage.mjs'), path.join(plugins, 'mochi-os-stickers.mjs'));
+  }
   return destination;
 }
 
@@ -114,6 +140,9 @@ function main() {
     targetIndex !== -1 && process.argv[targetIndex + 1]
       ? [path.resolve(process.argv[targetIndex + 1])]
       : candidateRoots();
+  const folderIndex = process.argv.indexOf('--folder');
+  const options = { folder: folderIndex === -1 ? undefined : process.argv[folderIndex + 1], withStickerStorage: process.argv.includes('--with-sticker-storage') };
+  if (folderIndex !== -1 && !options.folder) throw new Error('--folder requires an extension folder name.');
 
   if (targets.length === 0) {
     console.warn('No SillyTavern checkout found. Pass --target <checkout> to install.');
@@ -122,7 +151,8 @@ function main() {
 
   for (const target of targets) {
     try {
-      console.log(`Mochi OS -> ${install(target)}`);
+      console.log(`Mochi OS -> ${install(target, options)}`);
+      if (options.withStickerStorage) console.log('Sticker plugin installed. Set enableServerPlugins: true in SillyTavern config.yaml and restart SillyTavern; the installer does not change server configuration.');
     } catch (error) {
       console.error(`Mochi OS could not be installed into ${target}:`, error.message);
       process.exitCode = 1;

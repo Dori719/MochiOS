@@ -37,12 +37,13 @@ app shell.
   Generated replies save only the relevant transcript and environment; model
   reasoning, unrelated tags, surrounding explanations and fences are discarded.
 - **Emoji and global stickers.** More → Emoji opens the emoji/sticker picker.
-  Import images once and use them in any Mochi chat in the same browser/origin.
+  Import images once and use them in any Mochi chat, browser, or device connected
+  to the same SillyTavern extension library.
 - **The same data, in SillyTavern's terms.** The phone document lives in the
   chat's metadata, so it travels with export, import and branching. Transcript
   turns stay in the ordinary roleplay messages — no parallel store to keep in
-  step. Sticker image files are the exception: they live in Mochi's browser
-  storage, not chat metadata or SillyTavern's media directories.
+  step. Sticker image files are the exception: they live in the Mochi extension's
+  `stickers/` folder, not browser storage, chat metadata, or SillyTavern's media directories.
 
 ## Opening it
 
@@ -88,23 +89,61 @@ Legacy transcript aliases remain supported, and group output is unchanged.
 
 ### Stickers and emoji
 
-Open **More → Emoji → Stickers → Import stickers**. PNG, JPEG, GIF and WebP files
-up to 10 MB each are supported. Select an imported sticker to send an image
-bubble; emoji selection inserts into the composer, where Send queues it as text.
+Open **More → Emoji → Stickers → Upload images**. PNG, JPEG, GIF and WebP files
+up to 10 MB each are supported. Review the image previews, edit each name, and
+choose **Save stickers**; Cancel leaves the library untouched. Suggested names
+are unique, and saving rejects empty names or duplicates (ignoring case,
+surrounding whitespace, and Unicode compatibility variants). Select a saved
+sticker to send an image bubble; emoji selection inserts into the composer,
+where Send queues it as text.
 Use Refresh to request the phone's next reply, just as with other queued messages.
 
-Images are saved in the browser's origin-private folder **`mochi-os/stickers`**,
-with an IndexedDB fallback on browsers without folder storage. This is not a
-folder beside the repository and does not use SillyTavern upload APIs. The
-library survives page reloads and chat switches within the same browser profile
-and origin; it is not synced across devices or included in SillyTavern chat
-exports. Clearing site data removes the library. A sticker's **×** removes it
-globally; older transcripts then show its name if its image is unavailable.
+Use a saved sticker's **Rename** button to change its name at any time. Previous
+names stay reserved for that sticker so existing messages continue to show its
+image. **Export JSON** downloads a complete backup, including image bytes, names,
+and previous names. **Import JSON** opens the same editable review before saving;
+name conflicts and invalid images never overwrite existing stickers. The versioned
+backup format is `{ "format": "mochi-os-stickers", "version": 1, "stickers": [...] }`;
+each sticker has `name`, `mimeType`, a base64 image data URL in `data`, and optional
+`aliases` for its previous names. No other files are needed to transfer it.
+
+Images are saved on the machine running SillyTavern, inside the installed
+Mochi OS extension's **`stickers/`** folder, alongside its runtime files. That
+folder contains `.library.json` (names, aliases, and migration receipts) and
+dot-prefixed UUID image files. Dotfiles are intentionally not served by
+SillyTavern's public static-file handler; images are read through the authenticated
+plugin API. The **Mochi OS sticker server plugin** below is required:
+browser extensions cannot directly write to the server's filesystem. If it is
+unavailable, Mochi shows setup instructions and does not silently save in the browser.
+The picker displays the actual extension folder name, including installations named `MochiOS`.
+
+The library survives page reloads, chat switches, and clearing browser site data.
+Other browsers/devices connected to the same installation read the same files;
+reopening Mochi or focusing its tab refreshes the library. Revision-checked saves
+prevent one device from overwriting another's changes. A globally installed
+extension shares its library; only SillyTavern admins may change it. User-local
+extension installs keep their own libraries and do not require admin privileges.
+Sticker files are not included in chat exports. Export JSON or back up the
+`stickers/` folder before uninstalling the extension. **×** removes a sticker
+from that library; older transcripts then show its name if its image is unavailable.
+
+Existing OPFS/IndexedDB stickers migrate automatically when disk storage is first
+available. Their names and aliases are preserved; identical images can merge,
+but conflicting names/images never overwrite disk stickers. The old browser
+copy is left untouched as a read-only recovery backup. Migration receipts on disk
+prevent deleted stickers from reappearing on reload. If migration cannot finish,
+use **Export browser JSON**, then **Import JSON** to review and resolve conflicts.
+If a previous-name alias itself conflicts, edit that alias in the recovery JSON before importing.
+New saves never write image bytes to browser storage.
+
+Quoted stickers use the same **12px image corners** as their original sent
+stickers and compact horizontal padding, in both the phone and embedded
+transcripts. Ordinary text quotes and unavailable-image fallbacks keep their normal layout.
 
 ## Installing
 
-The extension is four files. That is the whole install, and copying them is all
-SillyTavern needs:
+The browser interface is four runtime files, with one bundled server helper for
+extension-folder sticker persistence:
 
 ```
 mochi-os/
@@ -112,6 +151,7 @@ mochi-os/
   index.js      the entry point SillyTavern loads
   app.js        the phone, fetched the first time it is opened
   style.css     the launcher's styles
+  sticker-storage.mjs  copy to SillyTavern/plugins/mochi-os-stickers.mjs for disk stickers
 ```
 
 Copy those into `SillyTavern/public/scripts/extensions/third-party/mochi-os/`
@@ -120,25 +160,35 @@ floating-bubble toggle in its settings drawer. Installing from this repository i
 
 ```powershell
 npm install          # once, to build
-node scripts/install.mjs --target "D:\path\to\SillyTavern"
+node build.mjs --no-install
+node scripts/install.mjs --target "D:\path\to\SillyTavern" --with-sticker-storage
 ```
 
-or just `npm run build`, which builds and installs into every SillyTavern it finds
-next to this folder. Nothing is written anywhere else in the SillyTavern
-directory.
+Then set **`enableServerPlugins: true`** in SillyTavern's `config.yaml` and restart
+SillyTavern. Install server plugins only from sources you trust. The installer
+does not enable plugins, change server configuration, or restart a live server.
+For manual installs, copy `sticker-storage.mjs` to
+`SillyTavern/plugins/mochi-os-stickers.mjs`, enable the same setting, and restart.
+The rest of the phone still works without the sticker server plugin.
+
+`npm run build` builds and updates runtime files in neighboring SillyTavern
+installations, but does not activate the server plugin. `--with-sticker-storage`
+explicitly opts into copying the helper into SillyTavern's `plugins/` directory.
 
 To build without writing to any SillyTavern installation, use
 `node build.mjs --no-install`.
 
-For an existing installation, update the four runtime files in its existing
-extension folder instead of creating a second differently named Mochi OS folder.
-The installer replaces its destination folder, so do not use it over a source
-checkout or a folder containing local work you need to keep.
+The installer reuses an existing Mochi OS extension folder instead of creating a
+second differently named install. It updates only runtime/helper files, preserving
+`stickers/`, `.git/`, source files, and unrelated local files. Local edits to the
+runtime/helper files themselves are replaced, so back those up first. If several
+Mochi OS installs exist, select one explicitly with `--folder MochiOS`.
 
 ### Offline checks
 
-`npm run typecheck` and `npm test` check types and the SillyTavern integration
-contract without touching an installation or sending API requests. After a
+`npm run typecheck` and `npm test` check types, integration contracts, real disk
+persistence/rollback, cross-device saves, safe migration, and plugin permissions
+using temporary fixtures, without touching a live installation or sending API requests. After a
 build, `node scripts/preview-st.mjs` serves an isolated UI fixture at
 `http://127.0.0.1:8127`; generation is disabled there.
 **Check chat features** runs bubble-action, long-press, settings, media and
@@ -147,7 +197,13 @@ page and run **Check saved stickers after reload** to verify real storage
 persistence and remove the imported test sticker. **Check responsive controls**
 tests viewport/keyboard placement and launcher behavior. **Check requested
 updates** verifies wallpaper cropping, personas, target-only private records,
-Social Handle editing, profile sizing and format-guide controls. Resize the
+Social Handle editing, profile sizing, heading-style isolation and format-guide
+controls.
+**Check sticker management** verifies editable upload names, duplicate protection,
+renaming without breaking old bubbles, JSON backup/restore, and rounded compact
+sticker quotes in private/group chats and embedded transcripts. It uses the real
+server helper with an isolated temporary extension folder, then removes only its
+own test stickers. Resize the
 preview to a mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
 visible area deterministically. Feature results report the measured visible size,
 not the browser panel's preset label. None of these checks calls a live model or
@@ -184,7 +240,7 @@ has:
 | `data_generation` YAML file | `chat_metadata.mochios.phoneDataYaml`, saved with the chat. |
 | Transcript turns | The roleplay messages themselves. Bubble keys exist only in memory; no message ids are added to transcript YAML. |
 | Incoming private/group replies | One complete YAML transcript per SillyTavern message, with each sender retained inside the record. The phone renders individual bubbles; edits and reactions target their YAML items. Older split turns remain readable and consolidate only when explicitly edited or regenerated. |
-| Sticker library | Mochi-owned browser folder `mochi-os/stickers`, or IndexedDB fallback, shared across chats within the same browser/origin. |
+| Sticker library | The installed extension's `stickers/` folder, read/written through the Mochi OS server plugin and shared across chats/devices using that library. |
 | Lorebook assignments | Only explicitly configured global, chat, persona or character books (including group members and embedded card entries). Installed but unattached books are never activated; assignments are checked again before sending. |
 | Model provider | Current connection via `generateRaw`, or saved profile via `ConnectionManagerRequestService`; template braces are protected. |
 | Engine dialogs | SillyTavern's `callGenericPopup`. |
@@ -220,6 +276,8 @@ manifest.json               what SillyTavern reads first
 index.js                    built entry point — self-contained
 app.js                      built phone — fetched on demand by index.js
 style.css                   the window, the launchers, the size container
+sticker-storage.mjs          bundled dependency-free SillyTavern server plugin
+server/sticker-storage.mjs   server plugin source; restricted disk paths and atomic writes
 src/
   index.ts                  the launchers, the event bridge, /mochi
   app.ts                    what app.js exports: the overlay, widgets, readiness
@@ -230,6 +288,8 @@ src/
     phone-actions.ts        targeted transcript edits, deletion and reactions
     phone-transcript.ts     compatibility with older split-message turns
     stickers.ts             persistent global Mochi sticker library
+    sticker-format.ts       shared browser/server image and name validation
+    sticker-storage.ts      server storage client and read-only browser migration
     generate.ts             generateRaw, and the {{ escape
     preset.ts               shared ST-style prompt markers and chronological history
     lorebooks.ts            native World Info scanning and assignment compatibility
@@ -244,7 +304,7 @@ src/
   styles/port-chrome.css    the chrome the port had to write, plus utility generation output
 ```
 
-`index.js` and `app.js` are build output, committed because SillyTavern never
+`index.js`, `app.js`, and `sticker-storage.mjs` are build output, committed because SillyTavern never
 runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` is adapted
 for this port's transcript lifecycle and interactions. The ported
 `mochi-os.css` retains the engine's design with targeted phone-layout adjustments;
@@ -269,7 +329,7 @@ npm run typecheck    # tsc across the whole port
 npm test             # offline integration contracts
 node build.mjs --no-install          # one build, no installation writes
 node build.mjs --watch --no-install  # rebuild on save, without installing
-npm run install:st   # copy the four files without rebuilding
+npm run install:st   # update runtime/helper files without rebuilding or enabling the server plugin
 npm run tailwind     # regenerate the utility sheet (see below)
 ```
 
