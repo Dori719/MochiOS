@@ -11,6 +11,7 @@
  *   node scripts/install.mjs                     # every checkout found
  *   node scripts/install.mjs --target D:/ST     # one specific checkout
  *   node scripts/install.mjs --target D:/ST --with-sticker-storage
+ *   node scripts/install.mjs --target D:/ST --sticker-storage-only
  *   SILLYTAVERN_DIR=D:/ST node scripts/install.mjs
  */
 import fs from 'node:fs';
@@ -54,8 +55,8 @@ function candidateRoots() {
 }
 
 /** Fails before copying anything if the build did not produce a whole extension. */
-function assertBuilt() {
-  const missing = FILES.filter((file) => !fs.existsSync(path.join(ROOT, file)));
+function assertBuilt(files = FILES) {
+  const missing = files.filter((file) => !fs.existsSync(path.join(ROOT, file)));
   if (missing.length > 0) {
     throw new Error(`Nothing to install — ${missing.join(', ')} missing. Run "npm run build" first.`);
   }
@@ -103,16 +104,22 @@ function extensionFolder(target, requested) {
   return matches[0]?.name ?? FOLDER;
 }
 
-/** Copies runtime files in place; server-plugin activation is explicitly opt-in. */
+/** Repairs the backend without replacing browser runtime files or local source work. */
+export function installStickerStorage(target) {
+  assertBuilt(['sticker-storage.mjs']);
+  const plugins = path.join(target, 'plugins');
+  const destination = path.join(plugins, 'mochi-os-stickers.mjs');
+  fs.mkdirSync(plugins, { recursive: true });
+  fs.copyFileSync(path.join(ROOT, 'sticker-storage.mjs'), destination);
+  return destination;
+}
+
+/** Copies runtime files in place; server-plugin installation is explicitly opt-in. */
 export function install(target, { folder, withStickerStorage = false } = {}) {
   assertBuilt();
   const destination = path.join(target, THIRD_PARTY, extensionFolder(target, folder));
   copyRuntime(destination);
-  if (withStickerStorage) {
-    const plugins = path.join(target, 'plugins');
-    fs.mkdirSync(plugins, { recursive: true });
-    fs.copyFileSync(path.join(ROOT, 'sticker-storage.mjs'), path.join(plugins, 'mochi-os-stickers.mjs'));
-  }
+  if (withStickerStorage) installStickerStorage(target);
   return destination;
 }
 
@@ -142,7 +149,9 @@ function main() {
       : candidateRoots();
   const folderIndex = process.argv.indexOf('--folder');
   const options = { folder: folderIndex === -1 ? undefined : process.argv[folderIndex + 1], withStickerStorage: process.argv.includes('--with-sticker-storage') };
+  const stickerStorageOnly = process.argv.includes('--sticker-storage-only');
   if (folderIndex !== -1 && !options.folder) throw new Error('--folder requires an extension folder name.');
+  if (stickerStorageOnly && folderIndex !== -1) throw new Error('--sticker-storage-only installs the shared server helper; --folder only applies to browser runtime updates.');
 
   if (targets.length === 0) {
     console.warn('No SillyTavern checkout found. Pass --target <checkout> to install.');
@@ -151,8 +160,14 @@ function main() {
 
   for (const target of targets) {
     try {
-      console.log(`Mochi OS -> ${install(target, options)}`);
-      if (options.withStickerStorage) console.log('Sticker plugin installed. Set enableServerPlugins: true in SillyTavern config.yaml and restart SillyTavern; the installer does not change server configuration.');
+      if (stickerStorageOnly) console.log(`Mochi OS sticker plugin -> ${installStickerStorage(target)}`);
+      else console.log(`Mochi OS -> ${install(target, options)}`);
+      if (stickerStorageOnly || options.withStickerStorage) {
+        if (!stickerStorageOnly) console.log(`Mochi OS sticker plugin -> ${path.join(target, 'plugins', 'mochi-os-stickers.mjs')}`);
+        console.log('Sticker plugin installed. Set enableServerPlugins: true in this SillyTavern installation\'s active config.yaml and fully restart SillyTavern; the installer does not change configuration or restart the server.');
+      } else {
+        console.log('Sticker storage requires a separate server plugin. Use --with-sticker-storage, or --sticker-storage-only to preserve browser runtime files; enableServerPlugins alone does not install it.');
+      }
     } catch (error) {
       console.error(`Mochi OS could not be installed into ${target}:`, error.message);
       process.exitCode = 1;
