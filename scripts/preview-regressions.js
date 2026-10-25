@@ -1,5 +1,6 @@
 /** Runs only in preview-st.mjs's isolated origin. No live host/provider access. */
 const RELOAD_KEY = 'mochi-preview-sticker-reload-check';
+const WRAPPING_TEXT = 'This longer text message must wrap to the conversation width instead of imposing a minimum size on short messages beside it.';
 const settle = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
 const q = (selector) => document.querySelector(selector);
 const all = (selector) => Array.from(document.querySelectorAll(selector));
@@ -157,6 +158,11 @@ function stickerLayoutTranscript(tag, target, names) {
     `  - t: quote\n    c: OK\n    time: "12:05"\n    quote: {name: "A very long quoted sender name that must not widen the image", t: sticker, c: ${JSON.stringify(`[Sticker] ${name}`)}}`,
     `  - t: quote\n    c: "A longer reply must wrap within the sticker bubble, not stretch it with empty space on the right."\n    time: "12:05"\n    "{{user}}": true\n    quote: {name: Sender, t: sticker, c: ${JSON.stringify(`:${name}:`)}}`,
   ]);
+  for (const me of [false, true]) {
+    for (const text of ['I', WRAPPING_TEXT]) {
+      messages.push(`  - t: text\n    c: ${JSON.stringify(text)}\n    time: "12:05"\n    "{{user}}": ${me}\n    sender: {name: "A long sender name must not set the text bubble width"}`);
+    }
+  }
   const type = tag === 'privatechat_history' ? 'private' : 'group';
   return `<${tag} target="${target}" type="${type}">\nmessages:\n${messages.join('\n')}\n</${tag}>\n<environment>\ntime: "12:05"\nweather: Sunny\n</environment>`;
 }
@@ -212,7 +218,54 @@ async function checkStickerLayout(root, embedded, assert, label) {
   assert(Array.from(root.querySelectorAll(embedded ? '.mochi-private-bubble-wrap:has(img) .mochi-private-time' : '.wmsg:has(.sticker img) .mt')).every((time) => getComputedStyle(time).whiteSpace === 'nowrap'), `${label}: sticker timestamps stay on one line beside long sender names`);
   const thread = root.querySelector(embedded ? '.mochi-private-thread' : '.c-body');
   assert(thread.scrollWidth <= thread.clientWidth + 1, `${label}: sticker layout does not overflow the conversation`);
+  await checkTextBubbleSizing(root, embedded, assert, label);
   return measurements;
+}
+
+async function checkTextBubbleSizing(root, embedded, assert, label) {
+  const bubbles = Array.from(root.querySelectorAll(embedded ? '.mochi-private-bubble:not(.is-quote)' : '.wmsg > .b:not(.mochi-quote-bubble)'));
+  const short = bubbles.filter((bubble) => bubble.textContent === 'I');
+  const long = bubbles.filter((bubble) => bubble.textContent === WRAPPING_TEXT);
+  assert(short.length === 2 && long.length === 2, `${label}: incoming/outgoing short and long text fixtures render`);
+  for (const [index, bubble] of short.entries()) {
+    const style = getComputedStyle(bubble);
+    const before = bubble.getBoundingClientRect();
+    const range = document.createRange(); range.selectNodeContents(bubble);
+    const textWidth = range.getBoundingClientRect().width;
+    const horizontal = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    const vertical = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    assert(style.minWidth === '0px' && style.minHeight === '0px' && Math.abs(before.width - textWidth - horizontal) < 1 && Math.abs(before.height - parseFloat(style.lineHeight) - vertical) < 1, `${label}: short text fits its text and padding without minimum bubble dimensions`);
+    const larger = long[index]?.getBoundingClientRect();
+    assert(larger?.width > before.width && larger?.height > before.height, `${label}: only longer text grows and wraps within the conversation`);
+    if (!embedded) {
+      bubble.scrollIntoView({ block: 'center' }); await settle();
+      const row = bubble.closest('.mrow'); const initial = bubble.getBoundingClientRect();
+      press(bubble); await settle();
+      const after = bubble.getBoundingClientRect(); const actions = row.querySelector('.msg-actions-trigger');
+      const controls = getComputedStyle(actions); const count = actions.children.length;
+      const available = actions.clientWidth - parseFloat(controls.paddingLeft) - parseFloat(controls.paddingRight) - Math.max(0, count - 1) * 4;
+      assert(initial.width === after.width && initial.height === after.height && initial.top === after.top && !actions.inert, `${label}: revealing actions does not resize or move short text bubbles`);
+      assert(actions.scrollWidth <= actions.clientWidth + 1 && Array.from(actions.children).every((control) => control.getBoundingClientRect().width >= Math.min(24, available / count) - 1), `${label}: compact text keeps usable controls in their separate footprint`);
+      const reaction = row.querySelector('.mochi-reaction-add > button'); press(reaction); await settle();
+      const popup = row.querySelector('.mochi-reaction-add-popover').getBoundingClientRect();
+      const thread = root.querySelector('.c-body').getBoundingClientRect();
+      assert(popup.left >= thread.left - 1 && popup.right <= thread.right + 1, `${label}: compact text reaction pickers stay inside the conversation`);
+      press(reaction); key(row, 'Escape');
+    }
+  }
+  const quoteClass = embedded ? '.mochi-private-quoted-message' : '.mochi-quoted-message';
+  for (const quote of root.querySelectorAll(`${quoteClass}:has(img)`)) {
+    const reply = embedded ? quote.nextElementSibling : quote.parentElement.querySelector('.mochi-reply-message');
+    const original = reply.textContent;
+    try {
+      reply.textContent = 'I'; await settle();
+      const image = quote.querySelector('img'); const card = quote.getBoundingClientRect();
+      const bounds = image.getBoundingClientRect(); const text = reply.getBoundingClientRect();
+      reply.textContent = WRAPPING_TEXT; await settle();
+      const nextCard = quote.getBoundingClientRect(); const nextImage = image.getBoundingClientRect();
+      assert(reply.getBoundingClientRect().height > text.height && card.width === nextCard.width && card.height === nextCard.height && bounds.width === nextImage.width && bounds.height === nextImage.height, `${label}: changing reply text resizes only the text, never the quoted sticker section`);
+    } finally { reply.textContent = original; await settle(); }
+  }
 }
 
 async function checkStickerQuotes(root, embedded, assert, label) {
@@ -636,7 +689,10 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(outgoing().length === 1 && outgoing()[0].textContent.includes('😀'), 'Emoji sends as one outgoing bubble');
       const userRow = outgoing()[0];
       press(userRow.querySelector('.b')); await settle();
-      assert(!userRow.querySelector('.mini') && Math.abs(userRow.querySelector('.msg-actions-trigger').getBoundingClientRect().left - userRow.querySelector('.b').getBoundingClientRect().left) < 1, 'Outgoing bubbles retain the original no-avatar layout with left-aligned actions');
+      const userBubble = userRow.querySelector('.b').getBoundingClientRect();
+      const userActions = userRow.querySelector('.msg-actions-trigger').getBoundingClientRect();
+      const userThread = q('#chatView .c-body').getBoundingClientRect();
+      assert(!userRow.querySelector('.mini') && userActions.left <= userBubble.left + 1 && userActions.left >= userThread.left - 1 && userActions.right <= userThread.right + 1, 'Compact outgoing bubbles retain the no-avatar layout with a separate in-bounds action footprint');
       await openPicker('Stickers');
       const file = await stickerFile();
       const priorNames = new Set(all('.mochi-sticker-send span').map((span) => span.textContent));

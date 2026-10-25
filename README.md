@@ -33,6 +33,9 @@ app shell.
   them. The original compact avatar/bubble layout is retained, with no extra
   author rail. Long-press with mouse or touch to Reply. Reserved control rows
   prevent bubbles from shifting. Translate is not offered.
+- **Content-sized text bubbles.** Short messages have no minimum bubble width or
+  height. Controls keep their own space, and resizing a sticker reply's text never
+  resizes its quoted sticker section.
 - **Live history.** Deleting roleplay turns immediately restores each phone
   thread's latest surviving messages and preview, including empty threads.
   Generated replies save only the relevant transcript and environment; model
@@ -239,7 +242,8 @@ sticker quotes in private/group chats and embedded transcripts. It uses the real
 server helper with an isolated temporary extension folder, then removes only its
 own test stickers. **Inspect sticker layout** checks wide, portrait, and small
 images, incoming/outgoing quotes, long sender names and replies, and fixed image
-bounds when controls appear, in both phone chats and embedded widgets. It keeps
+bounds when controls appear, in both phone chats and embedded widgets. It also checks
+content-sized short text bubbles and unchanged sticker quotes as reply text grows. It keeps
 the isolated fixtures visible until **Clear sticker layout** is selected. Resize the
 preview to a mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
 visible area deterministically. Feature results report the measured visible size,
