@@ -88,6 +88,7 @@ body{margin:0;background:#252525;color:#ddd;font-family:system-ui}#top-bar{heigh
 @media(max-width:700px){h3{border-left:3px solid hotpink;padding-left:8px}h3::before{content:"";display:inline-block;width:3px;height:1em;background:hotpink}}
 /* Host message image rules must not make embedded stickers square. */
 #chat .mes_text img{border-radius:0}
+.preview-small :is(#chat,#top-bar){max-width:320px}
 </style></head><body><div id="top-bar">Offline Mochi OS test — no live API calls</div><div id="preview-status"></div><div id="extensions_settings2"></div><div id="extensionsMenu"></div><div id="chat"></div><div id="preview-tools"><button id="reopen">Reopen</button><button id="test-saved">Saved API</button><button id="test-default">Default API</button><button id="test-keyboard">Keyboard viewport</button><button id="test-reset-viewport">Full viewport</button><button id="test-layout">Check responsive controls</button><button id="test-updates">Check requested updates</button><button id="test-stickers">Check sticker management</button><button id="test-features">Check chat features</button><button id="test-reload">Check saved stickers after reload</button><button id="test-browser-small">Use 320 × 568 test viewport</button></div><script type="module">
 import { ready, openMochiOs, closeMochiOs, isMochiOsOpen, refreshMochiWidgets } from '/app.js';
 import { init } from '/index.js';
@@ -99,8 +100,10 @@ window.toastr={error:console.error,success:console.log,info:console.log};
 window.requestAnimationFrame=(callback)=>setTimeout(()=>callback(performance.now()),16);
 window.cancelAnimationFrame=clearTimeout;
 const NativeResizeObserver = window.ResizeObserver;
+window.__mochiPreviewLayout = { created: 0, disconnected: 0 };
 window.ResizeObserver = class {
   constructor(callback) {
+    window.__mochiPreviewLayout.created++;
     this.targets = new Map();
     this.callback = callback;
     this.native = new NativeResizeObserver((entries)=>callback(entries,this));
@@ -117,7 +120,7 @@ window.ResizeObserver = class {
     },100);
   }
   unobserve(target) { this.native.unobserve(target);this.targets.delete(target); }
-  disconnect() { this.native.disconnect();this.targets.clear();clearInterval(this.timer);this.timer=null; }
+  disconnect() { window.__mochiPreviewLayout.disconnected++;this.native.disconnect();this.targets.clear();clearInterval(this.timer);this.timer=null; }
 };
 const nativeViewport = window.visualViewport;
 const simulatedViewport = new EventTarget();
@@ -129,7 +132,7 @@ nativeViewport?.addEventListener('resize', ()=>simulatedViewport.dispatchEvent(n
 nativeViewport?.addEventListener('scroll', ()=>simulatedViewport.dispatchEvent(new Event('scroll')));
 document.querySelector('#test-keyboard').onclick=()=>{keyboard=true;simulatedViewport.dispatchEvent(new Event('resize'));};
 document.querySelector('#test-reset-viewport').onclick=()=>{keyboard=false;simulatedViewport.dispatchEvent(new Event('resize'));};
-document.querySelector('#test-browser-small').onclick=()=>{smallViewport=!smallViewport;simulatedViewport.dispatchEvent(new Event('resize'));};
+document.querySelector('#test-browser-small').onclick=()=>{smallViewport=!smallViewport;document.documentElement.classList.toggle('preview-small',smallViewport);simulatedViewport.dispatchEvent(new Event('resize'));};
 document.addEventListener('click', (event)=>{
   const header=event.target.closest('.inline-drawer-toggle');
   if (!header) return;
@@ -230,6 +233,7 @@ const server = http.createServer(async (request, response) => {
   }
   if (url.pathname === '/') { response.setHeader('Content-Type', 'text/html'); response.end(html); return; }
   if (url.pathname === '/scripts/st-context.js') { response.setHeader('Content-Type', 'text/javascript'); response.end(context); return; }
+  if (url.pathname === '/script.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const amount_gen=512; export function getMaxContextTokens(){return 32768;} export function getMaxResponseTokens(){return 4096;} export function createRawPrompt(messages){return messages;}'); return; }
   if (url.pathname === '/scripts/world-info.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const selected_world_info=[]; export function getWorldInfoSettings(){return {world_info:{globalSelect:[],charLore:[]}};}'); return; }
   if (url.pathname === '/scripts/personas.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const user_avatar="chosen-persona.png";'); return; }
   if (url.pathname === '/scripts/extensions/regex/engine.js') { response.setHeader('Content-Type', 'text/javascript'); response.end('export const regex_placement={USER_INPUT:1,AI_OUTPUT:2}; export function getRegexedString(text){return text;}'); return; }

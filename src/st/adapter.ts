@@ -45,6 +45,11 @@ interface StModules {
   saveChat: (options?: StRecord) => Promise<void>;
   substituteParams: (text: string, options?: StRecord) => string;
   generateRaw: (options: StRecord) => Promise<string>;
+  getMaxContextTokens?: () => number;
+  getMaxResponseTokens?: () => number;
+  createRawPrompt?: (prompt: Array<{ role: string; content: string; name?: string }>, api: string, instructOverride: boolean, quietToLoud: boolean, systemPrompt: string, prefill: string) => string | Array<{ role: string; content: string; name?: string }>;
+  amount_gen?: number;
+  online_status?: string;
   executeSlashCommandsWithOptions: (commands: string, options?: StRecord) => Promise<string>;
   callGenericPopup: (...args: any[]) => Promise<any>;
   getCurrentChatId: () => string | undefined;
@@ -60,13 +65,15 @@ export function stReady(): Promise<void> {
     loading = Promise.all([
       import('/scripts/st-context.js'),
       import('/scripts/personas.js'),
-    ]).then(([mod, personas]: [StRecord, { user_avatar?: string }]) => {
+      import('/script.js'),
+    ]).then(([mod, personas, script]: [StRecord, { user_avatar?: string }, StRecord]) => {
       personaModule = personas;
       // st-context exports getContext, not the generation/storage functions.
       // Resolve those on its live context so all calls reach the host API.
       modules = new Proxy(mod, {
         get(target, key) {
           if (key === 'getContext') return target.getContext;
+          if (typeof key === 'string' && ['getMaxContextTokens', 'getMaxResponseTokens', 'createRawPrompt', 'amount_gen', 'online_status'].includes(key)) return target.getContext()[key] ?? script[key];
           return target.getContext()[key];
         },
       }) as unknown as StModules;

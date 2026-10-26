@@ -715,6 +715,12 @@
   max-width: min(calc(66.666cqw + 22px), 100%);
 }
 
+/* The inline user reply needs the same allowance for its existing quote-card
+   insets. Otherwise a narrow widget takes that padding out of the image size. */
+.mochi-scope .mochi-private-message.is-user .mochi-private-bubble-wrap:has(> .mochi-private-bubble > .mochi-private-quoted-message > img.mochi-private-sticker) {
+  max-width: min(calc(66.666cqw + 22px), 100%);
+}
+
 .mochi-scope .mochi-quoted-message > img.mochi-chat-sticker-image {
   max-width: min(66.666cqw, 100%);
 }
@@ -756,6 +762,71 @@
   min-width: 0;
 }
 
+/* One text layout for incoming and outgoing bubbles. Metadata has its own
+   footprint, anchored to the content rather than the wider hidden controls. */
+.mochi-scope .mochi-text-bubble {
+  min-width: 0;
+  min-height: 0;
+}
+
+.mochi-scope .is-text-layout > :is(.mochi-bubble-meta, .mochi-private-bubble-meta, .mochi-private-time) {
+  box-sizing: border-box;
+  width: var(--mochi-text-inline-size);
+  max-width: 100%;
+  min-width: 0;
+  contain: inline-size;
+  align-self: flex-start;
+  margin-inline: var(--mochi-text-inline-offset, 0px) 0;
+}
+
+.mochi-scope .is-text-layout > :is(.mochi-bubble-meta, .mochi-private-bubble-meta) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  justify-content: end;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.mochi-scope .is-text-layout > :is(.mochi-bubble-meta, .mochi-private-bubble-meta) > :is(.mt, .mochi-private-time) {
+  grid-column: 2;
+  justify-self: end;
+  margin: 0;
+  padding: 0;
+}
+
+.mochi-scope .is-text-layout > .mochi-private-time {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* A narrow group reply must not hide its author or move its timestamp. The
+   author gets a separate, ellipsized line without widening the text bubble. */
+.mochi-scope .is-text-layout.has-compact-meta > :is(.mochi-bubble-meta, .mochi-private-bubble-meta) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.mochi-scope .is-text-layout.has-compact-meta .mochi-msg-sender {
+  grid-column: 1;
+  grid-row: 1;
+  width: max-content;
+  max-width: var(--mochi-text-label-size, 100%);
+}
+
+.mochi-scope .is-text-layout.has-compact-meta > :is(.mochi-bubble-meta, .mochi-private-bubble-meta) > :is(.mt, .mochi-private-time) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.mochi-scope .mochi-history-more {
+  flex-shrink: 0;
+  border: 1px solid var(--bubble-line);
+  cursor: pointer;
+}
+
 .mochi-scope .wmsg > .msg-actions-trigger,
 .mochi-scope .mrow:is(:hover, :focus-within) .wmsg > .msg-actions-trigger {
   position: static;
@@ -770,7 +841,7 @@
   contain: inline-size;
   gap: 4px;
   box-sizing: border-box;
-  padding-right: 36px;
+  padding-right: var(--mochi-actions-timestamp-space, 36px);
   margin: calc(-1 * var(--mochi-actions-meta-height, 0px)) 0 0 var(--mochi-actions-inline-offset, 0px);
   visibility: hidden;
   opacity: 0;
@@ -816,12 +887,14 @@
   white-space: nowrap;
 }
 
-.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger {
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger,
+.mochi-scope .mrow .wmsg > .msg-actions-trigger.is-below-timestamp {
   margin-top: 4px;
   padding-right: 0;
 }
 
-.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger > * {
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .msg-actions-trigger > *,
+.mochi-scope .wmsg > .msg-actions-trigger.is-below-timestamp > * {
   flex: 0 0 min(28px, calc((100% - (var(--mochi-actions-count) - 1) * 4px) / var(--mochi-actions-count)));
   box-sizing: border-box;
 }

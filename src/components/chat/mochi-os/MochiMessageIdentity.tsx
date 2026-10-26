@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { getAvatarCropStyle } from '../../../lib/utils';
+import { isMochiTextBubble, mochiBubbleBottomOffset } from './MochiBubbleMeta';
 
-/** The original compact incoming avatar; group names stay beside the timestamp. */
+/** The original compact incoming avatar, aligned to text rather than controls. */
 export function MochiMessageIdentity({ name, color, avatar, crop }: { name: string; color: string; avatar?: string | null; crop?: any }) {
   const avatarRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
@@ -12,7 +13,9 @@ export function MochiMessageIdentity({ name, color, avatar, crop }: { name: stri
     // away from its bubble.
     const align = () => {
       const meta = message.querySelector<HTMLElement>(':scope > .mochi-bubble-meta, :scope > .mt');
-      const offset = meta ? message.getBoundingClientRect().bottom - meta.getBoundingClientRect().bottom : 0;
+      const bubble = message.querySelector<HTMLElement>(':scope > .b');
+      const offset = bubble && isMochiTextBubble(bubble) ? mochiBubbleBottomOffset(message, bubble)
+        : meta ? message.getBoundingClientRect().bottom - meta.getBoundingClientRect().bottom : 0;
       element.style.marginBottom = `${Math.max(0, offset)}px`;
     };
     align();

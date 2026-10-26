@@ -45,6 +45,19 @@ const alias = {
   sonner: path.join(ROOT, 'src', 'compat', 'sonner.ts'),
 };
 
+/** CSS is embedded as text; normalize checkout line endings so a Windows build
+ * does not rewrite every bundled stylesheet merely because Git uses CRLF. */
+const normalizedCss = {
+  name: 'mochi-css-text',
+  setup(build) {
+    build.onLoad({ filter: /\.css$/ }, ({ path }) => ({
+      contents: fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n'),
+      loader: 'text',
+      watchFiles: [path],
+    }));
+  },
+};
+
 /** Shared by both bundles. No code splitting: one file each, nothing to lose. */
 const shared = {
   bundle: true,
@@ -55,9 +68,10 @@ const shared = {
   jsx: 'automatic',
   // Stylesheets are imported as text, because the extension injects them itself.
   loader: { '.css': 'text' },
+  plugins: [normalizedCss],
   alias,
   // SillyTavern's own module is served from its root and must stay an import.
-  external: ['/scripts/*'],
+  external: ['/scripts/*', '/script.js'],
   minify: !WATCH,
   sourcemap: WATCH ? 'inline' : false,
   legalComments: 'none',
@@ -95,7 +109,7 @@ const entryOptions = {
   ...shared,
   entryPoints: [path.join(ROOT, 'src', 'index.ts')],
   outfile: path.join(ROOT, 'index.js'),
-  plugins: [appIsExternal],
+  plugins: [normalizedCss, appIsExternal],
 };
 
 /** One dependency-free Node module, also included for manual/plugin installs. */

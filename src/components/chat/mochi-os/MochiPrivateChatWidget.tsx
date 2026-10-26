@@ -1,4 +1,6 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
+import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
@@ -126,6 +128,8 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
   // phone document; legacy record aliases remain a fallback for old transcripts.
   const rawTargetName =
     data.chat.target?.trim() || data.chat.contactname?.trim() || data.chat.name?.trim() || "Character";
+  const threadRef = useRef<HTMLDivElement | null>(null);
+  const historyWindow = useMochiHistoryWindow(`${activeChatId}:${rawTargetName}`, data.chat.messages.length, threadRef);
 
   // Check phone_data to see if there is a contact name configured for this character.
   // Both names the record carries are candidates: `target=` is the character's real
@@ -207,10 +211,13 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
             <strong>{name}</strong>
           </header>
           <div className="mochi-private-chat-content">
-            <div className="mochi-private-thread" aria-label={t("ui.chat.mochiPrivateChat.messages")}>
+            <div ref={threadRef} className="mochi-private-thread" aria-label={t("ui.chat.mochiPrivateChat.messages")}>
               {data.chat.date && <div className="mochi-private-day">{data.chat.date}</div>}
-              {data.chat.messages.map((message, index) => (
-                <article key={message.id || index} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
+              {historyWindow.startIndex > 0 && <button type="button" className="notice mochi-history-more" onClick={historyWindow.showOlder}>
+                {t("ui.chat.mochiosview.loadOlderMessages", "Load older messages")}
+              </button>}
+              {data.chat.messages.slice(historyWindow.startIndex).map((message, visibleIndex) => (
+                <article key={`${message.id || "message"}:${historyWindow.startIndex + visibleIndex}`} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
                   {!message.me && (
                     <span
                       className="mochi-private-mini-avatar"
@@ -232,7 +239,7 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
                         currency={settings.currency}
                       />
                     ) : (
-                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}`}>
+                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}${message.type !== "sticker" && message.type !== "voice" ? " mochi-text-bubble" : ""}`}>
                         {message.type === "quote" && message.rawItem?.quote ? (
                           <div className="mochi-private-quoted-message">
                             {(() => {
@@ -268,7 +275,7 @@ function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }
                       </div>
                     )}
                     {(message.time || data.chat.time) && (
-                      <time className="mochi-private-time">{message.time || data.chat.time}</time>
+                      <MochiBubbleMeta embedded time={message.time || data.chat.time || ""} />
                     )}
                   </div>
                 </article>

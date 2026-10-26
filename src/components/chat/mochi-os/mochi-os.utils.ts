@@ -735,6 +735,8 @@ export function mochiRoleplayBubbleId(messageId: string, recordIndex: number, it
  */
 export function locateMochiMessageInRoleplay(params: {
   roleplayMessages: Array<{ id: string; role?: string; content: string }>;
+  /** A render-time index avoids parsing the full archive once per bubble. */
+  historyIndex?: { locate(target: { targetName: string; recordType?: MochiChatRecordType; threadIndex: number; threadMessageId?: string }): MochiRoleplayLocation | null };
   userName?: string;
   targetName: string;
   /** Which kind of thread this bubble belongs to. */
@@ -744,6 +746,7 @@ export function locateMochiMessageInRoleplay(params: {
   /** An in-memory bubble key; not a field written into the roleplay transcript. */
   threadMessageId?: string;
 }): MochiRoleplayLocation | null {
+  if (params.historyIndex) return params.historyIndex.locate(params);
   const wanted = params.targetName.trim().toLowerCase();
   const records = params.roleplayMessages.flatMap((message) => message.role === "assistant"
     ? parseChatHistoryBlocks(message.content, params.userName).map((block, recordIndex) => ({ message, block, recordIndex }))

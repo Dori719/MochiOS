@@ -1,6 +1,6 @@
 /** Mochi markers expand at their preset position, using the host's real prompt data. */
 import type { Character, Message, Persona } from '../shared';
-import { estimateTextTokens } from '../shared/token-estimator';
+import { countMochiMessageTokens, fitMochiPromptToContext, getMochiTokenLimits, markMochiBudgetCandidates } from './context-budget';
 import { DEFAULT_FORMAT_GUIDES, type MochiFormatGuideData } from '../components/chat/mochi-os/mochi-os.constants';
 import { activeChatId, ctx, listMessages, st } from './adapter';
 import { getMochiWorldInfoPrompt } from './lorebooks';
@@ -184,8 +184,8 @@ export async function buildMochiPresetMessages(input: MochiPresetInput): Promise
   const enabled = input.blocks.filter((block) => block.enabled !== false);
   const markerType = (block: MochiPresetBlock) => block.markerConfig?.type || block.identifier;
   const markerTypes = new Set(enabled.filter((block) => block.isMarker || block.markerConfig).map(markerType));
-  const maxContext = Number(context.mainApi && context.mainApi !== 'openai' ? context.maxContext : settings.openai_max_context || context.maxContext);
-  const promptBudget = maxContext - (input.responseLength ?? 4096);
+  const limits = getMochiTokenLimits(input.responseLength);
+  const promptBudget = limits.promptBudget;
   const groupNames = input.characters.map((character) => character.data?.name || character.name).filter(Boolean);
   const primary = input.characters.find((character) => (character.data?.name || character.name) === input.characterName) || input.characters[0];
   const data = primary?.data || {};
@@ -374,31 +374,33 @@ export async function buildMochiPresetMessages(input: MochiPresetInput): Promise
   // Reserve the preset/task first, then retain the newest whole history turns,
   // just as ST's chat-history collection fills the remaining context budget.
   assertChat();
-  if (!Number.isFinite(maxContext) || maxContext <= 0) return messages;
-  const count = async (message: MochiPromptMessage) => Number(typeof context.getTokenCountAsync === 'function'
-    ? await context.getTokenCountAsync(message.content + (message.name || '')) : estimateTextTokens(message.content + (message.name || ''))) + 4;
-  const costs = await Promise.all(messages.map(count));
-  assertChat();
+  const count = (message: MochiPromptMessage) => countMochiMessageTokens(message, limits);
   let remaining = promptBudget - 3;
-  const costByMessage = new Map(messages.map((message, index) => [message, costs[index]]));
-  messages.forEach((message, index) => { if (!historyMessages.has(message) && !exampleMessages.has(message)) remaining -= costs[index]; });
+  const required = messages.filter((message) => !historyMessages.has(message) && !exampleMessages.has(message));
+  for (const cost of await Promise.all(required.map(count))) remaining -= cost;
+  assertChat();
   if (remaining < 0) throw new Error('Mochi OS: the preset and format guide exceed the selected context size. Increase the context limit or shorten the preset.');
   const kept = new Set<MochiPromptMessage>();
-  const keepHistory = () => {
+  const keepHistory = async () => {
     for (let index = messages.length - 1; index >= 0; index--) {
       if (!historyMessages.has(messages[index])) continue;
-      if (costs[index] > remaining) break;
-      remaining -= costs[index]; kept.add(messages[index]);
+      const cost = await count(messages[index]);
+      if (cost > remaining) break;
+      remaining -= cost; kept.add(messages[index]);
     }
   };
-  const keepExamples = () => {
+  const keepExamples = async () => {
     for (const collection of exampleCollections) {
-      const cost = collection.reduce((sum, message) => sum + (costByMessage.get(message) || 0), 0);
+      const cost = (await Promise.all(collection.map(count))).reduce((sum, cost) => sum + cost, 0);
       if (cost > remaining) break;
       remaining -= cost; collection.forEach((message) => kept.add(message));
     }
   };
-  if (context.powerUserSettings?.pin_examples) { keepExamples(); keepHistory(); }
-  else { keepHistory(); keepExamples(); }
-  return messages.filter((message) => (!historyMessages.has(message) && !exampleMessages.has(message)) || kept.has(message));
+  const pinned = Boolean(context.powerUserSettings?.pin_examples);
+  if (pinned) { await keepExamples(); await keepHistory(); }
+  else { await keepHistory(); await keepExamples(); }
+  markMochiBudgetCandidates(historyMessages, exampleCollections, pinned);
+  const bounded = await fitMochiPromptToContext(messages.filter((message) => (!historyMessages.has(message) && !exampleMessages.has(message)) || kept.has(message)), limits);
+  assertChat();
+  return bounded;
 }

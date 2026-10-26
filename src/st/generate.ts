@@ -7,27 +7,9 @@
  */
 import { activeChatId, st } from './adapter';
 import { profileRequestService, selectedConnectionProfileId } from './connections';
-
-/**
- * SillyTavern substitutes its macros over every message it sends, and one of
- * those macros is `{{user}}`. The archive format depends on `{{user}}: true`
- * staying literal, and the format guides are full of `{{Time}}`-style
- * placeholders that must survive untouched too, so the opening braces are
- * swapped for a guillemet on the way out and restored on the way back.
- *
- * Only `{{` is escaped: leaving `}}` intact means no macro can match, and a
- * single-character swap is far less likely to collide with generated prose than
- * a paired one.
- */
-const OPEN_BRACE = '«';
-
-export function protectTemplateBraces(text: string): string {
-  return text.replace(/\{\{/g, OPEN_BRACE);
-}
-
-export function restoreTemplateBraces(text: string): string {
-  return text.split(OPEN_BRACE).join('{{');
-}
+import { fitMochiPromptToContext, getMochiTokenLimits } from './context-budget';
+import { protectTemplateBraces, restoreTemplateBraces } from './prompt-template';
+export { protectTemplateBraces, restoreTemplateBraces } from './prompt-template';
 
 const MAX_RATE_LIMIT_RETRIES = 6;
 const RATE_LIMIT_BACKOFF_BASE_MS = 2_000;
@@ -73,11 +55,6 @@ export async function generateMochiOutput(
   options: GenerateOptions = {},
 ): Promise<string> {
   const isCancelled = () => Boolean(options.signal?.aborted || options.isCancelled?.());
-  const protectedMessages = messages.map((message) => ({
-    ...message,
-    content: protectTemplateBraces(message.content),
-  }));
-  const responseLength = options.responseLength ?? 4096;
   const chatId = options.chatId ?? activeChatId();
   const profileId = selectedConnectionProfileId();
   const assertChat = () => {
@@ -88,6 +65,12 @@ export async function generateMochiOutput(
     if (isCancelled()) throw new AbortedError();
     assertChat();
     try {
+      const limits = getMochiTokenLimits(options.responseLength, profileId);
+      const bounded = await fitMochiPromptToContext(messages, limits);
+      if (isCancelled()) throw new AbortedError();
+      assertChat();
+      const protectedMessages = bounded.map((message) => ({ ...message, content: protectTemplateBraces(message.content) }));
+      const responseLength = limits.responseLength;
       let raw: string;
       if (profileId) {
         const service = await profileRequestService();
@@ -101,6 +84,7 @@ export async function generateMochiOutput(
         raw = response.content;
       } else {
         raw = await st().generateRaw({
+          api: limits.api,
           prompt: protectedMessages,
           responseLength,
           trimNames: false,

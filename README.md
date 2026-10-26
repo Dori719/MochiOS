@@ -34,8 +34,16 @@ app shell.
   author rail. Long-press with mouse or touch to Reply. Reserved control rows
   prevent bubbles from shifting. Translate is not offered.
 - **Content-sized text bubbles.** Short messages have no minimum bubble width or
-  height. Controls keep their own space, and resizing a sticker reply's text never
-  resizes its quoted sticker section.
+  height, with the same layout for incoming and outgoing text. Timestamps stay
+  below the actual bubble’s right edge, even when the time is wider than the text.
+  Compact group replies keep the author on a separate line. When all action
+  buttons cannot fit beside the timestamp, they use a
+  separate row below it, like stickers. Transfer messages keep their existing
+  sizing, and resizing a sticker reply's text never resizes its quoted sticker section.
+- **Long conversations.** Phone threads and expanded transcript widgets initially
+  render their newest 80 messages. **Load older messages** adds another 80 while
+  preserving the scroll position. Saved and generation history are not shortened;
+  cached archive indexes keep buried records and older-message actions responsive.
 - **Live history.** Deleting roleplay turns immediately restores each phone
   thread's latest surviving messages and preview, including empty threads.
   Generated replies save only the relevant transcript and environment; model
@@ -243,7 +251,12 @@ server helper with an isolated temporary extension folder, then removes only its
 own test stickers. **Inspect sticker layout** checks wide, portrait, and small
 images, incoming/outgoing quotes, long sender names and replies, and fixed image
 bounds when controls appear, in both phone chats and embedded widgets. It also checks
-content-sized short text bubbles and unchanged sticker quotes as reply text grows. It keeps
+content-sized short text bubbles, action placement as text grows/shrinks, unchanged
+transfer sizing, unchanged sticker quotes as reply text grows, and right-edge
+timestamp alignment with short and wide AM/PM times. **Check long histories** tests
+300-message private/group records buried 150 roleplay turns back, pagination and
+scroll anchors, older-message edits/reactions/branches/swipes/deletion, and collapsed
+thread cleanup. **Inspect sticker layout** keeps
 the isolated fixtures visible until **Clear sticker layout** is selected. Resize the
 preview to a mobile viewport, or select **Use 320 × 568 test viewport** to constrain the phone's
 visible area deterministically. Feature results report the measured visible size,
@@ -310,6 +323,13 @@ saved message limits, tag filters and regeneration exclusions still apply.
 Marker order and disabled markers are preserved, and new input precedes trailing
 assistant prefill. Output-template placeholders remain literal.
 
+Mochi follows SillyTavern’s configured context size **and response length**, including
+a saved connection profile’s completion preset, without switching the active API.
+The prompt reserves the configured response tokens, counts recent history first,
+and checks the final text/instruct formatting again before sending. Whole older
+turns and example collections yield when needed; an oversized preset/format guide
+or current task reports an error rather than sending beyond the selected budget.
+
 ## Layout
 
 ```
@@ -333,13 +353,15 @@ src/
     sticker-storage.ts      server storage client and read-only browser migration
     generate.ts             generateRaw, and the {{ escape
     preset.ts               shared ST-style prompt markers and chronological history
+    context-budget.ts       configured native/profile token limits and final prompt fitting
+    prompt-template.ts      literal template-brace protection
     lorebooks.ts            native World Info scanning and assignment compatibility
     connections.ts          saved profile selection and host request service
     host.tsx                the phone window: floating controls, drag, lifecycle
     frame-layout.ts         how big the window is and where it sits
     inline.tsx              the transcript widgets inside messages
     styles.ts               the stylesheets, in the engine's order
-  components/chat/mochi-os/ the ported interface, identities and draggable navigation
+  components/chat/mochi-os/ the ported interface, shared bubble metadata and cached archive index
   components/chat/          the four pieces of the engine's app shell Mochi OS borrows
   hooks/, stores/, lib/, shared/, types/, compat/
   styles/port-chrome.css    the chrome the port had to write, plus utility generation output
