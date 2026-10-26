@@ -300,6 +300,7 @@ async function checkTextBubbleSizing(root, embedded, assert, label) {
   for (const [index, bubble] of short.entries()) {
     const style = getComputedStyle(bubble);
     const before = bubble.getBoundingClientRect();
+    assert(getComputedStyle(bubble.parentElement).minWidth === '0px', `${label}: incoming/outgoing text wrappers opt out of the restored message minimum width`);
     const range = document.createRange(); range.selectNodeContents(bubble);
     const textWidth = range.getBoundingClientRect().width;
     const horizontal = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);

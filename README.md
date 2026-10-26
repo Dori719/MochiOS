@@ -39,7 +39,7 @@ app shell.
   Compact group replies keep the author on a separate line. When all action
   buttons cannot fit beside the timestamp, they use a
   separate row below it, like stickers. Transfer messages keep their existing
-  sizing, and resizing a sticker reply's text never resizes its quoted sticker section.
+  layout, and resizing a sticker reply's text never resizes its quoted sticker section.
 - **Long conversations.** Phone threads and expanded transcript widgets initially
   render their newest 80 messages. **Load older messages** adds another 80 while
   preserving the scroll position. Saved and generation history are not shortened;
@@ -251,8 +251,8 @@ server helper with an isolated temporary extension folder, then removes only its
 own test stickers. **Inspect sticker layout** checks wide, portrait, and small
 images, incoming/outgoing quotes, long sender names and replies, and fixed image
 bounds when controls appear, in both phone chats and embedded widgets. It also checks
-content-sized short text bubbles, action placement as text grows/shrinks, unchanged
-transfer sizing, unchanged sticker quotes as reply text grows, and right-edge
+content-sized short text bubbles, action placement as text grows/shrinks, stable
+transfer layout, unchanged sticker quotes as reply text grows, and right-edge
 timestamp alignment with short and wide AM/PM times. **Check long histories** tests
 300-message private/group records buried 150 roleplay turns back, pagination and
 scroll anchors, older-message edits/reactions/branches/swipes/deletion, and collapsed

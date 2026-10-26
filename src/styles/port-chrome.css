@@ -583,14 +583,14 @@
 }
 
 .mochi-scope .wmsg {
-  min-width: 0;
+  min-width: min(254px, 66.666cqw, calc(100% - 36px));
   max-width: min(66.666cqw, calc(100% - 36px));
   flex: 0 1 auto;
   overflow-wrap: anywhere;
 }
 
 .mochi-scope .mrow.out .wmsg {
-  min-width: 0;
+  min-width: min(254px, 66.666cqw, 100%);
   max-width: min(66.666cqw, 100%);
 }
 
@@ -606,16 +606,12 @@
   min-width: 0;
 }
 
-/* Bubbles fit their content; controls reserve their own footprint on the
-   wrapper without imposing a minimum width or height on the message. */
+/* Reserve the action footprint on the message wrapper, not on the image.
+   Ordinary text and unavailable-sticker fallbacks keep their existing sizing. */
 .mochi-scope .wmsg > :is(.b, .sticker) {
   box-sizing: border-box;
-  width: fit-content;
-  min-height: 0;
-}
-
-.mochi-scope .wmsg > .mochi-transfer {
   width: 100%;
+  min-height: 44px;
 }
 
 .mochi-scope .wmsg > .sticker {
@@ -637,23 +633,19 @@
 
 .mochi-scope .mochi-private-bubble-wrap {
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: min(254px, 66.666cqw, calc(100% - 34px));
   max-width: min(66.666cqw, calc(100% - 34px));
 }
 
 .mochi-scope .mochi-private-message.is-user .mochi-private-bubble-wrap {
-  min-width: 0;
+  min-width: min(254px, 66.666cqw, 100%);
   max-width: min(66.666cqw, 100%);
 }
 
 .mochi-scope .mochi-private-bubble-wrap > :is(.mochi-private-bubble, .mochi-private-transfer) {
   box-sizing: border-box;
-  width: fit-content;
-  min-height: 0;
-}
-
-.mochi-scope .mochi-private-bubble-wrap > .mochi-private-transfer {
   width: 100%;
+  min-height: 44px;
 }
 
 .mochi-scope :is(.mochi-transfer, .mochi-private-transfer) {
@@ -764,7 +756,14 @@
 
 /* One text layout for incoming and outgoing bubbles. Metadata has its own
    footprint, anchored to the content rather than the wider hidden controls. */
-.mochi-scope .mochi-text-bubble {
+/* Only text opts out of the restored message minimums. Sticker quotes keep
+   their image-driven sizing; transfers and other messages keep the old rules. */
+.mochi-scope :is(.wmsg, .mochi-private-bubble-wrap):has(> .mochi-text-bubble):not(:has(img.mochi-chat-sticker-image, img.mochi-private-sticker)) {
+  min-width: 0;
+}
+
+.mochi-scope :is(.wmsg, .mochi-private-bubble-wrap) > .mochi-text-bubble {
+  width: fit-content;
   min-width: 0;
   min-height: 0;
 }
@@ -793,6 +792,7 @@
   justify-self: end;
   margin: 0;
   padding: 0;
+  white-space: nowrap;
 }
 
 .mochi-scope .is-text-layout > .mochi-private-time {
@@ -800,6 +800,7 @@
   justify-content: flex-end;
   margin-top: 4px;
   text-align: right;
+  white-space: nowrap;
 }
 
 /* A narrow group reply must not hide its author or move its timestamp. The
@@ -880,9 +881,9 @@
   align-self: flex-end;
 }
 
-.mochi-scope .wmsg > .mt,
-.mochi-scope .wmsg .mochi-bubble-meta > .mt,
-.mochi-scope .mochi-private-bubble-wrap .mochi-private-time {
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) > .mt,
+.mochi-scope .wmsg:has(> :is(.sticker, .mochi-quote-bubble) img.mochi-chat-sticker-image) .mochi-bubble-meta > .mt,
+.mochi-scope .mochi-private-bubble-wrap:has(img.mochi-private-sticker) .mochi-private-time {
   flex-shrink: 0;
   white-space: nowrap;
 }
