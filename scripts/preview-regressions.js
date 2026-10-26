@@ -1,5 +1,6 @@
 /** Runs only in preview-st.mjs's isolated origin. No live host/provider access. */
 const RELOAD_KEY = 'mochi-preview-sticker-reload-check';
+const WRAPPING_TEXT = 'This longer text message must wrap to the conversation width instead of imposing a minimum size on short messages beside it.';
 const settle = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
 const q = (selector) => document.querySelector(selector);
 const all = (selector) => Array.from(document.querySelectorAll(selector));
@@ -157,6 +158,18 @@ function stickerLayoutTranscript(tag, target, names) {
     `  - t: quote\n    c: OK\n    time: "12:05"\n    quote: {name: "A very long quoted sender name that must not widen the image", t: sticker, c: ${JSON.stringify(`[Sticker] ${name}`)}}`,
     `  - t: quote\n    c: "A longer reply must wrap within the sticker bubble, not stretch it with empty space on the right."\n    time: "12:05"\n    "{{user}}": true\n    quote: {name: Sender, t: sticker, c: ${JSON.stringify(`:${name}:`)}}`,
   ]);
+  for (const me of [false, true]) {
+    for (const text of ['I', WRAPPING_TEXT]) {
+      messages.push(`  - t: text\n    c: ${JSON.stringify(text)}\n    time: "12:05"\n    "{{user}}": ${me}\n    sender: {name: "A long sender name must not set the text bubble width"}`);
+    }
+  }
+  if (tag === 'privatechat_history') {
+    for (const me of [false, true]) {
+      for (const type of ['transfer', 'transfer-accepted', 'transfer-rejected']) {
+        messages.push(`  - t: ${type}\n    amount: 3\n    time: "12:05"\n    "{{user}}": ${me}`);
+      }
+    }
+  }
   const type = tag === 'privatechat_history' ? 'private' : 'group';
   return `<${tag} target="${target}" type="${type}">\nmessages:\n${messages.join('\n')}\n</${tag}>\n<environment>\ntime: "12:05"\nweather: Sunny\n</environment>`;
 }
@@ -212,7 +225,136 @@ async function checkStickerLayout(root, embedded, assert, label) {
   assert(Array.from(root.querySelectorAll(embedded ? '.mochi-private-bubble-wrap:has(img) .mochi-private-time' : '.wmsg:has(.sticker img) .mt')).every((time) => getComputedStyle(time).whiteSpace === 'nowrap'), `${label}: sticker timestamps stay on one line beside long sender names`);
   const thread = root.querySelector(embedded ? '.mochi-private-thread' : '.c-body');
   assert(thread.scrollWidth <= thread.clientWidth + 1, `${label}: sticker layout does not overflow the conversation`);
+  const transfers = Array.from(root.querySelectorAll(embedded ? '.mochi-private-transfer' : '.mochi-transfer'));
+  const transferBounds = transfers.map((transfer) => transfer.getBoundingClientRect());
+  await checkTextBubbleSizing(root, embedded, assert, label);
+  if (label.startsWith('Private')) {
+    const rowClass = embedded ? '.mochi-private-message' : '.mrow';
+    const outgoingClass = embedded ? 'is-user' : 'out';
+    assert(transfers.length === 6 && transfers.filter((transfer) => transfer.closest(rowClass).classList.contains(outgoingClass)).length === 3, `${label}: incoming/outgoing pending, accepted, and rejected transfer fixtures render`);
+    for (const [index, transfer] of transfers.entries()) {
+      const wrapper = transfer.parentElement;
+      const bounds = transfer.getBoundingClientRect();
+      assert(bounds.height === transferBounds[index].height && bounds.width === transferBounds[index].width && Math.abs(bounds.width - wrapper.getBoundingClientRect().width) < 1, `${label}: resizing text leaves transfer dimensions and full wrapper width unchanged`);
+      if (!embedded) {
+        const actions = wrapper.querySelector('.msg-actions-trigger');
+        const meta = actions.previousElementSibling;
+        assert(Math.abs(actions.getBoundingClientRect().top - meta.getBoundingClientRect().top) < 1 && getComputedStyle(actions).paddingRight === '36px', `${label}: transfer actions retain their existing timestamp-row layout`);
+      }
+    }
+  }
   return measurements;
+}
+
+function checkTextActionPlacement(bubble, assert, label) {
+  const row = bubble.closest('.mrow');
+  const actions = row.querySelector('.msg-actions-trigger');
+  const meta = actions.previousElementSibling;
+  const time = meta.matches('.mt') ? meta : meta.querySelector('.mt');
+  const gap = parseFloat(getComputedStyle(actions).columnGap);
+  const required = actions.children.length * 28 + Math.max(0, actions.children.length - 1) * gap + Math.max(36, (time?.getBoundingClientRect().width || 0) + gap);
+  if (bubble.getBoundingClientRect().width < required) {
+    assert(actions.getBoundingClientRect().top >= meta.getBoundingClientRect().bottom + 3 && getComputedStyle(actions).paddingRight === '0px', `${label}: text too narrow for all buttons puts actions below the timestamp, like stickers`);
+  } else {
+    assert(Math.abs(actions.getBoundingClientRect().top - meta.getBoundingClientRect().top) < 1 && actions.lastElementChild.getBoundingClientRect().right <= time.getBoundingClientRect().left - gap + 1, `${label}: text with enough room keeps actions beside the timestamp without overlap`);
+  }
+}
+
+async function checkTextTimestamps(root, embedded, assert, label) {
+  const bubbles = Array.from(root.querySelectorAll('.mochi-text-bubble')).filter((bubble) => bubble.parentElement.classList.contains('is-text-layout'));
+  for (const bubble of bubbles) {
+    const wrapper = bubble.parentElement;
+    const time = wrapper.querySelector(embedded ? '.mochi-private-time' : '.mt');
+    if (!time) continue;
+    const original = time.textContent;
+    const before = bubble.getBoundingClientRect();
+    try {
+      for (const timestamp of ['1:01', '11:59 PM']) {
+        time.textContent = timestamp; await settle();
+        const range = document.createRange(); range.selectNodeContents(time);
+        const text = range.getBoundingClientRect(); const bounds = bubble.getBoundingClientRect();
+        const anchored = Math.abs(text.right - bounds.right) < 1 && text.top >= bounds.bottom + 2;
+        assert(anchored, `${label}: ${timestamp} stays below and on the actual text bubble’s right edge${anchored ? '' : ` (bubble right ${bounds.right.toFixed(2)}, time right ${text.right.toFixed(2)}, bottom ${bounds.bottom.toFixed(2)}, time top ${text.top.toFixed(2)})`}`);
+        assert(bounds.width === before.width && bounds.height === before.height, `${label}: wider timestamps never widen incoming/outgoing text bubbles`);
+        const avatar = wrapper.parentElement.querySelector(embedded ? ':scope > .mochi-private-mini-avatar' : ':scope > .mini');
+        if (avatar) {
+          const avatarBounds = avatar.getBoundingClientRect();
+          const aligned = Math.abs(avatarBounds.bottom - bounds.bottom) < 1 && text.top >= avatarBounds.bottom;
+          assert(aligned, `${label}: even a timestamp wider than a tiny bubble cannot overlap its bottom-aligned avatar${aligned ? '' : ` (bubble ${bounds.bottom.toFixed(2)}, avatar ${avatarBounds.bottom.toFixed(2)}, time ${text.top.toFixed(2)})`}`);
+        }
+        const sender = wrapper.querySelector('.mochi-msg-sender');
+        if (sender && wrapper.classList.contains('has-compact-meta')) {
+          assert(sender.getBoundingClientRect().width > 0 && sender.getBoundingClientRect().bottom <= text.top + 1, `${label}: a compact group reply keeps its author on a separate ellipsized line`);
+        }
+        if (!embedded) checkTextActionPlacement(bubble, assert, label);
+      }
+    } finally { time.textContent = original; await settle(); }
+  }
+}
+
+async function checkTextBubbleSizing(root, embedded, assert, label) {
+  const bubbles = Array.from(root.querySelectorAll(embedded ? '.mochi-private-bubble:not(.is-quote)' : '.wmsg > .b:not(.mochi-quote-bubble)'));
+  const short = bubbles.filter((bubble) => bubble.textContent === 'I');
+  const long = bubbles.filter((bubble) => bubble.textContent === WRAPPING_TEXT);
+  assert(short.length === 2 && long.length === 2, `${label}: incoming/outgoing short and long text fixtures render`);
+  for (const [index, bubble] of short.entries()) {
+    const style = getComputedStyle(bubble);
+    const before = bubble.getBoundingClientRect();
+    assert(getComputedStyle(bubble.parentElement).minWidth === '0px', `${label}: incoming/outgoing text wrappers opt out of the restored message minimum width`);
+    const range = document.createRange(); range.selectNodeContents(bubble);
+    const textWidth = range.getBoundingClientRect().width;
+    const horizontal = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    const vertical = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    assert(style.minWidth === '0px' && style.minHeight === '0px' && Math.abs(before.width - textWidth - horizontal) < 1 && Math.abs(before.height - parseFloat(style.lineHeight) - vertical) < 1, `${label}: short text fits its text and padding without minimum bubble dimensions`);
+    const larger = long[index]?.getBoundingClientRect();
+    assert(larger?.width > before.width && larger?.height > before.height, `${label}: only longer text grows and wraps within the conversation`);
+    if (!embedded) {
+      bubble.scrollIntoView({ block: 'center' }); await settle();
+      const row = bubble.closest('.mrow'); const initial = bubble.getBoundingClientRect();
+      press(bubble); await settle();
+      const after = bubble.getBoundingClientRect(); const actions = row.querySelector('.msg-actions-trigger');
+      const controls = getComputedStyle(actions); const count = actions.children.length;
+      const available = actions.clientWidth - parseFloat(controls.paddingLeft) - parseFloat(controls.paddingRight) - Math.max(0, count - 1) * 4;
+      assert(initial.width === after.width && initial.height === after.height && initial.top === after.top && !actions.inert, `${label}: revealing actions does not resize or move short text bubbles`);
+      assert(actions.scrollWidth <= actions.clientWidth + 1 && Array.from(actions.children).every((control) => control.getBoundingClientRect().width >= Math.min(24, available / count) - 1), `${label}: compact text keeps usable controls in their separate footprint`);
+      checkTextActionPlacement(bubble, assert, label);
+      const reaction = row.querySelector('.mochi-reaction-add > button'); press(reaction); await settle();
+      const popup = row.querySelector('.mochi-reaction-add-popover').getBoundingClientRect();
+      const thread = root.querySelector('.c-body').getBoundingClientRect();
+      assert(popup.left >= thread.left - 1 && popup.right <= thread.right + 1, `${label}: compact text reaction pickers stay inside the conversation`);
+      press(reaction); key(row, 'Escape');
+    }
+  }
+  if (!embedded) {
+    for (const bubble of long) checkTextActionPlacement(bubble, assert, label);
+    for (const bubble of short) {
+      const original = bubble.textContent;
+      try {
+        bubble.textContent = WRAPPING_TEXT; await settle();
+        checkTextActionPlacement(bubble, assert, `${label} after text grows`);
+        bubble.textContent = original; await settle();
+        checkTextActionPlacement(bubble, assert, `${label} after text shrinks`);
+      } finally { bubble.textContent = original; await settle(); }
+    }
+  }
+  const quoteClass = embedded ? '.mochi-private-quoted-message' : '.mochi-quoted-message';
+  for (const quote of root.querySelectorAll(`${quoteClass}:has(img)`)) {
+    const reply = embedded ? quote.nextElementSibling : quote.parentElement.querySelector('.mochi-reply-message');
+    const original = reply.textContent;
+    try {
+      reply.textContent = 'I'; await settle();
+      const image = quote.querySelector('img'); const card = quote.getBoundingClientRect();
+      const bounds = image.getBoundingClientRect(); const text = reply.getBoundingClientRect();
+      reply.textContent = WRAPPING_TEXT; await settle();
+      const nextCard = quote.getBoundingClientRect(); const nextImage = image.getBoundingClientRect();
+      assert(reply.getBoundingClientRect().height > text.height && card.width === nextCard.width && card.height === nextCard.height && bounds.width === nextImage.width && bounds.height === nextImage.height, `${label}: changing reply text resizes only the text, never the quoted sticker section`);
+      if (!embedded) {
+        const actions = quote.closest('.wmsg').querySelector('.msg-actions-trigger');
+        assert(actions.getBoundingClientRect().top >= actions.previousElementSibling.getBoundingClientRect().bottom + 3, `${label}: quoted stickers retain their existing action row below the timestamp`);
+      }
+    } finally { reply.textContent = original; await settle(); }
+  }
+  await checkTextTimestamps(root, embedded, assert, label);
 }
 
 async function checkStickerQuotes(root, embedded, assert, label) {
@@ -262,12 +404,110 @@ function groupReply(stickerName) {
 
 export function installPreviewRegressions({ getContext, preview, openMochiOs, closeMochiOs, isMochiOsOpen, refreshMochiWidgets, viewport, setKeyboard }) {
   startPreviewAnimationClock();
+  const constrainHost = () => {
+    for (const element of [q('#chat'), q('#top-bar')]) element.style.maxWidth = viewport.width <= 320 ? '320px' : '';
+  };
+  viewport.addEventListener('resize', constrainHost); constrainHost();
   const within = (bounds) => bounds.left >= -1 && bounds.top >= -1 && bounds.right <= viewport.width + 1 && bounds.bottom <= viewport.height + 1;
   const report = q('#preview-status');
   const button = q('#test-features');
   const layoutControl = document.createElement('button');
   layoutControl.id = 'test-sticker-layout'; layoutControl.textContent = 'Inspect sticker layout';
   q('#preview-tools').append(layoutControl);
+  const historyControl = document.createElement('button');
+  historyControl.id = 'test-long-history'; historyControl.textContent = 'Check long histories';
+  q('#preview-tools').append(historyControl);
+  historyControl.onclick = async () => {
+    const checks = [];
+    const timings = {};
+    const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
+    const transcript = (tag, target, label) => `<${tag} target="${target}" type="${tag === 'privatechat_history' ? 'private' : 'group'}">\nmessages:\n${Array.from({ length: 300 }, (_, index) => `  - id: msg_001\n    t: text\n    c: ${label} history ${index}\n    time: "11:59"\n    "{{user}}": ${index % 2 === 1}\n    sender: {name: Preview Character}`).join('\n')}\n</${tag}>\n<environment>\ndate: Today\ntime: "11:59"\nweather: Sunny\n</environment>`;
+    historyControl.disabled = true;
+    report.textContent = 'Checking long private/group histories and older-message actions locally…';
+    try {
+      closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
+      const host = getContext();
+      const groupAt = host.chat.length;
+      const privateAt = groupAt + 1;
+      host.chat.push(
+        { name: 'Preview Group', is_user: false, mes: `Before bulk group prose.\n${transcript('groupchat_history', 'Preview Group', 'Group')}\nAfter bulk group prose.`, extra: {} },
+        { name: 'Preview Character', is_user: false, mes: transcript('privatechat_history', 'Preview Character', 'Private'), extra: {} },
+        ...Array.from({ length: 150 }, (_, index) => ({ name: 'Preview Character', is_user: false, mes: `Roleplay after phone ${index}`, extra: {} })),
+      );
+      const savedLength = host.chat.length;
+      await host.printMessages(); refreshMochiWidgets();
+      await host.eventSource.emit('CHAT_CHANGED'); openMochiOs(); await settle(450);
+      for (const [name, label, recordAt] of [['Preview Group', 'Group', groupAt], ['Preview Contact', 'Private', privateAt]]) {
+        const start = performance.now(); await openThread(name);
+        await until(() => rows().length === 80, `${label} newest history page`);
+        timings[label] = Math.round(performance.now() - start);
+        assert(rows().length === 80 && rows()[0].querySelector('.b').textContent === `${label} history 220`, `${label}: only the newest 80 bubbles mount, even 150 roleplay turns after the last phone record`);
+        assert(q('#chatView .mochi-history-more')?.textContent === 'Load older messages', `${label}: older history remains accessible with a real button`);
+        const body = q('#chatView .c-body'); body.scrollTop = 0; await settle();
+        const anchor = rows()[0]; const top = anchor.getBoundingClientRect().top;
+        press(q('#chatView .mochi-history-more'));
+        await until(() => rows().length === 160, `${label} older history page`); await settle(200);
+        assert(anchor.isConnected && Math.abs(anchor.getBoundingClientRect().top - top) < 2, `${label}: loading older messages preserves the visible scroll anchor`);
+        assert(rows()[0].querySelector('.b').textContent === `${label} history 140`, `${label}: pagination retains chronological order and original archive indexes`);
+        const rowFor = (text) => rows().find((row) => row.querySelector('.b')?.textContent === text);
+        const editable = rowFor(`${label} history 146`);
+        editable.scrollIntoView({ block: 'center' }); press(editable.querySelector('.b')); await settle();
+        const observerCount = window.__mochiPreviewLayout?.created;
+        await settle(1100);
+        assert(window.__mochiPreviewLayout?.created === observerCount, `${label}: idle clock ticks and action reveals do not rebuild bubble layout observers`);
+        press(editable.querySelector('button[title="Edit"]')); await settle();
+        value(q('.mochi-message-edit-input'), `Edited older ${label} 146`); key(q('.mochi-message-edit-input'), 'Enter');
+        await until(() => getContext().chat[recordAt].mes.includes(`Edited older ${label} 146`), `${label} older bubble edit`); await settle(250);
+        assert(getContext().chat[recordAt].mes.includes(`${label} history 0`) && getContext().chat[recordAt].mes.includes(`${label} history 299`), `${label}: editing a paginated bubble with repeated imported ids preserves hidden older/newer messages`);
+        const edited = rowFor(`Edited older ${label} 146`); press(edited.querySelector('.b')); await settle();
+        press(edited.querySelector('.mochi-reaction-add > button')); await settle();
+        press(edited.querySelector('.mochi-reaction-add-popover button:first-child'));
+        await until(() => getContext().chat[recordAt].mes.includes('👍'), `${label} older bubble reaction`); await settle(200);
+        assert(rowFor(`Edited older ${label} 146`).querySelector('.mochi-reaction-row')?.textContent.includes('👍'), `${label}: older-bubble reactions target the connected YAML item`);
+        const branched = rowFor(`Edited older ${label} 146`); press(branched.querySelector('.b')); await settle();
+        press(Array.from(branched.querySelectorAll('button')).find((button) => /branch/i.test(button.title)));
+        await until(() => preview.lifecycle.some((event) => event[0] === 'command' && event[1] === `/branch-create ${recordAt}`), `${label} buried branch index`);
+        assert(getContext().chat.length === savedLength, `${label}: Branch addresses the buried phone turn, not a recent roleplay message`);
+        const deleted = rowFor(`${label} history 147`); press(deleted.querySelector('.b')); await settle(); press(deleted.querySelector('button[title="Delete"]'));
+        await until(() => !getContext().chat[recordAt].mes.includes(`c: ${label} history 147\n`), `${label} older bubble deletion`); await settle(250);
+        assert(getContext().chat[recordAt].mes.includes(`Edited older ${label} 146`) && getContext().chat[recordAt].mes.includes(`${label} history 148`), `${label}: deleting one paginated user bubble never deletes its neighboring saved items`);
+        const current = getContext().chat[recordAt];
+        current.swipes = [current.mes, current.mes.replace(`${label} history 298`, `${label} alternate swipe 298`)]; current.swipe_id = 0;
+        current.swipe_info = current.swipes.map(() => ({ extra: { ...current.extra } }));
+        await getContext().eventSource.emit('MESSAGE_UPDATED', recordAt); await settle(250);
+        let last = rowFor(`${label} history 298`); last.scrollIntoView({ block: 'center' }); press(last.querySelector('.b')); await settle();
+        press(last.querySelector('.mochi-swipe-trigger button:last-child'));
+        await until(() => getContext().chat[recordAt].swipe_id === 1, `${label} buried native swipe`); await settle(250);
+        assert(rowFor(`${label} alternate swipe 298`) && getContext().chat.length === savedLength, `${label}: native swipe actions still locate the original record through the history index`);
+        last = rowFor(`${label} alternate swipe 298`); press(last.querySelector('.b')); await settle(); press(last.querySelector('.mochi-swipe-trigger button:first-child'));
+        await until(() => getContext().chat[recordAt].swipe_id === 0, `${label} previous buried swipe`); await settle(200);
+        while (q('#chatView .mochi-history-more')) { press(q('#chatView .mochi-history-more')); await settle(250); }
+        assert(rows().filter((row) => row.querySelector('.b')?.textContent.startsWith(`${label} history`) || row.querySelector('.b')?.textContent === `Edited older ${label} 146`).length === 299, `${label}: every saved message remains reachable; pagination does not truncate history`);
+        press(q('#chatView .c-head > button:first-child')); await settle();
+        assert(rows().length === 0, `${label}: leaving the thread unmounts hidden message controls`);
+      }
+      assert(getContext().chat[groupAt].mes.startsWith('Before bulk group prose.') && getContext().chat[groupAt].mes.endsWith('After bulk group prose.'), 'Older-message actions preserve surrounding roleplay prose');
+      closeMochiOs(); await settle();
+      for (const [recordAt, label] of [[groupAt, 'Group'], [privateAt, 'Private']]) {
+        const selector = `#chat .mes[mesid="${recordAt}"] .mochi-private-widget`;
+        await until(() => q(selector), `${label} large embedded widget`);
+        const widget = q(selector); press(widget.querySelector('.mochi-private-contact-open')); await settle(250);
+        assert(widget.querySelectorAll('.mochi-private-message').length === 80, `${label} widget: expanded large records initially mount only the newest 80 messages`);
+        const body = widget.querySelector('.mochi-private-thread'); body.scrollTop = 0;
+        const anchor = widget.querySelector('.mochi-private-message'); const top = anchor.getBoundingClientRect().top;
+        press(widget.querySelector('.mochi-history-more')); await settle(250);
+        assert(widget.querySelectorAll('.mochi-private-message').length === 160 && Math.abs(anchor.getBoundingClientRect().top - top) < 2, `${label} widget: older batches preserve their scroll position`);
+        press(widget.querySelector('.mochi-private-back')); await settle();
+        assert(widget.querySelectorAll('.mochi-private-message').length === 0, `${label} widget: collapsing a transcript removes all bubble observers`);
+      }
+      assert(preview.requests.length === 0, 'Long-history tests never send a model request');
+      report.dataset.historyChecks = JSON.stringify({ checks, timings });
+      report.textContent = `PASS: ${checks.length} long-history checks at ${Math.round(viewport.width)} × ${Math.round(viewport.height)}.`;
+    } catch (error) {
+      report.dataset.historyChecks = JSON.stringify({ checks, timings });
+      report.textContent = `FAIL after ${checks.length} long-history checks: ${error.message}`; console.error(error);
+    } finally { historyControl.disabled = false; }
+  };
   let layoutNames = null;
   layoutControl.onclick = async () => {
     layoutControl.disabled = true;
@@ -319,7 +559,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       openMochiOs(); await settle(350); await openThread('Preview Group');
       q('#chatView .mrow:has(.sticker img)').scrollIntoView({ block: 'start' });
       report.dataset.stickerLayout = JSON.stringify({ checks, failures, measurements });
-      report.textContent = failures.length ? `FAIL: ${failures.length} sticker-layout checks. ${failures[0]}` : `PASS: ${checks.length} sticker-layout checks. Wide, tall, and small fixtures are ready for inspection.`;
+      report.textContent = failures.length ? `FAIL: ${failures.length} sticker-layout checks.\n${failures.join('\n')}` : `PASS: ${checks.length} sticker-layout checks. Wide, tall, and small fixtures are ready for inspection.`;
     } catch (error) { report.textContent = `Sticker layout fixture failed: ${error.message}`; console.error(error); }
     finally { layoutControl.disabled = false; layoutControl.textContent = layoutNames ? 'Clear sticker layout' : 'Inspect sticker layout'; }
   };
@@ -564,7 +804,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       const bubble = first.querySelector('.b');
       const actionRow = first.querySelector('.msg-actions-trigger');
       const initial = { message: first.getBoundingClientRect(), bubble: bubble.getBoundingClientRect(), next: incoming()[1].getBoundingClientRect() };
-      assert(Math.abs(first.querySelector('.mini').getBoundingClientRect().bottom - first.querySelector('.mochi-bubble-meta').getBoundingClientRect().bottom) < 1, 'Reserved controls keep the compact avatar beside its original bubble, not below the actions');
+      assert(Math.abs(first.querySelector('.mini').getBoundingClientRect().bottom - bubble.getBoundingClientRect().bottom) < 1, 'Reserved controls keep the compact avatar beside its text bubble, clear of timestamps and actions');
       pointer(bubble, 'pointerover'); pointer(bubble, 'pointermove'); await settle();
       assert(getComputedStyle(actionRow).visibility === 'hidden' && actionRow.inert, 'Hover does not activate message actions');
       press(bubble); await settle();
@@ -573,9 +813,9 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       const actionsAligned = () => actionRow.parentElement.classList.contains('wmsg') && actionRow.getBoundingClientRect().top >= bubble.getBoundingClientRect().bottom && Math.abs(actionRow.getBoundingClientRect().left - actionRow.parentElement.getBoundingClientRect().left) < 1;
       await until(actionsAligned, 'measured message-action alignment');
       assert(actionsAligned(), 'Actions sit below and left-align with the message bubble');
-      assert(getComputedStyle(first.querySelector('.mt')).position === 'static' && getComputedStyle(first.querySelector('.mochi-bubble-meta')).position === 'static' && first.querySelector('.mochi-bubble-meta').getBoundingClientRect().height > 0, 'Timestamp retains its original in-flow position beside the group sender');
+      assert(getComputedStyle(first.querySelector('.mt')).position === 'static' && getComputedStyle(first.querySelector('.mochi-bubble-meta')).position === 'static' && first.querySelector('.mochi-bubble-meta').getBoundingClientRect().height > 0, 'Timestamp remains in flow below the bubble without absolute-positioned overlap');
       assert(getComputedStyle(actionRow).flexWrap === 'nowrap', 'Message actions remain on one horizontal row');
-      assert(Math.abs(actionRow.getBoundingClientRect().top - first.querySelector('.mochi-bubble-meta').getBoundingClientRect().top) < 1, 'Only actions move to the original timestamp metadata top edge');
+      checkTextActionPlacement(bubble, assert, 'Group chat features');
       assert(!all('.msg-actions-trigger button').some((control) => /translat/i.test(control.title)), 'Translate is absent from message actions');
       key(first, 'Escape'); await settle();
       assert(isMochiOsOpen() && !first.classList.contains('actions-visible'), 'Escape dismisses actions instead of closing Mochi');
@@ -636,7 +876,10 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(outgoing().length === 1 && outgoing()[0].textContent.includes('😀'), 'Emoji sends as one outgoing bubble');
       const userRow = outgoing()[0];
       press(userRow.querySelector('.b')); await settle();
-      assert(!userRow.querySelector('.mini') && Math.abs(userRow.querySelector('.msg-actions-trigger').getBoundingClientRect().left - userRow.querySelector('.b').getBoundingClientRect().left) < 1, 'Outgoing bubbles retain the original no-avatar layout with left-aligned actions');
+      const userBubble = userRow.querySelector('.b').getBoundingClientRect();
+      const userActions = userRow.querySelector('.msg-actions-trigger').getBoundingClientRect();
+      const userThread = q('#chatView .c-body').getBoundingClientRect();
+      assert(!userRow.querySelector('.mini') && userActions.left <= userBubble.left + 1 && userActions.left >= userThread.left - 1 && userActions.right <= userThread.right + 1, 'Compact outgoing bubbles retain the no-avatar layout with a separate in-bounds action footprint');
       await openPicker('Stickers');
       const file = await stickerFile();
       const priorNames = new Set(all('.mochi-sticker-send span').map((span) => span.textContent));

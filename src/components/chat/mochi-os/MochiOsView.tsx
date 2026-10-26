@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { MochiMessageActions } from "./MochiMessageActions";
+import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { createMochiRoleplayHistoryIndexer } from "./mochi-history-index";
+import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Character, Message, MessageReaction } from "@marinara-engine/shared";
 import type {
@@ -273,11 +276,11 @@ function MochiTextBubble({
   const stickerUrl = stickerMap.get(MochiStickerName(quotedText));
 
   if (!quotedText) {
-    return <div className={`b ${direction}`}>{message.text}</div>;
+    return <div className={`b ${direction} mochi-text-bubble`}>{message.text}</div>;
   }
 
   return (
-    <div className={`b ${direction} mochi-quote-bubble`}>
+    <div className={`b ${direction} mochi-quote-bubble mochi-text-bubble`}>
       <div className="mochi-quoted-message">
         {quotedName && <strong>{quotedName}</strong>}
         {stickerUrl ? <img className="mochi-chat-sticker-image" src={stickerUrl} alt="" /> : <span>{quotedText}</span>}
@@ -905,6 +908,11 @@ export function MochiOsView({
     const flattened = [...activeChatMessagesData.pages].reverse().flat();
     return flattened;
   }, [activeChatMessagesData]);
+  const historyIndexer = useMemo(() => createMochiRoleplayHistoryIndexer(), [activeChatId]);
+  const roleplayHistoryIndex = useMemo(
+    () => historyIndexer(activeChatRoleplayMessages, activeLinkedPersona?.name?.trim() || "User"),
+    [historyIndexer, activeChatRoleplayMessages, activeLinkedPersona?.name],
+  );
 
   // Global Chat Store generation state
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
@@ -1316,24 +1324,9 @@ export function MochiOsView({
   // Hydrate Mochi contacts and group threads synchronously from canonical `<chat_history>`
   // records in roleplay messages so opening the Messages app has zero delay.
   const hydratedContactMaps = useMemo(() => {
-    const personaName = activeLinkedPersona?.name?.trim() || "User";
     const groups = (savedPhoneDataResponse?.phoneData?.groups as MochiOsGroupData[] | undefined) || [];
     const groupKeyByName = new Map(groups.map((group) => [group.id, group.name?.trim().toLowerCase() || ""]));
-    const parsedBlocks = activeChatRoleplayMessages
-      .filter(
-        (message) =>
-          message.role === "assistant" &&
-          /<(?:chat_history|privatechat_history|groupchat_history|group_message)\b/i.test(
-            message.content,
-          ),
-      )
-      .flatMap((message) => parseChatHistoryBlocks(message.content, personaName).map((block, recordIndex) => ({
-        ...block,
-        messages: block.messages.map((item, itemIndex) => ({
-          ...item, id: mochiRoleplayBubbleId(message.id, recordIndex, itemIndex),
-        })),
-      })))
-      .filter((block) => block.messages.length > 0);
+    const parsedBlocks = roleplayHistoryIndex.blocks.filter((block) => block.messages.length > 0);
     if (parsedBlocks.length === 0) {
       return { contacts: {} as MochiContactsMap, privateContacts: {} as MochiContactsMap };
     }
@@ -1367,9 +1360,10 @@ export function MochiOsView({
       const prevMsgs = (prev[resolvedKey]?.msgs ??
         (isPrivateMode ? privateContactsRef.current : contactsRef.current)[resolvedKey]?.msgs ??
         []) as MochiMessage[];
+      const existingById = new Map(prevMsgs.filter((message) => message.id).map((message) => [message.id, message]));
       const restoredMsgs: MochiMessage[] = parsedChat.messages.map((m, idx) => {
         const resolvedId = m.id || `local_${resolvedKey}_${idx}`;
-        const existingMsg = prevMsgs.find((pm, pIdx) => (pm.id && pm.id === resolvedId) || pIdx === idx);
+        const existingMsg = existingById.get(resolvedId) || prevMsgs[idx];
         return {
           id: resolvedId,
           me: m.me,
@@ -1421,7 +1415,7 @@ export function MochiOsView({
     const privateBlocks = contactBlocks.filter((block) => block.type !== "group");
     const nextPrivateContacts = privateBlocks.reduce((acc, block) => buildOne(acc, block), {} as MochiContactsMap);
     return { contacts: nextContacts, privateContacts: nextPrivateContacts };
-  }, [activeChatRoleplayMessages, activeLinkedPersona, isPrivateMode, primaryRoleplayCharName, savedPhoneDataResponse]);
+  }, [roleplayHistoryIndex, isPrivateMode, primaryRoleplayCharName, savedPhoneDataResponse]);
 
   // Contacts for active mode (merge synchronous hydrated contacts with local state so chats and icons appear immediately)
   const currentContactsMap = useMemo<MochiContactsMap>(() => {
@@ -1436,6 +1430,7 @@ export function MochiOsView({
     if (!contact) return;
     const target = contact.msgs[msgIdx];
     const location = locateMochiMessageInRoleplay({
+      historyIndex: roleplayHistoryIndex,
       roleplayMessages: activeChatRoleplayMessages, userName: userScreenName, targetName: contact.name,
       recordType: activeRecordType, threadIndex: msgIdx, threadMessageId: target?.id,
     });
@@ -1499,6 +1494,7 @@ export function MochiOsView({
       try {
         if (activeChatId && !pending) {
           const location = locateMochiMessageInRoleplay({
+            historyIndex: roleplayHistoryIndex,
             roleplayMessages: activeChatRoleplayMessages,
             userName: activeLinkedPersona?.name || "User",
             targetName: contact.name || "",
@@ -1510,7 +1506,7 @@ export function MochiOsView({
           const saved = await api.patch<Message>(`/chats/${activeChatId}/messages/${location.roleplayMessageId}/phone-message`, {
             recordType: activeRecordType, targetName: location.targetName, recordIndex: location.recordIndex,
             itemIndex: location.indexInRecord, itemId: target.rawItem?.id, content: trimmed,
-            expectedContent: activeChatRoleplayMessages.find((message) => message.id === location.roleplayMessageId)?.content,
+            expectedContent: roleplayHistoryIndex.messagesById.get(location.roleplayMessageId)?.content,
           });
           if (!saved || saved.id !== location.roleplayMessageId) throw new Error("The connected roleplay message could not be updated.");
         }
@@ -1546,6 +1542,7 @@ export function MochiOsView({
       activeChatId,
       currentContactsMap,
       activeChatRoleplayMessages,
+      roleplayHistoryIndex,
       activeLinkedPersona,
       qc,
     ],
@@ -1602,6 +1599,7 @@ export function MochiOsView({
       if (activeChatId) {
         const targetName = isGroupThread ? groupThreadName : contact.name || "";
         const location = locateMochiMessageInRoleplay({
+          historyIndex: roleplayHistoryIndex,
           roleplayMessages: activeChatRoleplayMessages,
           userName: activeLinkedPersona?.name || "User",
           targetName,
@@ -1633,6 +1631,7 @@ export function MochiOsView({
       activeChatId,
       currentContactsMap,
       activeChatRoleplayMessages,
+      roleplayHistoryIndex,
       activeLinkedPersona?.name,
       qc,
     ],
@@ -1685,6 +1684,7 @@ export function MochiOsView({
       // boundary exists, so resolve it first.
       const location = activeChatId
         ? locateMochiMessageInRoleplay({
+            historyIndex: roleplayHistoryIndex,
             roleplayMessages: activeChatRoleplayMessages,
             userName: activeLinkedPersona?.name || "User",
             targetName: contact.name || "",
@@ -1745,13 +1745,10 @@ export function MochiOsView({
         // Only the records of this thread's own kind are candidates. A private
         // chat and a group can share an archive and even a name, so the record
         // type is what keeps one thread's regeneration from truncating the other.
-        const taggedMessages = activeChatRoleplayMessages.filter((message) => {
-          if (message.role !== "assistant") return false;
-          const block = parseChatHistoryBlocks(message.content, activeLinkedPersona?.name || "User", {
-            recordType: activeRecordType,
-          }).find((entry) => [entry.target, entry.contactname, entry.name].some((name) => name?.trim().toLowerCase() === targetName.trim().toLowerCase()));
-          return block?.type === activeRecordType;
-        });
+        const wanted = targetName.trim().toLowerCase();
+        const taggedMessages = Array.from(new Map(roleplayHistoryIndex.records
+          .filter(({ block }) => block.type === activeRecordType && [block.target, block.contactname, block.name].some((name) => name?.trim().toLowerCase() === wanted))
+          .map(({ message }) => [message.id, message])).values());
         // Replace only from the record that actually holds this turn. Falling back to
         // the newest record would delete every turn after the one being
         // regenerated whenever an older bubble is regenerated.
@@ -1823,6 +1820,7 @@ export function MochiOsView({
       isPrivateMode,
       currentContactsMap,
       activeChatRoleplayMessages,
+      roleplayHistoryIndex,
       activeLinkedPersona,
     ],
   );
@@ -1836,6 +1834,7 @@ export function MochiOsView({
 
       if (activeChatId) {
         const location = locateMochiMessageInRoleplay({
+          historyIndex: roleplayHistoryIndex,
           roleplayMessages: activeChatRoleplayMessages,
           userName: activeLinkedPersona?.name || "User",
           targetName: contact.name || "",
@@ -1844,7 +1843,7 @@ export function MochiOsView({
           threadMessageId: contact.msgs[msgIdx]?.id,
         });
         const rpMsg = location
-          ? activeChatRoleplayMessages.find((msg) => msg.id === location.roleplayMessageId)
+          ? roleplayHistoryIndex.messagesById.get(location.roleplayMessageId)
           : undefined;
         if (rpMsg) {
           const currentIdx = rpMsg.activeSwipeIndex ?? 0;
@@ -1888,6 +1887,7 @@ export function MochiOsView({
       currentContactsMap,
       activeChatId,
       activeChatRoleplayMessages,
+      roleplayHistoryIndex,
       activeLinkedPersona?.name,
       activeRecordType,
       setActiveSwipe,
@@ -1901,6 +1901,7 @@ export function MochiOsView({
       const contact = currentContactsMap[activeThreadId];
       if (!contact) return;
       const location = locateMochiMessageInRoleplay({
+        historyIndex: roleplayHistoryIndex,
         roleplayMessages: activeChatRoleplayMessages,
         userName: activeLinkedPersona?.name || "User",
         targetName: contact.name,
@@ -1949,6 +1950,7 @@ export function MochiOsView({
       activeThreadId,
       activeRecordType,
       activeChatRoleplayMessages,
+      roleplayHistoryIndex,
       activeLinkedPersona?.name,
       branchChat,
       currentContactsMap,
@@ -2095,10 +2097,14 @@ export function MochiOsView({
   // Live timer tick
   useEffect(() => {
     const timer = setInterval(() => {
-      setNowDate(new Date());
+      const offset = clockMode === "custom" ? clockOffset : 0;
+      setNowDate((previous) => {
+        const next = new Date();
+        return Math.floor((previous.getTime() + offset) / 60_000) === Math.floor((next.getTime() + offset) / 60_000) ? previous : next;
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [clockMode, clockOffset]);
 
   // Compute live formatted clock & subtext
   const { liveTime, liveDateStr, liveWeekday } = useMemo(() => {
@@ -3662,11 +3668,12 @@ export function MochiOsView({
 
   // Auto-scroll chat body
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
+  const historyWindow = useMochiHistoryWindow(`${activeChatId}:${activeThreadId}:${isPrivateMode}`, currentActiveContact?.msgs.length || 0, chatBodyRef);
   useEffect(() => {
     if (chatBodyRef.current) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
     }
-  }, [currentActiveContact?.msgs, realChatMessages.length, streamBuffer, isChatGenerating]);
+  }, [currentActiveContact?.msgs, realChatMessages.length, streamBuffer, isChatGenerating, inChatView, messagesAppOpen]);
 
   // Calendar builder helper
   const calDays = useMemo(() => {
@@ -4752,7 +4759,7 @@ export function MochiOsView({
 
         {/* CHAT VIEW */}
         <div className="mview" id="chatView">
-          {(() => {
+          {messagesAppOpen && inChatView && (() => {
             const groupObj = activeGroupObj;
             const chatDisplayName = groupObj?.name || currentActiveContact?.name || "Chat";
             const chatNameColor = activeCharacterColor;
@@ -4868,7 +4875,7 @@ export function MochiOsView({
                                             <time>0:07</time>
                                           </div>
                                         ) : (
-                                          <div className="b out">{msg.content}</div>
+                                          <div className="b out mochi-text-bubble">{msg.content}</div>
                                         )}
                                         {reactions.length > 0 && (
                                           <div className="mochi-reaction-row">
@@ -4892,7 +4899,7 @@ export function MochiOsView({
                                             />
                                           </div>
                                         )}
-                                        <span className="mt">{ts}</span>
+                                        {isVoice ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
                                         <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
@@ -4940,7 +4947,7 @@ export function MochiOsView({
                                             <time>0:07</time>
                                           </div>
                                         ) : (
-                                          <div className="b in">{msg.content}</div>
+                                          <div className="b in mochi-text-bubble">{msg.content}</div>
                                         )}
                                         {reactions.length > 0 && (
                                           <div className="mochi-reaction-row">
@@ -4964,7 +4971,7 @@ export function MochiOsView({
                                             />
                                           </div>
                                         )}
-                                        <span className="mt">{ts}</span>
+                                        {isVoice ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
                                         <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
@@ -5108,7 +5115,12 @@ export function MochiOsView({
                     // Demo contact message list fallback
                     (() => {
                       let lastDate = "";
-                      return currentActiveContact.msgs.map((m, idx) => {
+                      return <>
+                        {historyWindow.startIndex > 0 && <button type="button" className="notice mochi-history-more" onClick={historyWindow.showOlder}>
+                          {localizeUi("ui.chat.mochiosview.loadOlderMessages", "Load older messages")}
+                        </button>}
+                        {currentActiveContact.msgs.slice(historyWindow.startIndex).map((m, visibleIndex) => {
+                        const idx = historyWindow.startIndex + visibleIndex;
                         const rawD = (m.d || currentActiveContact.started || "").trim();
                         // Normalize date string (strip extra whitespace / lowercase check) to prevent duplicate notices
                         const normalizedD = rawD.toLowerCase();
@@ -5137,6 +5149,7 @@ export function MochiOsView({
                         const rpLocation =
                           m.me !== 1 && activeChatId
                             ? locateMochiMessageInRoleplay({
+                                historyIndex: roleplayHistoryIndex,
                                 roleplayMessages: activeChatRoleplayMessages,
                                 userName: activeLinkedPersona?.name || "User",
                                 targetName: currentActiveContact.name || "",
@@ -5146,7 +5159,7 @@ export function MochiOsView({
                               })
                             : null;
                         const rpSwipeMsg = rpLocation
-                          ? activeChatRoleplayMessages.find((msg) => msg.id === rpLocation.roleplayMessageId)
+                          ? roleplayHistoryIndex.messagesById.get(rpLocation.roleplayMessageId)
                           : undefined;
                         const bubbleSwipeCount = rpSwipeMsg ? (rpSwipeMsg.swipeCount ?? 1) : (m.swipes?.length ?? 1);
                         const bubbleActiveSwipeIdx = rpSwipeMsg
@@ -5158,6 +5171,7 @@ export function MochiOsView({
                           idx + 1 >= currentActiveContact.msgs.length ||
                           currentActiveContact.msgs[idx + 1]?.me === 1 ||
                           locateMochiMessageInRoleplay({
+                            historyIndex: roleplayHistoryIndex,
                             roleplayMessages: activeChatRoleplayMessages,
                             userName: activeLinkedPersona?.name || "User",
                             targetName: currentActiveContact.name || "",
@@ -5263,7 +5277,8 @@ export function MochiOsView({
                                       />
                                     </div>
                                   )}
-                                  <span className="mt">{ts}</span>
+                                  {m.type === "sticker" || m.type === "voice" || isMochiTransferType(m.type)
+                                    ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
                                   <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
@@ -5419,10 +5434,12 @@ export function MochiOsView({
                                       />
                                     </div>
                                   )}
-                                  <span className="mochi-bubble-meta">
-                                    {isGroupThread && <MochiGroupSenderLabel name={bubbleSender} />}
-                                    <span className="mt">{ts}</span>
-                                  </span>
+                                  {m.type === "sticker" || m.type === "voice" || isMochiTransferType(m.type) ? (
+                                    <span className="mochi-bubble-meta">
+                                      {isGroupThread && <MochiGroupSenderLabel name={bubbleSender} />}
+                                      <span className="mt">{ts}</span>
+                                    </span>
+                                  ) : <MochiBubbleMeta time={ts} sender={isGroupThread ? bubbleSender : undefined} color={bubbleSender ? getMochiCharacterColor(bubbleSender) : undefined} />}
                                   <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
@@ -5532,7 +5549,7 @@ export function MochiOsView({
                             )}
                           </React.Fragment>
                         );
-                      });
+                      })}</>;
                     })()
                   ) : (
                     <div className="notice" style={{ marginTop: 20 }}>

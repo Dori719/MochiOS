@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { runStickerStorageTests } from './test-sticker-storage.mjs';
+import { runHistoryContextTests } from './test-history-context.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -24,6 +25,9 @@ const result = await build({
       export { formatFriendInfo, mochiSocialHandle, parseMochiPrivateChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
       export { getMochiWorldInfoPrompt } from './src/st/lorebooks.ts';
+      export { getMochiTokenLimits, fitMochiPromptToContext, markMochiBudgetCandidates, countMochiMessageTokens } from './src/st/context-budget.ts';
+      export { generateMochiOutput } from './src/st/generate.ts';
+      export { createMochiRoleplayHistoryIndexer } from './src/components/chat/mochi-os/mochi-history-index.ts';
       export { selectTestPersona } from '/scripts/personas.js';
     `,
     resolveDir: root,
@@ -38,6 +42,7 @@ const result = await build({
     name: 'mock-sillytavern-context',
     setup(builder) {
       builder.onResolve({ filter: /^\/scripts\/st-context\.js$/ }, () => ({ path: 'context', namespace: 'mock' }));
+      builder.onResolve({ filter: /^\/script\.js$/ }, () => ({ path: 'script', namespace: 'mock' }));
       builder.onResolve({ filter: /^\/scripts\/world-info\.js$/ }, () => ({ path: 'world-info', namespace: 'mock' }));
       builder.onResolve({ filter: /^\/scripts\/personas\.js$/ }, () => ({ path: 'personas', namespace: 'mock' }));
       builder.onResolve({ filter: /^\/scripts\/extensions\/regex\/engine\.js$/ }, () => ({ path: 'regex', namespace: 'mock' }));
@@ -45,6 +50,7 @@ const result = await build({
       builder.onLoad({ filter: /.*/, namespace: 'mock' }, (args) => ({
         contents: {
           context: 'export function getContext() { return globalThis.__mochiTestHost; }',
+          script: 'export const amount_gen = 256; export function getMaxContextTokens() { const h=globalThis.__mochiTestHost; return h.mainApi && h.mainApi!=="openai" ? h.maxContext || 8192 : h.chatCompletionSettings?.openai_max_context || h.maxContext || 8192; } export function getMaxResponseTokens() { const h=globalThis.__mochiTestHost; return h.mainApi && h.mainApi!=="openai" ? h.maxResponseTokens || amount_gen : h.chatCompletionSettings?.openai_max_tokens || 4096; } export function createRawPrompt(messages,api) { const h=globalThis.__mochiTestHost; if(h.formatRawPrompt) return h.formatRawPrompt(messages,api); return api==="openai" ? messages : messages.map(m=>(m.name || (m.role==="user" ? h.name1 : m.role==="assistant" ? h.name2 : ""))+": "+m.content).join("\\n"); }',
           'world-info': 'export const world_info_include_names = true; export function getWorldInfoSettings() { return { world_info: globalThis.__mochiTestWorldInfo }; }',
           personas: 'export let user_avatar = ""; export function selectTestPersona(id) { user_avatar = id; }',
           regex: 'export const regex_placement={USER_INPUT:1,AI_OUTPUT:2}; export function getRegexedString(text, placement, options) { return globalThis.__mochiTestHost.promptRegex?.(text, placement, options) ?? text; }',
@@ -653,6 +659,8 @@ delete host.promptRegex;
 delete host.symbols;
 host.chat = savedPromptChat;
 host.chatMetadata = savedPromptMetadata;
+
+await runHistoryContextTests({ api, host, choose, calls });
 
 // Only the requested transcript and its environment may enter roleplay history.
 for (const category of ['private_chats', 'group_chats']) {

@@ -1,31 +1,52 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { alignMochiBubbleMeta, isMochiTextBubble, mochiTimestampWidth, observeMochiBubbleLayout, setMochiLayoutValue } from './MochiBubbleMeta';
 
-/** Controls reserve their own footprint; they must never widen a sticker. */
+/** Controls reserve their own footprint, without widening text or stickers. */
 export function MochiMessageActions({ children, inert }: { children: ReactNode; inert: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const actions = ref.current;
-    const meta = actions?.previousElementSibling;
-    if (!actions || !(meta instanceof HTMLElement)) return;
-    const message = actions.parentElement;
-    const bubble = message?.querySelector<HTMLElement>(':scope > .b, :scope > .sticker');
+    const message = actions?.parentElement;
+    if (!actions || !message) return;
     const align = () => {
-      actions.style.setProperty('--mochi-actions-meta-height', `${meta.getBoundingClientRect().height}px`);
-      if (message && bubble?.querySelector('img.mochi-chat-sticker-image')) {
-        const wrapper = message.getBoundingClientRect();
-        const imageBubble = bubble.getBoundingClientRect();
+      const meta = actions.previousElementSibling;
+      const bubble = message.querySelector<HTMLElement>(':scope > .b, :scope > .sticker');
+      if (!(meta instanceof HTMLElement)) return;
+      if (message && bubble) {
+        const hasSticker = Boolean(bubble.querySelector('img.mochi-chat-sticker-image'));
+        const isText = isMochiTextBubble(bubble);
         const count = actions.children.length;
-        // Keep buttons usable on portrait/small stickers. Outgoing controls may
-        // extend to the left of a narrow image, but never past the message edge.
-        const minimum = count * 24 + Math.max(0, count - 1) * 4;
-        const width = Math.min(wrapper.width, Math.max(imageBubble.width, minimum));
-        const offset = Math.min(Math.max(0, imageBubble.left - wrapper.left), Math.max(0, wrapper.width - width));
-        message.style.setProperty('--mochi-sticker-inline-size', `${imageBubble.width}px`);
-        actions.style.setProperty('--mochi-actions-inline-size', `${width}px`);
-        actions.style.setProperty('--mochi-actions-inline-offset', `${offset}px`);
+        const gap = parseFloat(getComputedStyle(actions).columnGap) || 0;
+        const gaps = Math.max(0, count - 1) * gap;
+        const timestampSpace = Math.max(36, (isText ? mochiTimestampWidth(meta) : 0) + gap);
+        const belowTimestamp = isText && bubble.getBoundingClientRect().width < count * 28 + gaps + timestampSpace;
+        // Text that cannot fit every button beside the time uses the same
+        // reserved row as stickers. Transfers and other bubble types stay put.
+        actions.classList.toggle('is-below-timestamp', belowTimestamp);
+        if (isText) actions.style.setProperty('--mochi-actions-timestamp-space', `${timestampSpace}px`);
+        else actions.style.removeProperty('--mochi-actions-timestamp-space');
+        // Short text and small stickers still need usable buttons. Let the
+        // controls size the wrapper, not the bubble; CSS caps it to the thread.
+        const style = getComputedStyle(actions);
+        const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        const minimum = count * (belowTimestamp ? 28 : 24) + gaps + padding;
+        setMochiLayoutValue(actions, '--mochi-actions-inline-size', Math.max(bubble.getBoundingClientRect().width, minimum));
+        alignMochiBubbleMeta(message, bubble, meta);
+        const wrapper = message.getBoundingClientRect();
+        const content = bubble.getBoundingClientRect();
+        const width = actions.getBoundingClientRect().width;
+        // Outgoing controls may extend left of a compact bubble, but never
+        // beyond its wrapper. Long messages keep their original alignment.
+        const offset = Math.min(Math.max(0, content.left - wrapper.left), Math.max(0, wrapper.width - width));
+        if (hasSticker) message.style.setProperty('--mochi-sticker-inline-size', `${content.width}px`);
+        else message.style.removeProperty('--mochi-sticker-inline-size');
+        setMochiLayoutValue(actions, '--mochi-actions-inline-offset', offset);
         actions.style.setProperty('--mochi-actions-count', `${Math.max(1, count)}`);
         actions.style.setProperty('--mochi-actions-wrapper-inline-size', `${wrapper.width}px`);
+        setMochiLayoutValue(actions, '--mochi-actions-meta-height', meta.getBoundingClientRect().height);
       } else {
+        actions.classList.remove('is-below-timestamp');
+        actions.style.removeProperty('--mochi-actions-timestamp-space');
         message?.style.removeProperty('--mochi-sticker-inline-size');
         actions.style.removeProperty('--mochi-actions-inline-size');
         actions.style.removeProperty('--mochi-actions-inline-offset');
@@ -33,13 +54,7 @@ export function MochiMessageActions({ children, inert }: { children: ReactNode; 
         actions.style.removeProperty('--mochi-actions-wrapper-inline-size');
       }
     };
-    align();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(align);
-    observer.observe(meta);
-    if (message) observer.observe(message);
-    if (bubble) observer.observe(bubble);
-    return () => observer.disconnect();
-  }, [children]);
+    return observeMochiBubbleLayout(message, align);
+  }, []);
   return <div ref={ref} className="msg-actions-trigger" aria-label="Message actions" inert={inert}>{children}</div>;
 }

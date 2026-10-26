@@ -1,4 +1,6 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
+import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
@@ -6,7 +8,7 @@ import { useConversationCustomStickers } from "../../../hooks/use-conversation-c
 import { stickerName } from "../../../st/stickers";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS } from "@marinara-engine/shared";
-import { parseMochiGroupChatContent, type ParsedMochiChatWidget } from "./mochi-os.utils";
+import { isMochiTransferType, parseMochiGroupChatContent, type ParsedMochiChatWidget } from "./mochi-os.utils";
 import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
 import "./mochi-os.css";
@@ -61,6 +63,8 @@ function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
   const [open, setOpen] = useState(false);
 
   const groupName = data.chat.name?.trim() || data.chat.target?.trim() || "Group";
+  const threadRef = useRef<HTMLDivElement | null>(null);
+  const historyWindow = useMochiHistoryWindow(groupName, data.chat.messages.length, threadRef);
   const initial = Array.from(groupName)[0]?.toUpperCase() || "G";
   const senders = threadSenders(data.chat.messages);
   const rgb = settings.customRgb;
@@ -138,13 +142,17 @@ function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
             )}
           </header>
           <div className="mochi-private-chat-content">
-            <div className="mochi-private-thread" aria-label={t("ui.chat.mochiPrivateChat.messages")}>
+            <div ref={threadRef} className="mochi-private-thread" aria-label={t("ui.chat.mochiPrivateChat.messages")}>
               {data.chat.date && <div className="mochi-private-day">{data.chat.date}</div>}
-              {data.chat.messages.map((message, index) => {
+              {historyWindow.startIndex > 0 && <button type="button" className="notice mochi-history-more" onClick={historyWindow.showOlder}>
+                {t("ui.chat.mochiosview.loadOlderMessages", "Load older messages")}
+              </button>}
+              {data.chat.messages.slice(historyWindow.startIndex).map((message, visibleIndex) => {
+                const index = historyWindow.startIndex + visibleIndex;
                 const sender = message.me ? undefined : message.sender?.trim();
                 const senderColor = sender ? getMochiCharacterColor(sender) : undefined;
                 return (
-                  <article key={message.id || index} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
+                  <article key={`${message.id || "message"}:${index}`} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
                     {!message.me && (
                       <span
                         className="mochi-private-mini-avatar"
@@ -155,7 +163,7 @@ function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
                       </span>
                     )}
                     <div className={`mochi-private-bubble-wrap${message.type === "sticker" ? " is-sticker" : ""}`}>
-                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}`}>
+                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}${message.type !== "sticker" && message.type !== "voice" && !isMochiTransferType(message.type) ? " mochi-text-bubble" : ""}`}>
                         {message.type === "quote" && message.rawItem?.quote ? (
                           <div className="mochi-private-quoted-message">
                             {(() => {
@@ -188,20 +196,10 @@ function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
                           )}
                         </div>
                       </div>
-                      {/* A group transcript is unreadable without the author on every
-                          bubble. The name goes under the message beside the time, so
-                          the thread is not pushed down by a line per bubble. */}
+                      {/* Keep each group author beside the time when there is room;
+                          compact text gets a separate author line. */}
                       {(sender || message.time || data.chat.time) && (
-                        <span className="mochi-private-bubble-meta">
-                          {sender && (
-                            <span className="mochi-msg-sender" style={{ color: senderColor }}>
-                              {sender}
-                            </span>
-                          )}
-                          {(message.time || data.chat.time) && (
-                            <time className="mochi-private-time">{message.time || data.chat.time}</time>
-                          )}
-                        </span>
+                        <MochiBubbleMeta embedded group sender={sender} color={senderColor} time={message.time || data.chat.time || ""} />
                       )}
                     </div>
                   </article>
