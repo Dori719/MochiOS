@@ -21,10 +21,11 @@ app shell.
 - **Roleplay persona.** The phone initially follows the selected SillyTavern
   persona. The picker shows **Name (persona title)**; a manual phone choice is
   remembered for this chat only.
-- **Transcripts inside messages.** A roleplay turn that carries a Mochi record
-  (`<privatechat_history …>`, `<groupchat_history …>` and their `<environment>`
-  block) renders as a real chat widget inside the message, with the prose around
-  it untouched.
+- **Transcripts inside messages.** Every compatible private or group record
+  (`<privatechat_history …>`, `<groupchat_history …>`, legacy `<chat_history …>`
+  and drawing-guide `<group_message …>`) renders as a chat widget. Environment
+  data is optional, mixed private/group turns render both, and surrounding prose
+  remains untouched.
 - **One response, one roleplay turn.** Each complete private or group phone
   response is saved as one SillyTavern message. Group senders remain attributed
   inside its YAML, and regeneration uses that message's native swipes.
@@ -263,6 +264,15 @@ visible area deterministically. Feature results report the measured visible size
 not the browser panel's preset label. None of these checks calls a live model or
 writes to a SillyTavern installation.
 
+**Check widget coverage** verifies target-only private records without environment
+data, drawing-guide and mixed private/group records, contact aliases, preserved
+prose, in-place edits, record-type changes and native swipe/re-render events.
+For a read-only comparison with an installed SillyTavern's history formatters:
+
+```powershell
+node scripts/test-st-integration.mjs --st-reference "D:\path\to\SillyTavern"
+```
+
 ### Why it is laid out this way
 
 `index.js` depends only on SillyTavern's own host modules; the extension code it
@@ -310,9 +320,12 @@ types the interface reads. `src/compat/` does the same for `clsx`,
 
 Data generation and private/group replies use the same marker expansion.
 **Chat History** inserts chronological user, assistant and narrator messages,
-not one flattened system block. SillyTavern's prompt regexes, file attachments,
-speaker-name settings and dialogue examples are respected. The greeting stays
-in history rather than being repeated as an example.
+not one flattened system block or the phone UI's combined legacy turns.
+SillyTavern's physical message order, prompt-regex depths, file attachments,
+speaker-name settings, whitespace and configured reasoning are respected.
+Historical macros use the roleplay's speakers, not the selected private contact
+or phone persona. Saved connections use their own completion preset's name mode.
+The greeting stays in history rather than being repeated as an example.
 
 World Info uses SillyTavern's scanner for activation, budgets and placement:
 before/after lore, example lore and depth/Author's Note injections stay distinct.

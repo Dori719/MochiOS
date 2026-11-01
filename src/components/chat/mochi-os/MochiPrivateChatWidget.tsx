@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
@@ -11,7 +11,6 @@ import { useChatStore } from "../../../stores/chat.store";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS, type MochiOsCharacterData } from "@marinara-engine/shared";
 import {
-  parseMochiPrivateChatContent,
   mochiSocialHandle,
   formatMochiTransferDisplay,
   isMochiTransferType,
@@ -23,18 +22,6 @@ import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
 import "./mochi-os.css";
 import "./mochi-private-chat-widget.css";
-
-export function renderMochiPrivateChatBlocks(text: string, renderText: (text: string) => ReactNode): ReactNode | null {
-  const parts = parseMochiPrivateChatContent(text);
-  if (!parts.length) return null;
-  return parts.map((part, index) =>
-    part.type === "text" ? (
-      <Fragment key={`text-${index}`}>{renderText(part.value)}</Fragment>
-    ) : (
-      <MochiPrivateChatWidget key={`widget-${index}`} data={part.value} />
-    ),
-  );
-}
 
 function getStickerName(text: string): string {
   return stickerName(text);
@@ -117,7 +104,7 @@ function MochiPrivateTransferCard({
   );
 }
 
-function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }) {
+export function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }) {
   const { t } = useTranslation();
   const { data: settings = DEFAULT_MOCHI_OS_SETTINGS } = useMochiOsSettings();
   const { map: stickerMap } = useConversationCustomStickers();
