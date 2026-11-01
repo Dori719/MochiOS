@@ -1022,43 +1022,42 @@ function chatRecordCloser(recordType: MochiChatRecordType): string {
   return recordType === "group" ? "</groupchat_history>" : "</privatechat_history>";
 }
 
-/**
- * Split complete records of one type that are immediately followed by a valid
- * environment block into widgets, keeping any surrounding text as text parts.
- */
-function parseMochiChatContent(rawText: string, userName: string | undefined, recordType: MochiChatRecordType) {
-  const openerPattern =
-    recordType === "private"
-      ? `(?:chat_history|privatechat_history)\\s+target="([^"]+)"\\s+type="${recordType}"`
-      : `(?:chat_history|groupchat_history)\\s+target="([^"]+)"(?:\\s+type="${recordType}")?`;
-  const recordPattern = new RegExp(
-    `<${openerPattern}[^>]*>[\\s\\S]*?<\\/(?:chat_history|privatechat_history|groupchat_history)>\\s*<environment>([\\s\\S]*?)<\\/environment>`,
-    "gi",
-  );
-  const matches = Array.from(rawText.matchAll(recordPattern));
-  const validMatches = matches.filter((match) => {
-    const source = match[0];
-    const environmentIndex = source.search(/<environment>/i);
-    return (
-      parseChatHistoryBlocks(source.slice(0, environmentIndex).trim(), userName, { recordType }).length === 1 &&
-      parseEnvironmentYaml(source.slice(environmentIndex)) !== null
-    );
+/** Read attributes independently of their order, spacing and quote style. */
+function chatRecordAttribute(attributes: string, name: string): string | undefined {
+  const match = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(attributes);
+  return (match?.[1] ?? match?.[2])?.trim();
+}
+
+/** Shared record scanner for archive hydration and inline widgets. */
+function scanMochiChatRecords(text: string) {
+  const tags = "chat_history|privatechat_history|groupchat_history|group_message";
+  // An unfinished record must not swallow the next complete record.
+  const pattern = new RegExp(`<(${tags})\\b([^>]*)>((?:(?!<(?:${tags})\\b)[\\s\\S])*?)<\\/(?:${tags})\\s*>`, "gi");
+  return Array.from(text.matchAll(pattern), (match) => {
+    const declaredType = chatRecordAttribute(match[2], "type")?.toLowerCase();
+    const type: MochiChatRecordType = declaredType === "group" || (declaredType !== "private" && isMochiGroupRecordTag(match[1])) ? "group" : "private";
+    return { source: match[0], body: match[3], index: match.index!, target: chatRecordAttribute(match[2], "target"), type };
   });
+}
+
+/** Split all complete phone records, with optional adjacent environment data,
+ * into widgets. Invalid records/environment and unrelated prose remain text. */
+export function parseMochiChatContent(rawText: string, userName?: string, options?: { recordType?: MochiChatRecordType }): MochiChatContentPart[] {
   const parts: MochiChatContentPart[] = [];
   let cursor = 0;
 
-  for (const match of validMatches) {
-    const source = match[0];
-    const chatSource = source.slice(0, source.search(/<environment>/i)).trim();
-    const environmentSource = source.slice(source.search(/<environment>/i));
-    const chat = parseChatHistoryBlocks(chatSource, userName || "{{user}}", { recordType })[0];
-    const environment = parseEnvironmentYaml(environmentSource);
-    if (!chat || !environment) continue;
+  for (const record of scanMochiChatRecords(rawText)) {
+    if (options?.recordType && record.type !== options.recordType) continue;
+    const chat = parseSingleChatHistoryRecord(record.body, record.target, record.type, userName);
+    if (!chat?.messages.length) continue;
+    let end = record.index + record.source.length;
+    const environmentSource = /^\s*<environment\b[^>]*>((?:(?!<(?:environment|chat_history|privatechat_history|groupchat_history|group_message)\b)[\s\S])*?)<\/environment\s*>/i.exec(rawText.slice(end))?.[0];
+    const environment = environmentSource ? parseEnvironmentYaml(environmentSource) : null;
+    if (environment) end += environmentSource!.length;
 
-    const index = match.index ?? 0;
-    if (index > cursor) parts.push({ type: "text", value: rawText.slice(cursor, index) });
-    parts.push({ type: "widget", value: { chat, environment } });
-    cursor = index + source.length;
+    if (record.index > cursor) parts.push({ type: "text", value: rawText.slice(cursor, record.index) });
+    parts.push({ type: "widget", value: { chat, environment: environment || {} } });
+    cursor = end;
   }
 
   if (parts.length === 0) return [];
@@ -1066,14 +1065,14 @@ function parseMochiChatContent(rawText: string, userName: string | undefined, re
   return parts;
 }
 
-/** Split only complete targeted private-chat records immediately followed by a valid environment block. */
+/** Backwards-compatible private-only reader. Environment data is optional. */
 export function parseMochiPrivateChatContent(rawText: string, userName?: string): MochiChatContentPart[] {
-  return parseMochiChatContent(rawText, userName, "private");
+  return parseMochiChatContent(rawText, userName, { recordType: "private" });
 }
 
-/** Split only complete targeted group-chat records immediately followed by a valid environment block. */
+/** Backwards-compatible group-only reader, including drawing-guide envelopes. */
 export function parseMochiGroupChatContent(rawText: string, userName?: string): MochiChatContentPart[] {
-  return parseMochiChatContent(rawText, userName, "group");
+  return parseMochiChatContent(rawText, userName, { recordType: "group" });
 }
 
 /**
@@ -1106,18 +1105,12 @@ export function parseChatHistoryBlocks(
   // list wrappers, so treating them as records would split one thread's history
   // into several fake threads. A `groupchat_history` opener with no `type`
   // attribute is the guide's own output form and is read as a group record.
-  const recordPattern =
-    /<(chat_history|privatechat_history|groupchat_history|group_message)(?:\s+target="([^"]*)")?(?:\s+type="([^"]*)")?[^>]*>([\s\S]*?)<\/(?:chat_history|groupchat_history|group_message|privatechat_history)>/gi;
-  const rawRecords = Array.from(cleanedYaml.matchAll(recordPattern));
+  const rawRecords = scanMochiChatRecords(cleanedYaml);
   const wantedType = options?.recordType;
   const records: ParsedChatHistoryBlock[] = [];
   for (const match of rawRecords) {
-    const targetAttr = match[2]?.trim();
-    const declaredType = match[3]?.trim().toLowerCase();
-    const recordType: MochiChatRecordType =
-      declaredType === "group" || (declaredType !== "private" && isMochiGroupRecordTag(match[1])) ? "group" : "private";
-    if (wantedType && recordType !== wantedType) continue;
-    const record = parseSingleChatHistoryRecord(match[4] || "", targetAttr, recordType, userName);
+    if (wantedType && match.type !== wantedType) continue;
+    const record = parseSingleChatHistoryRecord(match.body, match.target, match.type, userName);
     if (record) records.push(record);
   }
   if (records.length === 0 && !wantedType) {
@@ -1261,21 +1254,10 @@ function repairTrailingQuotedYamlContent(source: string): string {
  * `<messages>`/`<message>` wrappers.
  */
 function parseLegacyChatHistoryRecord(cleanedYaml: string, userName?: string): ParsedChatHistoryBlock | null {
-  const tagMatch =
-    cleanedYaml.match(
-      /<(chat_history|privatechat_history|groupchat_history|group_message)(?:\s+target="([^"]*)")?(?:\s+type="([^"]*)")?[^>]*>([\s\S]*?)<\/(?:chat_history|groupchat_history|group_message|privatechat_history)>/i,
-    ) ||
-    cleanedYaml.match(/<messages>([\s\S]*?)<\/messages>/i) ||
-    cleanedYaml.match(/<message>([\s\S]*?)<\/message>/i);
-  if (!tagMatch) {
-    return parseSingleChatHistoryRecord(cleanedYaml, undefined, undefined, userName);
-  }
-  const declaredType = tagMatch[3]?.trim().toLowerCase();
-  const recordType: MochiChatRecordType =
-    declaredType === "group" || (declaredType !== "private" && isMochiGroupRecordTag(tagMatch[1]))
-      ? "group"
-      : "private";
-  return parseSingleChatHistoryRecord(tagMatch[4] || "", tagMatch[2], recordType, userName);
+  const record = scanMochiChatRecords(cleanedYaml)[0];
+  if (record) return parseSingleChatHistoryRecord(record.body, record.target, record.type, userName);
+  const inner = cleanedYaml.match(/<(messages|message)\b[^>]*>([\s\S]*?)<\/\1\s*>/i);
+  return parseSingleChatHistoryRecord(inner?.[2] ?? cleanedYaml, undefined, undefined, userName);
 }
 
 /**
@@ -1837,7 +1819,7 @@ export function parseEnvironmentYaml(rawText: string): ParsedEnvironment | null 
   if (!cleaned) return null;
 
   // Extract <environment>...</environment> (find the last one if multiple exist)
-  const allEnvMatches = Array.from(cleaned.matchAll(/<environment>([\s\S]*?)<\/environment>/gi));
+  const allEnvMatches = Array.from(cleaned.matchAll(/<environment\b[^>]*>([\s\S]*?)<\/environment\s*>/gi));
   const envMatch = allEnvMatches.length > 0 ? allEnvMatches[allEnvMatches.length - 1] : null;
   const block = envMatch && envMatch[1] ? envMatch[1].trim() : cleaned.trim();
 

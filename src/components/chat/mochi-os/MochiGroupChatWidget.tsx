@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
@@ -8,31 +8,12 @@ import { useConversationCustomStickers } from "../../../hooks/use-conversation-c
 import { stickerName } from "../../../st/stickers";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS } from "@marinara-engine/shared";
-import { isMochiTransferType, parseMochiGroupChatContent, type ParsedMochiChatWidget } from "./mochi-os.utils";
+import { isMochiTransferType, type ParsedMochiChatWidget } from "./mochi-os.utils";
 import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
 import "./mochi-os.css";
 import "./mochi-private-chat-widget.css";
 import "./mochi-group-chat-widget.css";
-
-/**
- * Render the group-chat records embedded in a roleplay message.
- *
- * A roleplay turn can carry a group's transcript inside it, exactly as it can
- * carry one contact's. Both readers return text and widgets, so the surrounding
- * prose survives either way.
- */
-export function renderMochiGroupChatBlocks(text: string, renderText: (text: string) => ReactNode): ReactNode | null {
-  const parts = parseMochiGroupChatContent(text);
-  if (!parts.length) return null;
-  return parts.map((part, index) =>
-    part.type === "text" ? (
-      <Fragment key={`text-${index}`}>{renderText(part.value)}</Fragment>
-    ) : (
-      <MochiGroupChatWidget key={`widget-${index}`} data={part.value} />
-    ),
-  );
-}
 
 function stickerNameFromText(text: string): string {
   return stickerName(text);
@@ -56,7 +37,7 @@ function threadSenders(messages: Array<{ me?: number; sender?: string }>): strin
   return seen;
 }
 
-function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
+export function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) {
   const { t } = useTranslation();
   const { data: settings = DEFAULT_MOCHI_OS_SETTINGS } = useMochiOsSettings();
   const { map: stickerMap } = useConversationCustomStickers();

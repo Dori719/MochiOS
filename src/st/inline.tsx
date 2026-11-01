@@ -14,30 +14,21 @@
  * it.
  */
 import { createRoot, type Root } from 'react-dom/client';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 
-import { renderMochiGroupChatBlocks } from '../components/chat/mochi-os/MochiGroupChatWidget';
-import { renderMochiPrivateChatBlocks } from '../components/chat/mochi-os/MochiPrivateChatWidget';
+import { MochiGroupChatWidget } from '../components/chat/mochi-os/MochiGroupChatWidget';
+import { MochiPrivateChatWidget } from '../components/chat/mochi-os/MochiPrivateChatWidget';
+import { parseMochiChatContent } from '../components/chat/mochi-os/mochi-os.utils';
 import { ctx } from './adapter';
 import { mochiQueryClient } from './query-client';
 import { ensureMochiStyles } from './stylesheet';
+import { mayContainMochiWidget } from './widget-records';
+
+export { mayContainMochiWidget, RECORD_HINT } from './widget-records';
 
 /** Wrapper this module inserts in place of a message's rendered text. */
 const BLOCKS_CLASS = 'mochi-inline-blocks';
-
-/**
- * A record only becomes a widget when an `<environment>` block follows it (see
- * `parseMochiChatContent`), so both have to be present before the parsers are
- * worth running over a message.
- */
-export const RECORD_HINT = /(?:privatechat_history|groupchat_history|chat_history)/i;
-export const ENVIRONMENT_HINT = /<environment>/i;
-
-/** Whether a message could hold a widget at all. */
-export function mayContainMochiWidget(text: string): boolean {
-  return RECORD_HINT.test(text) && ENVIRONMENT_HINT.test(text);
-}
 
 interface Mounted {
   container: HTMLElement;
@@ -72,9 +63,15 @@ function formatText(text: string, index: number): ReactNode {
 
 /** The message's text as text parts and widgets, or `null` when it holds none. */
 function renderBlocks(text: string, index: number): ReactNode {
-  const renderText = (part: string): ReactNode => formatText(part, index);
-  // Both readers return `null` when the message holds none of their records.
-  return renderMochiGroupChatBlocks(text, renderText) ?? renderMochiPrivateChatBlocks(text, renderText);
+  // One pass renders every record, including private and group records in the
+  // same turn. Choosing the first successful reader hid the other record type.
+  const parts = parseMochiChatContent(text, ctx().name1);
+  if (!parts.length) return null;
+  return parts.map((part, partIndex) => part.type === 'text'
+    ? <Fragment key={`text-${partIndex}`}>{formatText(part.value, index)}</Fragment>
+    : part.value.chat.type === 'group'
+      ? <MochiGroupChatWidget key={`widget-${partIndex}`} data={part.value} />
+      : <MochiPrivateChatWidget key={`widget-${partIndex}`} data={part.value} />);
 }
 
 function mount(index: number, textElement: HTMLElement, text: string): void {

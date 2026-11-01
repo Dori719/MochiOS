@@ -41,3 +41,16 @@ export function selectedConnectionProfileId(): string | null {
     return null;
   }
 }
+
+/** Prompt formatting follows the selected completion preset too, not just its
+ * token limits. Reading a saved profile must never switch the active connection. */
+export function mochiChatCompletionSettings(profileId = selectedConnectionProfileId()): Record<string, any> {
+  const context = ctx();
+  const settings = context.chatCompletionSettings || {};
+  const service = context.ConnectionManagerRequestService;
+  const profile = profileId ? service?.getProfile?.(profileId) || service?.getSupportedProfiles?.().find((item: ConnectionProfile) => item.id === profileId) : undefined;
+  const api = context.CONNECT_API_MAP?.[profile?.api]?.selected || profile?.api;
+  const preset = api === 'openai' && profile?.preset
+    ? context.getPresetManager?.('openai')?.getCompletionPresetByName?.(profile.preset) : undefined;
+  return { ...settings, ...preset };
+}

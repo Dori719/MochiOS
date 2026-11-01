@@ -4,6 +4,8 @@ import path from 'node:path';
 import { build } from 'esbuild';
 import { runStickerStorageTests } from './test-sticker-storage.mjs';
 import { runHistoryContextTests } from './test-history-context.mjs';
+import { runPromptHistoryTests } from './test-prompt-history.mjs';
+import { runWidgetRecordTests } from './test-widget-records.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -22,7 +24,8 @@ const result = await build({
       export { createStickerLibrary, MAX_STICKER_BYTES, MAX_STICKER_NAME_LENGTH, normalizeStickerName, readStickerBackup, stickerName, stickerNameError, stickerNameKey, suggestStickerName } from './src/st/stickers.ts';
       export * from './src/st/sticker-storage.ts';
       export { buildMochiPresetMessages, formatMochiPromptHistory, formatMochiDialogueExamples, substituteMochiPromptMacros } from './src/st/preset.ts';
-      export { formatFriendInfo, mochiSocialHandle, parseMochiPrivateChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
+      export { formatFriendInfo, mochiSocialHandle, parseMochiChatContent, parseMochiPrivateChatContent, parseMochiGroupChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
+      export { mayContainMochiWidget } from './src/st/widget-records.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
       export { getMochiWorldInfoPrompt } from './src/st/lorebooks.ts';
       export { getMochiTokenLimits, fitMochiPromptToContext, markMochiBudgetCandidates, countMochiMessageTokens } from './src/st/context-budget.ts';
@@ -53,7 +56,7 @@ const result = await build({
           script: 'export const amount_gen = 256; export function getMaxContextTokens() { const h=globalThis.__mochiTestHost; return h.mainApi && h.mainApi!=="openai" ? h.maxContext || 8192 : h.chatCompletionSettings?.openai_max_context || h.maxContext || 8192; } export function getMaxResponseTokens() { const h=globalThis.__mochiTestHost; return h.mainApi && h.mainApi!=="openai" ? h.maxResponseTokens || amount_gen : h.chatCompletionSettings?.openai_max_tokens || 4096; } export function createRawPrompt(messages,api) { const h=globalThis.__mochiTestHost; if(h.formatRawPrompt) return h.formatRawPrompt(messages,api); return api==="openai" ? messages : messages.map(m=>(m.name || (m.role==="user" ? h.name1 : m.role==="assistant" ? h.name2 : ""))+": "+m.content).join("\\n"); }',
           'world-info': 'export const world_info_include_names = true; export function getWorldInfoSettings() { return { world_info: globalThis.__mochiTestWorldInfo }; }',
           personas: 'export let user_avatar = ""; export function selectTestPersona(id) { user_avatar = id; }',
-          regex: 'export const regex_placement={USER_INPUT:1,AI_OUTPUT:2}; export function getRegexedString(text, placement, options) { return globalThis.__mochiTestHost.promptRegex?.(text, placement, options) ?? text; }',
+          regex: 'export const regex_placement={USER_INPUT:1,AI_OUTPUT:2,REASONING:5}; export function getRegexedString(text, placement, options) { return globalThis.__mochiTestHost.promptRegex?.(text, placement, options) ?? text; }',
           attachments: 'export async function appendFileContent(message,text) { const files = (message.extra?.files || []).map(file=>file.text); if (!files.length) return text; const prefix=files.join("\\n\\n")+"\\n\\n"; message.extra.fileLength=prefix.length; return prefix+text; }',
         }[args.path],
         loader: 'js',
@@ -542,6 +545,7 @@ assert.equal(promptContent.filter((content) => content === 'Lore: BEFORE_LORE').
 assert.equal(promptContent.filter((content) => content === 'Lore: AFTER_LORE').length, 1, 'After lore appears once even with a legacy combined marker');
 assert.equal(promptContent.filter((content) => content === 'Greeting for User').length, 1);
 assert.ok(!promptContent.some((content) => /Must not duplicate greeting|Hidden system message|Ignored message|Stale depth lore|Filtered extension|Disabled extension/.test(content)));
+assert.ok(!promptContent.includes('[Start a new chat]'), 'The host new-chat prompt is not part of the preset and is not sent');
 assert.deepEqual(prompt.find((message) => message.content.includes('User turn')), { role: 'user', content: 'Attached file content\n\nUser turn\n\nMedia title' });
 assert.equal(host.chat[1].extra.fileLength, undefined, 'Preparing attachments does not modify saved messages');
 assert.equal(prompt.find((message) => message.content === 'Narration').role, 'system');
@@ -661,6 +665,8 @@ host.chat = savedPromptChat;
 host.chatMetadata = savedPromptMetadata;
 
 await runHistoryContextTests({ api, host, choose, calls });
+await runPromptHistoryTests({ api, host, choose, calls });
+runWidgetRecordTests(api);
 
 // Only the requested transcript and its environment may enter roleplay history.
 for (const category of ['private_chats', 'group_chats']) {

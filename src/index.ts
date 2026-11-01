@@ -17,6 +17,7 @@
 import { ctx, offEvent, onEvent, stReady } from './st/adapter';
 import { disposeLauncher, installLauncher, LAUNCHER_ID, updateLauncherTheme } from './st/launcher';
 import { disposeExtensionSettings, installExtensionSettings } from './st/extension-settings';
+import { mayContainMochiWidget } from './st/widget-records';
 
 const LOG = '[Mochi OS]';
 const WAND_CONTAINER_ID = 'mochi_os_wand_container';
@@ -249,8 +250,7 @@ async function installQuickReply(attempt = 0): Promise<void> {
 /**
  * Whether any message in the open chat could hold a record.
  *
- * Deliberately duplicated from `app.js`: this decides whether that file is worth
- * fetching at all, so it has to be answerable without it.
+ * The same lightweight check is used by `app.js`, without loading its parsers.
  */
 function chatMayHoldRecords(): boolean {
   const chat = ctx().chat;
@@ -258,8 +258,7 @@ function chatMayHoldRecords(): boolean {
   return chat.some(
     (message) =>
       typeof message?.mes === 'string' &&
-      /(?:privatechat_history|groupchat_history|chat_history)/i.test(message.mes) &&
-      /<environment>/i.test(message.mes),
+      mayContainMochiWidget(message.mes),
   );
 }
 

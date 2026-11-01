@@ -417,6 +417,70 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
   const historyControl = document.createElement('button');
   historyControl.id = 'test-long-history'; historyControl.textContent = 'Check long histories';
   q('#preview-tools').append(historyControl);
+  const widgetControl = document.createElement('button');
+  widgetControl.id = 'test-widget-records'; widgetControl.textContent = 'Check widget coverage';
+  q('#preview-tools').append(widgetControl);
+  widgetControl.onclick = async () => {
+    const checks = [];
+    const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
+    const transcript = (opener, closer, text) => `<${opener}>\nmessages:\n  - t: text\n    c: ${text}\n    time: "12:01"\n</${closer}>`;
+    const privateRecord = transcript('privatechat_history target="Preview Character"', 'privatechat_history', 'Private reply without environment');
+    const groupRecord = transcript("group_message target = 'Preview Group'", 'group_message', 'Drawing-guide group reply');
+    const environment = '<environment>\ndate: Today\ntime: "12:01"\nweather: Rainy\n</environment>';
+    const container = (index) => q(`#chat .mes[mesid="${index}"] .mes_text`);
+    const widgets = (index) => [...container(index).querySelectorAll('.mochi-private-widget')];
+    widgetControl.disabled = true;
+    report.textContent = 'Checking private, group and mixed roleplay widgets locally…';
+    try {
+      closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
+      const host = getContext();
+      const fixtures = [
+        `Before private prose.\n${privateRecord}\nAfter private prose.`,
+        groupRecord,
+        `Before mixed prose.\n${privateRecord}\n${environment}\nBetween records.\n${groupRecord}\nAfter mixed prose.`,
+        `${groupRecord}\n${privateRecord}`,
+        transcript("PRIVATECHAT_HISTORY type = 'PRIVATE' target = 'Preview Character'", 'PRIVATECHAT_HISTORY', 'User-role compatible transcript'),
+        '<privatechat_history target="Preview Character">\nmessages: [\n</privatechat_history>',
+      ];
+      host.chat.splice(0, host.chat.length, ...fixtures.map((mes, index) => ({ name: index === 4 ? 'Preview User' : 'Preview Character', is_user: index === 4, mes, extra: {} })));
+      await host.printMessages(); await host.eventSource.emit('CHAT_CHANGED'); refreshMochiWidgets();
+      await until(() => q('#chat .mochi-private-widget') && widgets(2).length === 2, 'compatible inline widgets');
+      assert(widgets(0).length === 1 && !widgets(0)[0].classList.contains('mochi-group-widget'), 'Target-only private records render without environment data');
+      assert(widgets(0)[0].textContent.includes('Preview Contact'), 'Private widgets resolve the phone_data contact alias');
+      assert(widgets(1).length === 1 && widgets(1)[0].classList.contains('mochi-group-widget'), 'Drawing-guide group_message envelopes render as group widgets');
+      assert(widgets(2).length === 2 && widgets(3).length === 2, 'Both record types render in one message, in either order');
+      assert(widgets(4).length === 1, 'Compatible user-role messages are not restricted to a group-chat generation');
+      assert(widgets(5).length === 0 && container(5).textContent === fixtures[5], 'Malformed transcripts retain SillyTavern’s original rendering');
+      assert([...container(2).querySelectorAll('.mochi-inline-text')].map((part) => part.textContent).join('') === 'Before mixed prose.\n\nBetween records.\n\nAfter mixed prose.', 'Prose around and between mixed widgets remains untouched');
+      for (const widget of widgets(2)) press(widget.querySelector('.mochi-private-contact-open'));
+      await until(() => widgets(2).every((widget) => widget.classList.contains('is-open')), 'expanded mixed widgets');
+      assert(widgets(2)[0].textContent.includes('Private reply without environment') && widgets(2)[1].textContent.includes('Drawing-guide group reply'), 'Each mixed widget renders its own transcript bubbles');
+      assert(widgets(2)[0].textContent.includes('Rainy') && !widgets(2)[1].textContent.includes('Rainy'), 'Environment data is shown only with its adjacent record');
+      assert(host.chat.every((message, index) => message.mes === fixtures[index]), 'Rendering widgets never rewrites saved roleplay content');
+      const existing = container(0).querySelector('.mochi-inline-blocks');
+      press(widgets(0)[0].querySelector('.mochi-private-contact-open'));
+      await until(() => widgets(0)[0].classList.contains('is-open'), 'open private widget before edit');
+      host.chat[0].mes = fixtures[0].replace('Private reply without environment', 'Edited private reply');
+      refreshMochiWidgets();
+      await until(() => container(0).textContent.includes('Edited private reply'), 'in-place private widget edit');
+      assert(existing.isConnected, 'Edits update private widgets in place without replacing host DOM');
+      host.chat[0].mes = groupRecord; refreshMochiWidgets();
+      await until(() => widgets(0)[0]?.classList.contains('mochi-group-widget'), 'private-to-group edit');
+      assert(widgets(0).length === 1, 'Changing record type mounts the right widget without duplicate roots');
+      host.chat[0].mes = 'Restored ordinary roleplay prose.'; refreshMochiWidgets();
+      await until(() => !container(0).querySelector('.mochi-inline-blocks'), 'restored native message rendering');
+      assert(container(0).textContent === host.chat[0].mes, 'Removing the last compatible record restores native prose');
+      host.chat[0].mes = fixtures[0]; host.updateMessageBlock(0); await host.eventSource.emit('MESSAGE_SWIPED', 0);
+      await until(() => widgets(0).length === 1, 'widget remounted after native swipe');
+      assert(!widgets(0)[0].classList.contains('mochi-group-widget'), 'Native swipe/re-render events remount private widgets');
+      assert(preview.requests.length === 0, 'Widget checks never call a model');
+      report.dataset.widgetChecks = JSON.stringify(checks);
+      report.textContent = `PASS: ${checks.length} widget-coverage checks.`;
+    } catch (error) {
+      report.dataset.widgetChecks = JSON.stringify(checks);
+      report.textContent = `FAIL after ${checks.length} widget-coverage checks: ${error.message}`; console.error(error);
+    } finally { widgetControl.disabled = false; }
+  };
   historyControl.onclick = async () => {
     const checks = [];
     const timings = {};
