@@ -1,31 +1,12 @@
-import { useLayoutEffect, useRef, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { getAvatarCropStyle } from '../../../lib/utils';
-import { isMochiTextBubble, mochiBubbleBottomOffset } from './MochiBubbleMeta';
 
-/** The original compact incoming avatar, aligned to text rather than controls. */
-export function MochiMessageIdentity({ name, color, avatar, crop }: { name: string; color: string; avatar?: string | null; crop?: any }) {
-  const avatarRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const element = avatarRef.current;
-    const message = element?.parentElement?.querySelector<HTMLElement>(':scope > .wmsg');
-    if (!element || !message) return;
-    // Controls reserve space without moving the original bottom-aligned avatar
-    // away from its bubble.
-    const align = () => {
-      const meta = message.querySelector<HTMLElement>(':scope > .mochi-bubble-meta, :scope > .mt');
-      const bubble = message.querySelector<HTMLElement>(':scope > .b');
-      const offset = bubble && isMochiTextBubble(bubble) ? mochiBubbleBottomOffset(message, bubble)
-        : meta ? message.getBoundingClientRect().bottom - meta.getBoundingClientRect().bottom : 0;
-      element.style.marginBottom = `${Math.max(0, offset)}px`;
-    };
-    align();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(align);
-    observer.observe(message);
-    return () => observer.disconnect();
-  }, []);
+/** A compact avatar aligned to the top of the shared message frame by CSS. */
+export function MochiMessageIdentity({ name, color, avatar, crop, embedded = false }: {
+  name: string; color: string; avatar?: string | null; crop?: any; embedded?: boolean;
+}) {
   return (
-    <span ref={avatarRef} className="mini" style={{ '--c': color, background: color, overflow: 'hidden' } as CSSProperties} aria-label={name} title={name}>
+    <span className={embedded ? 'mochi-private-mini-avatar' : 'mini'} style={{ '--c': color, background: color, overflow: 'hidden', position: 'relative' } as CSSProperties} aria-label={name} title={name}>
       {avatar ? <img src={avatar} alt="" style={getAvatarCropStyle(crop)} /> : Array.from(name)[0]?.toUpperCase() || '?'}
     </span>
   );

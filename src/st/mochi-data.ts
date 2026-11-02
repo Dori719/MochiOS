@@ -29,19 +29,41 @@ import type { MochiMessage } from '../components/chat/mochi-os/mochi-os.types';
 
 const THREAD_CATEGORIES = new Set(['private_chats', 'group_chats']);
 const THREAD_OUTPUT_TAGS = 'chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat|environment';
+// A tag mentioned in reasoning is not a block opener. Never let an unfinished
+// mention consume the next real environment (and hide its intervening reply).
+const ENVIRONMENT_BLOCK = /<environment\b[^>]*>(?:(?!<environment\b)[\s\S])*?<\/environment\s*>/gi;
+
+function environmentBlocks(text: string): string[] {
+  return [...text.matchAll(ENVIRONMENT_BLOCK)].map((match) => match[0]);
+}
+
+/** Keep environment payloads opaque while still discarding a hidden outer block. */
+function preserveEnvironmentBlocks(text: string, clean: (masked: string) => string): string {
+  const environments: string[] = [];
+  // Keep an environment-shaped marker so a stray prefill reasoning closer can
+  // still recognize this prefix as real output, not hidden thoughts.
+  const masked = text.replace(ENVIRONMENT_BLOCK, (block) => `<environment>\u0000mochi-environment:${environments.push(block) - 1}\u0000</environment>`);
+  return clean(masked).replace(/<environment>\u0000mochi-environment:(\d+)\u0000<\/environment>/g, (token, index) => environments[Number(index)] ?? token);
+}
 
 /** Foreign XML blocks are model commentary, not transcript/data fields. */
 function stripUnrelatedOutputTags(text: string, allowedTags: string): string {
-  const foreignBlock = new RegExp(`<(?!(${allowedTags})\\b)([a-z][\\w:-]*)\\b[^>]*>[\\s\\S]*?<\\/\\2\\s*>`, 'gi');
-  let cleaned = text;
-  let previous: string;
-  do {
-    previous = cleaned;
-    cleaned = cleaned.replace(foreignBlock, '');
-  } while (cleaned !== previous);
-  return cleaned
-    .replace(new RegExp(`<\\/?(?!(?:${allowedTags})\\b)[a-z][\\w:-]*\\b[^>]*>`, 'gi'), '')
-    .replace(/<\|[^>]*\|>/g, '');
+  // Environment YAML is opaque output, not commentary. Mask it while cleaning
+  // other tags so comments, custom fields and tag-like scalar values survive.
+  // A foreign outer block (e.g. <debug>) still removes any masked data inside it.
+  const clean = (source: string) => {
+    const foreignBlock = new RegExp(`<(?!(${allowedTags})\\b)([a-z][\\w:-]*)\\b[^>]*>[\\s\\S]*?<\\/\\2\\s*>`, 'gi');
+    let cleaned = source;
+    let previous: string;
+    do {
+      previous = cleaned;
+      cleaned = cleaned.replace(foreignBlock, '');
+    } while (cleaned !== previous);
+    return cleaned
+      .replace(new RegExp(`<\\/?(?!(?:${allowedTags})\\b)[a-z][\\w:-]*\\b[^>]*>`, 'gi'), '')
+      .replace(/<\|[^>]*\|>/g, '');
+  };
+  return allowedTags.split('|').includes('environment') ? preserveEnvironmentBlocks(text, clean) : clean(text);
 }
 
 interface StoredMeta {
@@ -225,7 +247,7 @@ export interface GeneratePhoneDataInput {
 /** Select only this request's output envelope, not prose or another phone app.
  * Old bare YAML remains readable, but XML from an unrelated response never
  * falls through into the parser's direct-message fallback. */
-function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType, targetNames: string[]): string {
+function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType, targetNames: string[]): { content: string; environments: string[] } {
   const source = stripUnrelatedOutputTags(cleaned, THREAD_OUTPUT_TAGS);
   const pattern = /<(chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat)\b[^>]*>[\s\S]*?<\/(?:\1|chat_history|privatechat_history|groupchat_history|group_message)>/gi;
   const records = [...source.matchAll(pattern)];
@@ -241,11 +263,20 @@ function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType
     if (tag === 'privatechat_history' || tag === 'private_chat') return recordType === 'private';
     return true;
   });
-  if (!record) return /<\/?[a-z][\w-]*\b[^>]*>/i.test(source) ? '' : source;
+  if (!record) {
+    const content = source.replace(ENVIRONMENT_BLOCK, '').trim();
+    if (records.length || /<\/?[a-z][\w-]*\b[^>]*>/i.test(content)) return { content: '', environments: [] };
+    return { content, environments: environmentBlocks(source) };
+  }
   const end = record.index! + record[0].length;
   const nextRecord = records.find((match) => match.index! >= end)?.index ?? source.length;
-  const environment = [...source.slice(end, nextRecord).matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].at(-1)?.[0];
-  return [record[0], environment].filter(Boolean).join('\n\n');
+  // A single response can put its environment before, inside or after the
+  // record. Do not steal leading metadata from a previous, unrelated thread.
+  const start = record === records[0] ? 0 : record.index!;
+  return {
+    content: record[0].replace(ENVIRONMENT_BLOCK, ''),
+    environments: environmentBlocks(source.slice(start, nextRecord)),
+  };
 }
 
 /**
@@ -265,21 +296,27 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
     signal,
     isCancelled: () => Boolean(signal?.aborted),
   });
-  const cleaned = cleanAndExtractRawYaml(raw);
+  const cleaned = preserveEnvironmentBlocks(raw, cleanAndExtractRawYaml);
 
   if (!isThreadCategory(category)) {
-    const source = stripUnrelatedOutputTags(cleaned, 'phone_data');
+    const sourceWithEnvironment = stripUnrelatedOutputTags(cleaned, 'phone_data|environment');
+    const source = sourceWithEnvironment.replace(ENVIRONMENT_BLOCK, '');
     const document = source.match(/<phone_data\b[^>]*>([\s\S]*?)<\/phone_data\s*>/i)?.[1]?.trim();
     const output = document ? `<phone_data>\n${document}\n</phone_data>` : source.trim();
     if (!output || (!document && /<\/?[a-z][\w-]*\b[^>]*>/i.test(output))) throw new Error('Mochi OS returned no phone data');
-    return { rawOutput: output };
+    const environments = environmentBlocks(sourceWithEnvironment);
+    // The storage parser needs a document boundary when old bare YAML is
+    // followed by environment XML; the view still receives both intact.
+    const phoneOutput = environments.length && !document ? `<phone_data>\n${output}\n</phone_data>` : output;
+    return { rawOutput: [phoneOutput, ...environments].join('\n\n') };
   }
 
   const recordType = recordTypeFor(category);
   const targetName = (recordType === 'group'
     ? input.contactName || input.characterName || 'Group'
     : input.characterName || input.contactName || 'Character').trim();
-  const threadOutput = extractGeneratedThread(cleaned, recordType, [targetName, input.contactName || '', input.characterName || '']);
+  const thread = extractGeneratedThread(cleaned, recordType, [targetName, input.contactName || '', input.characterName || '']);
+  const threadOutput = thread.content;
   const parsed = parseMochiChatResponse(threadOutput, targetName, { structuredOnly: true });
 
   const firstTime = parsed.find((reply) => reply.time)?.time ?? nowClock();
@@ -319,7 +356,7 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
 
   if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
 
-  const environment = parseEnvironmentYaml([...threadOutput.matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].at(-1)?.[0] || '');
+  const environment = parseEnvironmentYaml(thread.environments.at(-1) || '');
   const record = parseChatHistoryBlocks(threadOutput)[0];
   const finalOutput = serializeChatHistoryYaml({
     targetName,
@@ -328,7 +365,9 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
     time: record?.time || environment?.time,
     members: record?.members,
     messages: messages as any,
-    environmentYaml: environment ? yaml.stringify(environment).trim() : undefined,
+    // Parsing is only for clock/date fallbacks; never use it to rewrite or
+    // decide whether the generated environment is allowed into the transcript.
+    environmentYaml: thread.environments.join('\n\n') || undefined,
   });
 
   return { rawOutput: finalOutput };

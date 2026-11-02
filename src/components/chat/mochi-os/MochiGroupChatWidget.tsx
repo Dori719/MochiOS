@@ -1,23 +1,20 @@
 import { useRef, useState } from "react";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { MochiMessageLayout } from "./MochiMessageLayout";
+import { MochiWidgetMessageBubble } from "./MochiWidgetMessageBubble";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
-import { stickerName } from "../../../st/stickers";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS } from "@marinara-engine/shared";
-import { isMochiTransferType, type ParsedMochiChatWidget } from "./mochi-os.utils";
+import { fmtMsgTime, isMochiTransferType, type ParsedMochiChatWidget } from "./mochi-os.utils";
 import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
 import "./mochi-os.css";
 import "./mochi-private-chat-widget.css";
 import "./mochi-group-chat-widget.css";
-
-function stickerNameFromText(text: string): string {
-  return stickerName(text);
-}
 
 /**
  * The people who spoke in a group record, in the order they first appear.
@@ -133,57 +130,21 @@ export function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) 
                 const sender = message.me ? undefined : message.sender?.trim();
                 const senderColor = sender ? getMochiCharacterColor(sender) : undefined;
                 return (
-                  <article key={`${message.id || "message"}:${index}`} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
-                    {!message.me && (
-                      <span
-                        className="mochi-private-mini-avatar"
-                        style={{ "--c": senderColor || getMochiCharacterColor(groupName) } as React.CSSProperties}
-                        aria-hidden="true"
-                      >
-                        {sender ? Array.from(sender)[0]?.toUpperCase() : initial}
-                      </span>
+                  <MochiMessageLayout
+                    key={`${message.id || "message"}:${index}`}
+                    embedded
+                    outgoing={Boolean(message.me)}
+                    name={sender || groupName}
+                    sender={sender}
+                    color={senderColor || getMochiCharacterColor(groupName)}
+                    data-message-type={message.type}
+                    contentClassName={`${message.type === "sticker" ? "is-sticker" : ""}${isMochiTransferType(message.type) ? " is-transfer" : ""}`}
+                  >
+                    <MochiWidgetMessageBubble message={message} currency={settings.currency} stickerMap={stickerMap} />
+                    {(message.time || data.chat.time) && (
+                      <MochiBubbleMeta embedded time={fmtMsgTime(message.time || data.chat.time, settings.timeFormat === "12h")} />
                     )}
-                    <div className={`mochi-private-bubble-wrap${message.type === "sticker" ? " is-sticker" : ""}`}>
-                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}${message.type !== "sticker" && message.type !== "voice" && !isMochiTransferType(message.type) ? " mochi-text-bubble" : ""}`}>
-                        {message.type === "quote" && message.rawItem?.quote ? (
-                          <div className="mochi-private-quoted-message">
-                            {(() => {
-                              const quote = message.rawItem?.quote;
-                              const quoteText =
-                                typeof quote === "string" ? quote : String(quote?.c || quote?.content || "");
-                              const stickerUrl = stickerMap.get(stickerNameFromText(quoteText));
-                              return (
-                                <>
-                                  {typeof quote === "object" && quote?.name && <strong>{String(quote.name)}</strong>}
-                                  {stickerUrl ? (
-                                    <img className="mochi-private-sticker" src={stickerUrl} alt="" />
-                                  ) : (
-                                    <span>{quoteText || t("ui.chat.mochiGroupChat.quote")}</span>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ) : null}
-                        <div>
-                          {message.type === "sticker" && stickerMap.get(stickerNameFromText(message.text || "")) ? (
-                            <img
-                              className="mochi-private-sticker"
-                              src={stickerMap.get(stickerNameFromText(message.text || ""))}
-                              alt={message.text}
-                            />
-                          ) : (
-                            message.text
-                          )}
-                        </div>
-                      </div>
-                      {/* Keep each group author beside the time when there is room;
-                          compact text gets a separate author line. */}
-                      {(sender || message.time || data.chat.time) && (
-                        <MochiBubbleMeta embedded group sender={sender} color={senderColor} time={message.time || data.chat.time || ""} />
-                      )}
-                    </div>
-                  </article>
+                  </MochiMessageLayout>
                 );
               })}
             </div>

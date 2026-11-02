@@ -6,6 +6,7 @@ import { runStickerStorageTests } from './test-sticker-storage.mjs';
 import { runHistoryContextTests } from './test-history-context.mjs';
 import { runPromptHistoryTests } from './test-prompt-history.mjs';
 import { runWidgetRecordTests } from './test-widget-records.mjs';
+import { runMessageLayoutTests } from './test-message-layout.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -19,7 +20,7 @@ const result = await build({
       export { placeFloating, readViewport, setFloatingPosition, watchViewport } from './src/st/viewport.ts';
       export { launcherPalette } from './src/st/launcher.ts';
       export { deriveActiveLorebookViews } from './src/lib/chat-lorebooks.ts';
-      export { mergeMochiChatHistoryBlocks, locateMochiMessageInRoleplay, mochiRoleplayBubbleId, parseChatHistoryBlocks, parseMochiChatResponse, serializeChatHistoryYaml, cleanAndExtractRawYaml, stripMochiReasoning, reconcileMochiContactHistory } from './src/components/chat/mochi-os/mochi-os.utils.ts';
+      export { fmtMsgTime, formatRelativeTime, mergeMochiChatHistoryBlocks, locateMochiMessageInRoleplay, mochiRoleplayBubbleId, parseChatHistoryBlocks, parseMochiChatResponse, serializeChatHistoryYaml, cleanAndExtractRawYaml, stripMochiReasoning, reconcileMochiContactHistory } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { splitPhoneTranscript } from './src/st/phone-transcript.ts';
       export { createStickerLibrary, MAX_STICKER_BYTES, MAX_STICKER_NAME_LENGTH, normalizeStickerName, readStickerBackup, stickerName, stickerNameError, stickerNameKey, suggestStickerName } from './src/st/stickers.ts';
       export * from './src/st/sticker-storage.ts';
@@ -147,6 +148,23 @@ const generate = (category = 'data_generation', options) => api.request('POST', 
 const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_SETTINGS_KEY}`, {
   value: JSON.stringify({ ...api.DEFAULT_MOCHI_OS_SETTINGS, connectionProfileId: profileId }),
 });
+
+// Formatting must change notation, never the model-authored time of day.
+for (const [input, twelveHour, twentyFourHour] of [
+  ['3:15 PM', '3:15 PM', '15:15'], ['3:15 AM', '3:15 AM', '03:15'],
+  ['12:00 AM', '12:00 AM', '00:00'], ['12:00 PM', '12:00 PM', '12:00'],
+  ['11:59 PM', '11:59 PM', '23:59'], ['00:00', '12:00 AM', '00:00'],
+  ['15:15', '3:15 PM', '15:15'], ['12:00', '12:00 PM', '12:00'],
+  [' 03:15 p.m. ', '3:15 PM', '15:15'], ['3:15pm', '3:15 PM', '15:15'],
+  ['Typing…', 'Typing…', 'Typing…'], ['25:15', '25:15', '25:15'],
+  ['3:65 PM', '3:65 PM', '3:65 PM'], ['0:15 AM', '0:15 AM', '0:15 AM'],
+  ['13:15 PM', '13:15 PM', '13:15 PM'], ['', '', ''], [undefined, '', ''],
+]) {
+  assert.equal(api.fmtMsgTime(input, true), twelveHour, `12-hour display preserves ${input}`);
+  assert.equal(api.fmtMsgTime(input, false), twentyFourHour, `24-hour display preserves ${input}`);
+}
+assert.equal(api.formatRelativeTime('Today', '3:15 PM', true), '3:15 PM', 'Contact previews share the same suffix-aware formatter');
+assert.equal(api.formatRelativeTime('Today', '3:15 PM', false), '15:15');
 
 assert.equal(api.normalizeMochiOsSettings({ theme: 'dark' }).connectionProfileId, null);
 assert.equal(typeof api.st().generateRaw, 'function', 'API must come from live getContext, not module exports');
@@ -691,6 +709,113 @@ for (const category of ['private_chats', 'group_chats']) {
     assert.equal(host.chat.length, before, 'Invalid/reasoning-only replies cannot create roleplay messages');
   }
 }
+// Real model replies can put the transcript and environment in one YAML fence
+// after reasoning, with natural-language dates and unquoted AM/PM clocks.
+const fencedPhoneReply = `<think>
+- Use <privatechat_history> for the selected contact and <environment> for the clock.
+</think>
+
+\`\`\`yaml
+<privatechat_history target="Seraphina" type="private">
+date: August 15, 2024
+time: 8:42 PM
+messages:
+  - t: text
+    c: "Bella? Are you still with me? 🌿 I've been watching over you."
+    time: 8:31 PM
+  - t: text
+    c: "Don't try to sit up too quickly."
+    time: 8:33 PM
+  - t: text
+    c: "The beasts won't come near the glade again. ✨"
+    time: 8:35 PM
+  - t: text
+    c: "I've made a fresh pot."
+    time: 8:37 PM
+  - t: text
+    c: "Drink it while it's warm, please. 🌸"
+    time: 8:39 PM
+  - t: text
+    c: "If the dreams come again tonight, call out."
+    time: 8:41 PM
+  - t: text
+    c: "Rest now. I'll be keeping watch."
+    time: 8:42 PM
+</privatechat_history>
+
+<environment>
+timezone: Eldoria Standard Time
+date: August 15, 2024
+time: 8:42 PM
+location: Seraphina's Glade, Eldoria Forest
+temperature: 64°F
+weather: Misty
+</environment>
+\`\`\``;
+for (const profileId of [null, 'profile-1']) {
+  await choose(profileId);
+  for (const category of ['private_chats', 'group_chats']) {
+    rawReply = category === 'private_chats' ? fencedPhoneReply
+      : fencedPhoneReply.replaceAll('privatechat_history', 'groupchat_history').replace('type="private"', 'type="group"');
+    const response = await api.request('POST', `${phonePath}/generate`, {
+      category, characterName: 'Seraphina', contactName: 'Seraphina', userName: 'Bella',
+      continuationOnly: true, userMessages: [], messages: [{ role: 'user', content: 'Continue.' }],
+    });
+    const saved = await api.request('POST', `${chatPath}/messages`, { role: 'assistant', content: response.rawOutput });
+    assert.equal(saved.role, 'assistant');
+    assert.equal(host.chat.at(-1).is_user, false);
+    assert.equal(host.chat.at(-1).is_system, false);
+    const record = api.parseChatHistoryBlocks(saved.content, 'Bella')[0];
+    assert.equal(record.target, 'Seraphina');
+    assert.equal(record.messages.length, 7, 'Every incoming bubble in a fenced model reply reaches roleplay history');
+    assert.equal(record.messages.at(-1).time, '8:42 PM');
+    assert.equal(api.parseMochiChatContent(saved.content, 'Bella').filter((part) => part.type === 'widget').length, 1);
+    await api.request('DELETE', `${chatPath}/messages/${saved.id}`);
+  }
+}
+// Preserve complete environment blocks verbatim, independent of recognized
+// fields, YAML validity, placement, casing, attributes or phone output category.
+const generatedEnvironments = [
+  '<environment source="model">\n# Preserve this comment and original aliases.\ntimezone: "UTC"\ndate: Today\ntime: "3:15 PM"\ncity: "Lobby <wing>East</wing>"\nweather_condition: Sunny\ncustom_field: "Keep <think>literal tags</think> intact"\n</environment >',
+  '<ENVIRONMENT>\ntime: "3:16 PM"\ncondition: Drizzle\n</ENVIRONMENT>',
+  '<environment>\ncustom_metadata: Keep opaque fields\n</environment>',
+  '<environment>\nweather: [unfinished YAML\n# Invalid YAML is still authored output.\n</environment>',
+];
+for (const category of ['data_generation', 'private_chats', 'group_chats']) {
+  const response = sampleReply(category).replace('"12:00"', '"3:15 PM"');
+  rawReply = `${generatedEnvironments[0]}\n${response}\n${generatedEnvironments.slice(1).join('\n')}`;
+  const preserved = await generate(category);
+  assert.deepEqual([...preserved.rawOutput.matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi)].map((match) => match[0]), generatedEnvironments, `${category}: every generated environment survives exactly once and unchanged`);
+  if (category === 'data_generation') {
+    assert.ok(preserved.rawOutput.startsWith('<phone_data>') && preserved.rawOutput.includes('nickname: Tester'));
+    rawReply = `phone_data:\n  user:\n    nickname: Bare data fixture\n${generatedEnvironments[0]}`;
+    const bareData = (await generate(category)).rawOutput;
+    assert.ok(bareData.startsWith('<phone_data>') && bareData.endsWith(generatedEnvironments[0]), 'Bare phone data retains its environment with a parseable document boundary');
+    const savedYaml = host.chatMetadata.mochios.phoneDataYaml;
+    await api.request('PUT', phonePath, { rawYaml: bareData });
+    assert.equal((await api.request('GET', phonePath)).phoneData.user.nickname, 'Bare data fixture', 'Preserved environment markup never breaks phone-data storage');
+    await api.request('PUT', phonePath, { rawYaml: savedYaml });
+    continue;
+  }
+  const saved = await api.request('POST', `${chatPath}/messages`, { role: 'assistant', content: preserved.rawOutput });
+  assert.equal(host.chat.at(-1).mes, preserved.rawOutput, 'Roleplay receives every preserved environment block unchanged');
+  assert.equal(api.parseChatHistoryBlocks(saved.content)[0].messages.at(-1).time, '3:15 PM');
+  await api.request('DELETE', `${chatPath}/messages/${saved.id}`);
+
+  rawReply = response.replace('\nmessages:', `\n${generatedEnvironments[0]}\nmessages:`);
+  assert.ok((await generate(category)).rawOutput.endsWith(generatedEnvironments[0]), 'An environment inside the envelope is retained outside the canonical YAML');
+  rawReply = `${generatedEnvironments[0]}\nmessages:\n  - t: text\n    c: Bare YAML reply\n    time: "3:15 PM"\n    sender: {name: Character}`;
+  const bareOutput = (await generate(category)).rawOutput;
+  assert.equal(api.parseChatHistoryBlocks(bareOutput)[0].messages.at(-1).text, 'Bare YAML reply', 'Bare YAML replies with an environment still parse');
+  assert.ok(bareOutput.endsWith(generatedEnvironments[0]));
+
+  const otherCategory = category === 'private_chats' ? 'group_chats' : 'private_chats';
+  rawReply = `${sampleReply(otherCategory)}\n<environment>weather: Other thread only</environment>\n${response}\n${generatedEnvironments[0]}`;
+  const selected = (await generate(category)).rawOutput;
+  assert.ok(selected.endsWith(generatedEnvironments[0]) && !selected.includes('Other thread only'), 'Preservation does not borrow another thread\'s environment');
+  rawReply = `${generatedEnvironments[0]}</think>\n${response}`;
+  assert.ok((await generate(category)).rawOutput.endsWith(generatedEnvironments[0]), 'A stray prefill closer never removes a real leading environment');
+}
 rawReply = `<thinking>Do not save</thinking>Introduction.\n${sampleReply('data_generation')}\n<debug>Do not save</debug>`;
 assert.equal((await generate()).rawOutput, '<phone_data>\nphone_data:\n  user:\n    nickname: Tester\n</phone_data>', 'Data generation keeps only its phone_data envelope');
 rawReply = '<think>Only reasoning</think>';
@@ -966,5 +1091,6 @@ const chunkedBackup = await api.readStickerBackup(await rasterLibrary.exportJson
 assert.deepEqual(new Uint8Array(await chunkedBackup.at(-1).file.arrayBuffer()), chunkedBytes, 'Base64 backups preserve all bytes across encoder chunk boundaries');
 assert.equal(JSON.stringify(host.chatMetadata), metadataBeforeStickers);
 assert.equal(JSON.stringify(host.extensionSettings), settingsBeforeStickers);
+await runMessageLayoutTests();
 await runStickerStorageTests(api);
 console.log('PASS: ST-style preset markers and chronological history, selected personas, social handles, target-only private output, filtered response tags, deleted-thread reconciliation, one ST turn per response, reactions/edits/swipes/reload, legacy compatibility, global stickers with editable unique names, persistent renames and portable validated JSON backups, lorebook assignments, connections, chat isolation, viewport bounds, and launcher themes');

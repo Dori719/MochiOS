@@ -28,18 +28,22 @@ app shell.
 - **One response, one roleplay turn.** Each complete private or group phone
   response is saved as one SillyTavern message. Group senders remain attributed
   inside its YAML, and regeneration uses that message's native swipes.
-- **Bubble actions.** Click or tap a bubble to reveal left-aligned actions below
-  it, with the timestamp in its original position and swipe controls on their own row underneath; hovering does not reveal
-  them. The original compact avatar/bubble layout is retained, with no extra
-  author rail. Long-press with mouse or touch to Reply. Reserved control rows
-  prevent bubbles from shifting. Translate is not offered.
-- **Content-sized text bubbles.** Short messages have no minimum bubble width or
-  height, with the same layout for incoming and outgoing text. Timestamps stay
-  below the actual bubble’s right edge, even when the time is wider than the text.
-  Compact group replies keep the author on a separate line. When all action
-  buttons cannot fit beside the timestamp, they use a
-  separate row below it, like stickers. Transfer messages keep their existing
-  layout, and resizing a sticker reply's text never resizes its quoted sticker section.
+- **Consistent message frames.** Incoming avatars sit on the left, aligned with
+  the top of the message group. Group sender names sit directly above the bubble
+  with a 4px gap; individual chats omit names. Text, stickers, quotes, voice notes,
+  transfers, photos, links, and fallback types share this layout in the phone and
+  embedded transcripts.
+- **Bubble actions.** Click or tap a bubble to reveal left-aligned actions on a
+  reserved footer. Actions top-align beside the timestamp only when every button
+  fits without covering it; otherwise they use a separate row below it. Swipe
+  controls remain on their own row underneath.
+  Buttons wrap on narrow screens instead of shrinking or overlapping content;
+  revealing them never shifts a bubble. Hovering does not reveal actions.
+  Long-press with mouse or touch to Reply. Translate is not offered.
+- **Content-sized bubbles.** Short text has no minimum bubble width or height.
+  Timestamps stay below the actual bubble’s right edge, even when the time is wider
+  than the text. Stickers retain their image dimensions, transfers keep their card
+  treatment, and resizing a sticker reply's text never resizes its quoted sticker section.
 - **Long conversations.** Phone threads and expanded transcript widgets initially
   render their newest 80 messages. **Load older messages** adds another 80 while
   preserving the scroll position. Saved and generation history are not shortened;
@@ -48,6 +52,9 @@ app shell.
   thread's latest surviving messages and preview, including empty threads.
   Generated replies save only the relevant transcript and environment; model
   reasoning, unrelated tags, surrounding explanations and fences are discarded.
+  Environment blocks retain their original tags, comments and fields, including
+  during phone-data generation. AM/PM times keep the correct time of day in either
+  12-hour or 24-hour displays.
 - **Emoji and global stickers.** More → Emoji opens the emoji/sticker picker.
   Import images once and use them in any Mochi chat, browser, or device connected
   to the same SillyTavern extension library.
@@ -248,12 +255,13 @@ controls.
 renaming without breaking old bubbles, JSON backup/restore, and rounded compact
 sticker quotes in private/group chats and embedded transcripts. It uses the real
 server helper with an isolated temporary extension folder, then removes only its
-own test stickers. **Inspect sticker layout** checks wide, portrait, and small
+own test stickers. **Inspect sticker layout** checks wide, portrait, small, and tiny
 images, incoming/outgoing quotes, long sender names and replies, and fixed image
 bounds when controls appear, in both phone chats and embedded widgets. It also checks
-content-sized short text bubbles, action placement as text grows/shrinks, stable
-transfer layout, unchanged sticker quotes as reply text grows, and right-edge
-timestamp alignment with short and wide AM/PM times. **Check long histories** tests
+the shared top-aligned avatar/group-name layout across every message type, editing,
+content-sized short text, collision-free shared/wrapping action rows, stable transfer cards,
+unchanged sticker quotes as reply text grows, and right-edge timestamp alignment
+with short and wide AM/PM times. **Check long histories** tests
 300-message private/group records buried 150 roleplay turns back, pagination and
 scroll anchors, older-message edits/reactions/branches/swipes/deletion, and collapsed
 thread cleanup. **Inspect sticker layout** keeps

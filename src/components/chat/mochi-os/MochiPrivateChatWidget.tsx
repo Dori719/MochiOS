@@ -1,108 +1,26 @@
 import { useRef, useState } from "react";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { MochiMessageLayout } from "./MochiMessageLayout";
+import { MochiWidgetMessageBubble } from "./MochiWidgetMessageBubble";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
-import { stickerName } from "../../../st/stickers";
 import { useMochiOSPhoneData } from "../../../hooks/use-mochios-data";
 import { useChatStore } from "../../../stores/chat.store";
 import { getMochiCharacterColor } from "./mochi-character-color";
 import { DEFAULT_MOCHI_OS_SETTINGS, type MochiOsCharacterData } from "@marinara-engine/shared";
 import {
+  fmtMsgTime,
   mochiSocialHandle,
-  formatMochiTransferDisplay,
   isMochiTransferType,
-  mochiTransferNote,
-  mochiTransferOutcome,
   type ParsedMochiPrivateChatWidget,
 } from "./mochi-os.utils";
 import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
 import "./mochi-os.css";
 import "./mochi-private-chat-widget.css";
-
-function getStickerName(text: string): string {
-  return stickerName(text);
-}
-
-/**
- * A money-transfer card: `t: transfer`, or the `t: transfer-accepted` /
- * `t: transfer-rejected` item that settles it. The widget is read-only, so it
- * renders the outcome but offers no Accept / Reject buttons — answering happens
- * in the Mochi OS chat itself.
- */
-function MochiPrivateTransferCard({
-  item,
-  isUser,
-  currency,
-}: {
-  item: { type?: string; rawItem?: Record<string, any> };
-  isUser: boolean;
-  currency: string;
-}) {
-  const { t } = useTranslation();
-  const amount = formatMochiTransferDisplay(item.rawItem, currency);
-  const note = mochiTransferNote(item.rawItem);
-  const outcome = mochiTransferOutcome(item.type);
-
-  const stampLabel = outcome
-    ? outcome === "accepted"
-      ? t("ui.chat.mochiPrivateChat.transferAccepted")
-      : t("ui.chat.mochiPrivateChat.transferRejected")
-    : "";
-
-  return (
-    <div className={`mochi-private-transfer${outcome ? ` is-${outcome}` : ""}`}>
-      <div className="mochi-private-transfer-legend">
-        <span className="mochi-private-transfer-medallion" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <line x1="12" y1="3" x2="12" y2="21" />
-            {isUser ? (
-              <>
-                <polyline points="6 9 12 3 18 9" />
-                <polyline points="6 15 12 21 18 15" />
-              </>
-            ) : (
-              <>
-                <polyline points="18 9 12 15 6 9" />
-                <polyline points="18 15 12 21 6 15" />
-              </>
-            )}
-          </svg>
-        </span>
-        <span className="mochi-private-transfer-direction">
-          {isUser ? t("ui.chat.mochiPrivateChat.transferSent") : t("ui.chat.mochiPrivateChat.transferReceived")}
-        </span>
-      </div>
-      <div className="mochi-private-transfer-amount">
-        {amount || t("ui.chat.mochiPrivateChat.transferAmountUnknown")}
-      </div>
-      {note && (
-        <div className="mochi-private-transfer-memo">
-          <span className="mochi-private-transfer-memo-label">{t("ui.chat.mochiPrivateChat.transferMemo")}</span>
-          <span className="mochi-private-transfer-memo-text">{note}</span>
-        </div>
-      )}
-      {outcome && (
-        <div className="mochi-private-transfer-stamp" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            {outcome === "accepted" ? (
-              <polyline points="20 6 9 17 4 12" />
-            ) : (
-              <>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </>
-            )}
-          </svg>
-          <span>{stampLabel}</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatWidget }) {
   const { t } = useTranslation();
@@ -204,68 +122,22 @@ export function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatW
                 {t("ui.chat.mochiosview.loadOlderMessages", "Load older messages")}
               </button>}
               {data.chat.messages.slice(historyWindow.startIndex).map((message, visibleIndex) => (
-                <article key={`${message.id || "message"}:${historyWindow.startIndex + visibleIndex}`} className={`mochi-private-message${message.me ? " is-user" : ""}`}>
-                  {!message.me && (
-                    <span
-                      className="mochi-private-mini-avatar"
-                      style={{ "--c": contactColor } as React.CSSProperties}
-                      aria-hidden="true"
-                    >
-                      {initial}
-                    </span>
+                <MochiMessageLayout
+                  key={`${message.id || "message"}:${historyWindow.startIndex + visibleIndex}`}
+                  embedded
+                  outgoing={Boolean(message.me)}
+                  name={name}
+                  color={contactColor}
+                  data-message-type={message.type}
+                  contentClassName={`${message.type === "sticker" ? "is-sticker" : ""}${
+                    isMochiTransferType(message.type) ? " is-transfer" : ""
+                  }`}
+                >
+                  <MochiWidgetMessageBubble message={message} currency={settings.currency} stickerMap={stickerMap} />
+                  {(message.time || data.chat.time) && (
+                    <MochiBubbleMeta embedded time={fmtMsgTime(message.time || data.chat.time, settings.timeFormat === "12h")} />
                   )}
-                  <div
-                    className={`mochi-private-bubble-wrap${message.type === "sticker" ? " is-sticker" : ""}${
-                      isMochiTransferType(message.type) ? " is-transfer" : ""
-                    }`}
-                  >
-                    {isMochiTransferType(message.type) ? (
-                      <MochiPrivateTransferCard
-                        item={message}
-                        isUser={Boolean(message.me)}
-                        currency={settings.currency}
-                      />
-                    ) : (
-                      <div className={`mochi-private-bubble${message.type === "quote" ? " is-quote" : ""}${message.type !== "sticker" && message.type !== "voice" ? " mochi-text-bubble" : ""}`}>
-                        {message.type === "quote" && message.rawItem?.quote ? (
-                          <div className="mochi-private-quoted-message">
-                            {(() => {
-                              const quote = message.rawItem?.quote;
-                              const quoteText =
-                                typeof quote === "string" ? quote : String(quote?.c || quote?.content || "");
-                              const stickerUrl = stickerMap.get(getStickerName(quoteText));
-                              return (
-                                <>
-                                  {typeof quote === "object" && quote?.name && <strong>{String(quote.name)}</strong>}
-                                  {stickerUrl ? (
-                                    <img className="mochi-private-sticker" src={stickerUrl} alt="" />
-                                  ) : (
-                                    <span>{quoteText || "Quote"}</span>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ) : null}
-                        <div>
-                          {message.type === "sticker" &&
-                           stickerMap.get(getStickerName(message.text)) ? (
-                            <img
-                              className="mochi-private-sticker"
-                              src={stickerMap.get(getStickerName(message.text))}
-                              alt={message.text}
-                            />
-                          ) : (
-                            message.text
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {(message.time || data.chat.time) && (
-                      <MochiBubbleMeta embedded time={message.time || data.chat.time || ""} />
-                    )}
-                  </div>
-                </article>
+                </MochiMessageLayout>
               ))}
             </div>
             {environment.length > 0 && (

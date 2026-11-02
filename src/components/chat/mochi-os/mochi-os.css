@@ -4089,7 +4089,7 @@
 .mochi-scope .mrow {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
   padding-bottom: 32px;
 }
@@ -4514,11 +4514,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Author label on a group bubble. Without it a group transcript is unreadable:
-   several people speak in one thread, so the sender has to be on the bubble.
-   It sits under the bubble beside the timestamp rather than above it, so a long
-   thread is not pushed down by a line per message and the label reads as part of
-   the message it belongs to. */
+/* Group senders sit above every bubble, inside the shared message frame. */
 .mochi-scope .mochi-msg-sender {
   font-size: 11px;
   font-weight: 700;
@@ -4528,12 +4524,11 @@
   white-space: nowrap;
 }
 
-/* The row the timestamp and the group author share under the message bubble.
-   The author label sits on the left side, and the timestamp stays at the far right. */
+/* Timestamp-only footer; names never share this row. */
 .mochi-scope .mochi-bubble-meta {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 6px;
   margin-top: 3px;
   align-self: stretch;

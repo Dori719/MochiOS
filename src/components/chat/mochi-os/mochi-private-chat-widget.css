@@ -182,18 +182,24 @@
 }
 .mochi-private-message {
   display: flex;
-  align-items: end;
-  gap: 6px;
-  margin: 8px 0;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0;
 }
 .mochi-private-message.is-user {
   justify-content: flex-end;
 }
 .mochi-private-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   max-width: 86%;
   min-width: 0;
 }
-.mochi-private-bubble-wrap.is-sticker .mochi-private-bubble {
+.mochi-private-message.is-user .mochi-private-bubble-wrap {
+  align-items: flex-end;
+}
+.mochi-private-bubble-wrap.is-sticker .mochi-private-bubble:has(img.mochi-private-sticker) {
   padding: 0;
   border-color: transparent;
   background: transparent;
