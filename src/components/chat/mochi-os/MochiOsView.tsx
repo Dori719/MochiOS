@@ -109,7 +109,7 @@ import { matchSlashCommand, getSlashCompletions, type SlashCommandContext } from
 import { useInstalledCapabilityPackages } from "../../../hooks/use-capability-packages";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
 import { useMochiMessageActions, type MochiReplyTarget } from "../../../hooks/use-mochi-message-actions";
-import { MochiMessageIdentity } from "./MochiMessageIdentity";
+import { MochiMessageLayout } from "./MochiMessageLayout";
 import { MochiSettingsSplit } from "./MochiSettingsSplit";
 import { stickerName } from "../../../st/stickers";
 import { toggleReaction, removeCharacterReaction, reactionTargetOf, USER_REACTOR } from "../../../lib/reactions";
@@ -306,23 +306,6 @@ export function splitMochiGroupMembers(group?: MochiOsGroupData): { names: strin
   const main = toList(group?.main_members ?? group?.mainMembers);
   const other = toList(group?.other_members ?? group?.otherMembers);
   return { main, other, names: [...main, ...other] };
-}
-
-/**
- * A group bubble's author label.
- *
- * A group thread has several counterparts, so an unattributed bubble is
- * unreadable: the transcript has to say who said what. Private chats keep the
- * contact avatar alone because the reader is always that one character.
- */
-function MochiGroupSenderLabel({ name }: { name?: string }) {
-  const sender = name?.trim();
-  if (!sender) return null;
-  return (
-    <span className="mochi-msg-sender" style={{ color: getMochiCharacterColor(sender) }}>
-      {sender}
-    </span>
-  );
 }
 
 /** A catalog entry in the Mochi OS App Store window. */
@@ -2049,7 +2032,7 @@ export function MochiOsView({
   // The widgets read from the most recent <environment> tags in roleplay messages.
   useEffect(() => {
     if (activeChatRoleplayMessages.length === 0) return;
-    const environmentRegex = /<environment>[\s\S]*?<\/environment>/gi;
+    const environmentRegex = /<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi;
     let mostRecentEnv: string | null = null;
     for (let i = activeChatRoleplayMessages.length - 1; i >= 0; i--) {
       const msg = activeChatRoleplayMessages[i];
@@ -2125,7 +2108,7 @@ export function MochiOsView({
       } catch {
         weekdayStr = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(nowDate);
       }
-      timeStr = aiDecidedTime || fmtTime(nowDate, isHour12);
+      timeStr = fmtMsgTime(aiDecidedTime, isHour12) || fmtTime(nowDate, isHour12);
     } else if (clockMode === "tz") {
       d = nowDate;
       try {
@@ -3526,7 +3509,7 @@ export function MochiOsView({
       if (!savedTurn?.id) throw new Error("The connected roleplay message could not be saved.");
       if (res.rawOutput) {
         // Extract latest environment block if present to preserve as metadata and update clock/weather widgets
-        const allEnvMatches = Array.from(taggedTurn.matchAll(/<environment>([\s\S]*?)<\/environment>/gi));
+        const allEnvMatches = Array.from(taggedTurn.matchAll(/<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi));
         const envMatch = allEnvMatches.length > 0 ? allEnvMatches[allEnvMatches.length - 1] : null;
         if (envMatch) {
           lastEnvironmentYamlRef.current[activeThreadId] = envMatch[0].trim();
@@ -4855,11 +4838,11 @@ export function MochiOsView({
                                 <React.Fragment key={msg.id || idx}>
                                   {showDateNotice && <div className="notice">{d}</div>}
                                   {isUser ? (
-                                    <div
-                                      className={`mrow out${activeMochiMsgActionId === (msg.id || idx) ? " actions-visible" : ""}`}
+                                    <MochiMessageLayout
+                                      outgoing
+                                      className={activeMochiMsgActionId === (msg.id || idx) ? "actions-visible" : ""}
                                       {...mochiMessageInteraction({ id: msg.id || idx, author: userScreenName, text: msg.content, isOutgoing: true })}
                                     >
-                                      <span className="wmsg">
                                         {isVoice ? (
                                           <div className="b out voice">
                                             <span className="play">
@@ -4899,7 +4882,7 @@ export function MochiOsView({
                                             />
                                           </div>
                                         )}
-                                        {isVoice ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
+                                        <MochiBubbleMeta time={ts} />
                                         <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
@@ -4923,15 +4906,15 @@ export function MochiOsView({
                                             <CornerUpLeft size={13} />
                                           </button>
                                         </MochiMessageActions>
-                                      </span>
-                                    </div>
+                                    </MochiMessageLayout>
                                   ) : (
-                                    <div
-                                      className={`mrow${activeMochiMsgActionId === (msg.id || idx) ? " actions-visible" : ""}`}
+                                    <MochiMessageLayout
+                                      name={chatDisplayName}
+                                      sender={isGroupThread ? msg.characterName || chatDisplayName : undefined}
+                                      color={chatNameColor}
+                                      className={activeMochiMsgActionId === (msg.id || idx) ? "actions-visible" : ""}
                                       {...mochiMessageInteraction({ id: msg.id || idx, author: chatDisplayName, text: msg.content, isOutgoing: false })}
                                     >
-                                      <MochiMessageIdentity name={chatDisplayName} color={chatNameColor} />
-                                      <span className="wmsg">
                                         {isVoice ? (
                                           <div className="b in voice">
                                             <span className="play">
@@ -4971,7 +4954,7 @@ export function MochiOsView({
                                             />
                                           </div>
                                         )}
-                                        {isVoice ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
+                                        <MochiBubbleMeta time={ts} />
                                         <MochiMessageActions inert={activeMochiMsgActionId !== (msg.id || idx)}>
                                           <ReactionAddButton
                                             className="mochi-reaction-btn"
@@ -5054,8 +5037,7 @@ export function MochiOsView({
                                               </button>
                                             </div>
                                           )}
-                                      </span>
-                                    </div>
+                                    </MochiMessageLayout>
                                   )}
                                 </React.Fragment>
                               );
@@ -5063,45 +5045,23 @@ export function MochiOsView({
 
                             {/* Streaming response bubble */}
                             {isChatGenerating && streamBuffer && (
-                              <div className="mrow">
-                                <span
-                                  className="mini"
-                                  style={{
-                                    overflow: "hidden",
-                                    background: chatNameColor,
-                                  }}
-                                >
-                                  {chatDisplayName[0]?.toUpperCase()}
-                                </span>
-                                <span className="wmsg">
-                                  <div className="b in">{streamBuffer}</div>
-                                  <span className="mt">{localizeUi("ui.chat.mochiosview.typing")}</span>
-                                </span>
-                              </div>
+                              <MochiMessageLayout name={chatDisplayName} color={chatNameColor}>
+                                <div className="b in mochi-text-bubble">{streamBuffer}</div>
+                                <MochiBubbleMeta time={localizeUi("ui.chat.mochiosview.typing")} />
+                              </MochiMessageLayout>
                             )}
 
                             {/* Typing indicator dots */}
                             {isChatGenerating && !streamBuffer && (
-                              <div className="mrow">
-                                <span
-                                  className="mini"
-                                  style={{
-                                    overflow: "hidden",
-                                    background: chatNameColor,
-                                  }}
-                                >
-                                  {chatDisplayName[0]?.toUpperCase()}
-                                </span>
-                                <span className="wmsg">
-                                  <div className="b in">
-                                    <div className="typing-dots">
-                                      <span />
-                                      <span />
-                                      <span />
-                                    </div>
+                              <MochiMessageLayout name={chatDisplayName} color={chatNameColor}>
+                                <div className="b in">
+                                  <div className="typing-dots">
+                                    <span />
+                                    <span />
+                                    <span />
                                   </div>
-                                </span>
-                              </div>
+                                </div>
+                              </MochiMessageLayout>
                             )}
                           </>
                         );
@@ -5184,14 +5144,15 @@ export function MochiOsView({
                           <React.Fragment key={m.id || idx}>
                             {showDateNotice && <div className="notice">{rawD}</div>}
                             {m.me === 1 ? (
-                              <div
-                                className={`mrow out${activeMochiMsgActionId === msgBubbleId ? " actions-visible" : ""}`}
+                              <MochiMessageLayout
+                                outgoing
+                                className={activeMochiMsgActionId === msgBubbleId ? "actions-visible" : ""}
                                 data-msg-id={msgBubbleId}
+                                data-message-type={m.type}
                                 {...mochiMessageInteraction({ id: msgBubbleId, author: identityName, text: m.text || mochiMessagePreview(m), isOutgoing: true })}
                               >
-                                <span className="wmsg">
                                   {m.type === "sticker" ? (
-                                    <span className="sticker">
+                                    <span className={`sticker${conversationStickerMap.has(MochiStickerName(m.text || "")) ? "" : " b out"}`}>
                                       {conversationStickerMap.get(MochiStickerName(m.text || "")) ? (
                                         <img
                                           className="mochi-chat-sticker-image"
@@ -5277,8 +5238,7 @@ export function MochiOsView({
                                       />
                                     </div>
                                   )}
-                                  {m.type === "sticker" || m.type === "voice" || isMochiTransferType(m.type)
-                                    ? <span className="mt">{ts}</span> : <MochiBubbleMeta time={ts} />}
+                                  <MochiBubbleMeta time={ts} />
                                   <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
@@ -5339,18 +5299,21 @@ export function MochiOsView({
                                       <Trash2 size={13} />
                                     </button>
                                   </MochiMessageActions>
-                                </span>
-                              </div>
+                              </MochiMessageLayout>
                             ) : (
-                              <div
-                                className={`mrow${activeMochiMsgActionId === msgBubbleId ? " actions-visible" : ""}`}
+                              <MochiMessageLayout
+                                name={identityName}
+                                sender={isGroupThread ? bubbleSender : undefined}
+                                color={isGroupThread && bubbleSender ? getMochiCharacterColor(bubbleSender) : activeCharacterColor}
+                                avatar={identityCharacter?.avatarPath}
+                                crop={identityCharacter?.avatarCrop}
+                                className={activeMochiMsgActionId === msgBubbleId ? "actions-visible" : ""}
                                 data-msg-id={msgBubbleId}
+                                data-message-type={m.type}
                                 {...mochiMessageInteraction({ id: msgBubbleId, author: identityName, text: m.text || mochiMessagePreview(m), isOutgoing: false })}
                               >
-                                <MochiMessageIdentity name={identityName} color={isGroupThread && bubbleSender ? getMochiCharacterColor(bubbleSender) : activeCharacterColor} avatar={identityCharacter?.avatarPath} crop={identityCharacter?.avatarCrop} />
-                                <span className="wmsg">
                                   {m.type === "sticker" ? (
-                                    <span className="sticker">
+                                    <span className={`sticker${conversationStickerMap.has(MochiStickerName(m.text || "")) ? "" : " b in"}`}>
                                       {conversationStickerMap.get(MochiStickerName(m.text || "")) ? (
                                         <img
                                           className="mochi-chat-sticker-image"
@@ -5434,12 +5397,7 @@ export function MochiOsView({
                                       />
                                     </div>
                                   )}
-                                  {m.type === "sticker" || m.type === "voice" || isMochiTransferType(m.type) ? (
-                                    <span className="mochi-bubble-meta">
-                                      {isGroupThread && <MochiGroupSenderLabel name={bubbleSender} />}
-                                      <span className="mt">{ts}</span>
-                                    </span>
-                                  ) : <MochiBubbleMeta time={ts} sender={isGroupThread ? bubbleSender : undefined} color={bubbleSender ? getMochiCharacterColor(bubbleSender) : undefined} />}
+                                  <MochiBubbleMeta time={ts} />
                                   <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
@@ -5544,8 +5502,7 @@ export function MochiOsView({
                                         </button>
                                       </div>
                                     )}
-                                </span>
-                              </div>
+                              </MochiMessageLayout>
                             )}
                           </React.Fragment>
                         );
@@ -5559,20 +5516,15 @@ export function MochiOsView({
 
                   {/* Typing indicator for Mochi OS AI direct chat */}
                   {!effectiveChatId && isMochiAiGenerating && (
-                    <div className="mrow">
-                      <span className="mini" style={{ "--c": activeCharacterColor } as React.CSSProperties}>
-                        {(currentActiveContact?.name || chatDisplayName)[0]}
-                      </span>
-                      <span className="wmsg">
-                        <div className="b in">
-                          <div className="typing-dots">
-                            <span />
-                            <span />
-                            <span />
-                          </div>
+                    <MochiMessageLayout name={currentActiveContact?.name || chatDisplayName} color={activeCharacterColor}>
+                      <div className="b in">
+                        <div className="typing-dots">
+                          <span />
+                          <span />
+                          <span />
                         </div>
-                      </span>
-                    </div>
+                      </div>
+                    </MochiMessageLayout>
                   )}
                 </div>
 

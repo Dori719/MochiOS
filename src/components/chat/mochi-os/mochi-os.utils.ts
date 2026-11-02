@@ -25,13 +25,15 @@ export function fmtTime(d: Date, hour12: boolean): string {
 
 export function fmtMsgTime(t: string | undefined, hour12: boolean): string {
   if (!t) return "";
-  if (!hour12) return t;
-  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  const m = t.match(/^\s*(\d{1,2}):(\d{2})(?:\s*([AP])\.?M\.?)?\s*$/i);
   if (!m) return t;
   let h = +m[1];
-  const ampm = h < 12 ? "AM" : "PM";
-  h = h % 12 || 12;
-  return `${h}:${m[2]} ${ampm}`;
+  const minute = +m[2];
+  if (minute > 59 || h > 23 || (m[3] && (h < 1 || h > 12))) return t;
+  // Model-authored clocks can already be 12-hour times. Resolve their suffix
+  // before formatting, rather than interpreting `3:15 PM` as hour 3 (AM).
+  if (m[3]) h = h % 12 + (m[3].toUpperCase() === "P" ? 12 : 0);
+  return fmtHm(h, minute, hour12);
 }
 
 export function formatRelativeTime(dateStr: string | undefined, timeStr: string | undefined, hour12: boolean): string {
@@ -810,7 +812,7 @@ export function findMochiThreadEnvironment(params: {
     `<(?:chat_history|privatechat_history|groupchat_history|group_message)[^>]*\\btarget="${wanted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
     "i",
   );
-  const environment = /<environment>[\s\S]*?<\/environment>/gi;
+  const environment = /<environment\b[^>]*>[\s\S]*?<\/environment\s*>/gi;
 
   for (let index = params.roleplayMessages.length - 1; index >= 0; index--) {
     const message = params.roleplayMessages[index];
@@ -1782,7 +1784,7 @@ export function serializeChatHistoryYaml(params: {
 
   if (environmentYaml && environmentYaml.trim()) {
     const envTrimmed = environmentYaml.trim();
-    const envBlock = envTrimmed.startsWith("<environment>")
+    const envBlock = /^<environment\b[^>]*>/i.test(envTrimmed)
       ? envTrimmed
       : `<environment>\n${envTrimmed}\n</environment>`;
     result += `\n\n${envBlock}`;
