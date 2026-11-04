@@ -588,9 +588,11 @@ export function MochiOsView({
 
   // Group profile header dropdown open state (in chat view)
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [groupEditFields, setGroupEditFields] = useState<{ name: string; main: string; other: string; description: string } | null>(null);
 
   // Active group chat ID when inside chatView for a group
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  useEffect(() => { setGroupEditFields(null); }, [groupInfoOpen, activeGroupId]);
 
   const { data: persistedSettings } = useMochiOsSettings();
   const updateSettingsMutation = useUpdateMochiOsSettings();
@@ -1218,6 +1220,17 @@ export function MochiOsView({
 
   /** The name the user's own messages are attributed to, as the group guide expects. */
   const userScreenName = profileNicknameDraft.trim() || activeLinkedPersona?.name?.trim() || "User";
+  const groupPersonaName = activeLinkedPersona?.name?.trim() || userScreenName;
+  const groupMemberOptions = [
+    { id: '__persona', name: groupPersonaName, label: userScreenName, avatar: savedPhoneDataResponse?.phoneData?.user?.avatar || activeLinkedPersona?.avatarPath, aliases: [groupPersonaName, userScreenName, savedPhoneDataResponse?.phoneData?.user?.id].filter(Boolean) as string[] },
+    ...(savedPhoneDataResponse?.phoneData?.characters || []).map((person) => ({
+      id: person.id || person.name || '', name: person.name || person.contactname || '',
+      label: person.contactname || person.name || '', avatar: person.avatar,
+      aliases: [person.id, person.name, person.contactname].filter(Boolean) as string[],
+    })).filter((person) => person.name).sort((a, b) => a.label.localeCompare(b.label)),
+  ];
+  const memberMatches = (members: string[], aliases: string[]) => members.some((name) => aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()));
+  const canComposeInGroup = !activeGroupObj || memberMatches(splitMochiGroupMembers(activeGroupObj).main, groupMemberOptions[0].aliases);
 
   /**
    * The thread's record name: a group is addressed by its own name, which is what
@@ -2540,6 +2553,7 @@ export function MochiOsView({
   // Chat message push helper
   const pushMessageToCurrentContact = useCallback(
     (msg: MochiMessage) => {
+      if (msg.me === 1 && !canComposeInGroup) return;
       const targetId = activeThreadId;
       const currentContacts = currentContactsMap;
       const existingContact = currentContacts[targetId];
@@ -2621,6 +2635,7 @@ export function MochiOsView({
       isGroupThread,
       groupThreadName,
       userScreenName,
+      canComposeInGroup,
       isHour12,
       clockAiDecide,
       aiDecidedDate,
@@ -2942,6 +2957,59 @@ export function MochiOsView({
     toast.success('Picture saved.');
   };
 
+  const renderGroupMemberPicker = (editing: boolean) => {
+    const selected = editing && groupEditFields ? groupEditFields.main.split(/[,，\n]/).map((name) => name.trim()).filter(Boolean) : splitMochiGroupMembers(activeGroupObj).main;
+    return <div className="mochi-person-info-field">
+      <span className="mochi-person-info-label">In contacts</span>
+      <div className="mochi-group-member-grid">
+        {groupMemberOptions.map((person, index) => {
+          const checked = memberMatches(selected, person.aliases);
+          return <button key={`${person.id}-${index}`} type="button" className="mochi-group-member" aria-pressed={checked}
+            aria-label={`${person.label}${index === 0 ? ' (You)' : ''}`} title={person.label} disabled={!editing || savePhoneDataMutation.isPending}
+            onClick={() => {
+              if (!editing || !groupEditFields || !activeGroupObj) return;
+              const { main, other } = splitMochiGroupMembers(activeGroupObj);
+              const fields = groupEditFields || { name: activeGroupObj.name || '', main: main.join(', '), other: other.join(', '), description: activeGroupObj.description || '' };
+              const next = checked ? selected.filter((name) => !memberMatches([name], person.aliases)) : [...selected, person.name];
+              setGroupEditFields({ ...fields, main: next.join(', ') });
+            }}>
+            <span className="mochi-group-member-avatar">
+              <span className="mochi-group-member-image" style={index === 0 ? undefined : { background: getMochiCharacterColor(person.name || person.id), color: '#fff' }}>
+                {person.avatar ? <img src={person.avatar} alt="" style={index === 0 && !savedPhoneDataResponse?.phoneData?.user?.avatar ? getAvatarCropStyle(activeLinkedPersona?.avatarCrop) : undefined} /> : <span>{(index === 0 ? activeLinkedPersona?.name || person.label : person.label)[0]?.toUpperCase()}</span>}
+              </span>
+              {checked && <span className="mochi-group-member-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg></span>}
+            </span>
+            <span className="mochi-group-member-name">{person.label}</span>
+            {index === 0 && <small>You</small>}
+          </button>;
+        })}
+      </div>
+    </div>;
+  };
+
+  const saveGroupInfo = async () => {
+    if (!activeChatId || !activeGroupObj || !groupEditFields) return;
+    try {
+      const data = structuredClone(savedPhoneDataResponse?.phoneData ?? {});
+      const group = data.groups?.find((entry) => (entry.id || entry.name) === (activeGroupObj.id || activeGroupObj.name));
+      if (!group) throw new Error('This group is no longer in phone data.');
+      const members = (text: string) => [...new Set(text.split(/[,\n]/).map((name) => name.trim()).filter(Boolean))];
+      group.name = groupEditFields.name.trim();
+      group.main_members = members(groupEditFields.main);
+      group.other_members = members(groupEditFields.other);
+      delete group.mainMembers;
+      delete group.otherMembers;
+      group.description = groupEditFields.description.trim();
+      const rawYaml = yaml.stringify(data);
+      await savePhoneDataMutation.mutateAsync({ chatId: activeChatId, rawYaml, category: 'data_generation', characterName: primaryRoleplayCharName });
+      setAiDataYamlDraft(rawYaml);
+      setGroupEditFields(null);
+      toast.success('Group info saved.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save group info.');
+    }
+  };
+
   const phoneContactAvatar = (id?: string | null, name?: string) => {
     const entries = [...savedPhoneDataResponse?.phoneData?.characters ?? [], ...savedPhoneDataResponse?.phoneData?.private_contacts ?? []];
     return entries.find((entry) => entry.id === id || [entry.name, entry.contactname].some((value) => value && name && value.toLowerCase() === name.toLowerCase()))?.avatar;
@@ -3078,6 +3146,7 @@ export function MochiOsView({
 
   // Send text & trigger generation / execute slash commands
   const handleSendText = async (textToSend: string) => {
+    if (!canComposeInGroup) return;
     const trimmed = textToSend.trim();
     if (!trimmed) return;
     setMsgInputText("");
@@ -4129,16 +4198,13 @@ export function MochiOsView({
                           }}
                         >
                           <span
-                            className="ava on mochi-editable-avatar"
+                            className="ava"
                             style={{
                               background: "linear-gradient(135deg, var(--tile-a), var(--tile-b))",
                               color: "var(--ink)",
                             }}
                           >
                             {group.avatar ? <img src={group.avatar} alt="" /> : (group.name && group.name[0]?.toUpperCase()) || "G"}
-                            <span role="button" tabIndex={0} className="mochi-avatar-edit" aria-label={`Edit ${group.name || 'group'} picture`}
-                              onClick={(event) => { event.stopPropagation(); setAvatarTarget({ kind: 'groups', id: group.id || group.name, name: group.name || 'group' }); }}
-                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); setAvatarTarget({ kind: 'groups', id: group.id || group.name, name: group.name || 'group' }); } }}>✎</span>
                           </span>
                           <span className="info">
                             <b>{group.name || localizeUi("ui.chat.mochiosview.groupChat")}</b>
@@ -4183,7 +4249,7 @@ export function MochiOsView({
                         }}
                       >
                         <span
-                          className={`ava ${c.online ? "on" : ""}`}
+                          className="ava"
                           style={{ "--c": getMochiCharacterColor(c.name) } as React.CSSProperties}
                         >
                           {phoneContactAvatar(id, c.name) ? <img src={phoneContactAvatar(id, c.name)} alt="" /> : c.name[0]}
@@ -4793,21 +4859,17 @@ export function MochiOsView({
 
                   {groupObj ? (
                     <div className="mochi-group-profile-header-wrap">
+                      <span className="ava mochi-editable-avatar" style={{ background: "linear-gradient(135deg, var(--tile-a), var(--tile-b))", color: "var(--ink)" }}>
+                        {groupObj.avatar ? <img src={groupObj.avatar} alt="" /> : chatDisplayName[0]?.toUpperCase() || "G"}
+                        <button type="button" className="mochi-avatar-edit" aria-label={`Edit ${chatDisplayName} picture`}
+                          onClick={() => setAvatarTarget({ kind: 'groups', id: groupObj.id || groupObj.name, name: chatDisplayName })}><Pencil size={13} /></button>
+                      </span>
                       <button
                         type="button"
                         className="mochi-group-profile-header-btn"
                         onClick={() => setGroupInfoOpen((prev) => !prev)}
                         title={localizeUi("ui.chat.mochiosview.groupInfo")}
                       >
-                        <span
-                          className="ava"
-                          style={{
-                            background: "linear-gradient(135deg, var(--tile-a), var(--tile-b))",
-                            color: "var(--ink)",
-                          }}
-                        >
-                          {groupObj.avatar ? <img src={groupObj.avatar} alt="" /> : chatDisplayName[0]?.toUpperCase() || "G"}
-                        </span>
                         <b style={{ color: "var(--text)", fontSize: 16 }}>{chatDisplayName}</b>
                       </button>
                     </div>
@@ -5567,7 +5629,7 @@ export function MochiOsView({
 
                 {/* Chat Composer */}
                 <div className="mochi-composer">
-                  {replyingToMochiMessage && (
+                  {canComposeInGroup && replyingToMochiMessage && (
                     <div
                       className={`mochi-reply-preview ${replyingToMochiMessage.isOutgoing ? "outgoing" : "incoming"}`}
                     >
@@ -5589,6 +5651,7 @@ export function MochiOsView({
                   )}
 
                   <div className={`c-bar ${composerPlusOpen ? "open" : ""}`} style={{ position: "relative" }}>
+                    {canComposeInGroup ? <>
                     {/* Slash Autocomplete Popover */}
                     {slashCompletions.length > 0 && (
                       <div className="mochi-slash-autocomplete-menu">
@@ -5814,6 +5877,7 @@ export function MochiOsView({
                       </svg>
                     </button>
 
+                    </> : <span className="mochi-group-readonly">You’re not in this group. Refresh to continue.</span>}
                     <button
                       type="button"
                       className={`rbtn ${isChatGenerating ? "generating" : ""}`}
@@ -5862,44 +5926,42 @@ export function MochiOsView({
                   <>
                     <div className="mochi-group-info-backdrop" onClick={() => setGroupInfoOpen(false)} />
                     <div className="mochi-group-info-popup" onClick={(e) => e.stopPropagation()}>
-                      <div className="mochi-group-info-title">{localizeUi("ui.chat.mochiosview.groupInfo")}</div>
+                      <div className="mochi-group-info-heading">
+                        <div className="mochi-group-info-title">{localizeUi("ui.chat.mochiosview.groupInfo")}</div>
+                        {!groupEditFields && <button type="button" className="mochi-person-cancel-btn" onClick={() => {
+                          const { main, other } = splitMochiGroupMembers(groupObj);
+                          setGroupEditFields({ name: groupObj.name || '', main: main.join(', '), other: other.join(', '), description: groupObj.description || '' });
+                        }}>Edit</button>}
+                      </div>
+                      <form className="mochi-group-info-form" onSubmit={(event) => { event.preventDefault(); if (groupEditFields) void saveGroupInfo(); }}>
+                      <label className="mochi-person-info-field">
+                        <span className="mochi-person-info-label">Group name</span>
+                        {groupEditFields ? <input className="mochi-person-edit-input" value={groupEditFields.name} required disabled={savePhoneDataMutation.isPending}
+                          onChange={(event) => setGroupEditFields({ ...groupEditFields, name: event.target.value })} />
+                          : <span className="mochi-person-info-value">{groupObj.name}</span>}
+                      </label>
                       <div className="mochi-person-info-field">
                         <span className="mochi-person-info-label">{localizeUi("ui.chat.mochiosview.characterId")}</span>
                         <span className="mochi-person-info-value" style={{ fontFamily: "monospace" }}>
                           {groupObj.id}
                         </span>
                       </div>
-                      {(() => {
-                        const { main, other } = splitMochiGroupMembers(groupObj);
-                        return (
-                          <>
-                            {main.length > 0 && (
-                              <div className="mochi-person-info-field">
-                                <span className="mochi-person-info-label">
-                                  {localizeUi("ui.chat.mochiosview.mainMembers")}
-                                </span>
-                                <span className="mochi-person-info-value">{main.join(", ")}</span>
-                              </div>
-                            )}
-                            {other.length > 0 && (
-                              <div className="mochi-person-info-field">
-                                <span className="mochi-person-info-label">
-                                  {localizeUi("ui.chat.mochiosview.otherMembers")}
-                                </span>
-                                <span className="mochi-person-info-value">{other.join(", ")}</span>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                      {groupObj.description && (
-                        <div className="mochi-person-info-field">
-                          <span className="mochi-person-info-label">
-                            {localizeUi("ui.chat.mochiosview.description")}
-                          </span>
-                          <span className="mochi-person-info-value">{groupObj.description}</span>
-                        </div>
-                      )}
+                      {renderGroupMemberPicker(Boolean(groupEditFields))}
+                      {([
+                        ['other', 'Not in contacts', splitMochiGroupMembers(groupObj).other.join(', ')],
+                        ['description', localizeUi("ui.chat.mochiosview.description"), groupObj.description || ''],
+                       ] as const).filter(([, , value]) => groupEditFields || value).map(([key, label, value]) => <label key={key} className="mochi-person-info-field">
+                        <span className="mochi-person-info-label">{label}</span>
+                        {groupEditFields ? <textarea className="mochi-person-edit-input" value={groupEditFields[key]} disabled={savePhoneDataMutation.isPending}
+                          rows={key === 'description' ? 3 : 2}
+                          onChange={(event) => setGroupEditFields({ ...groupEditFields, [key]: event.target.value })} />
+                          : <span className="mochi-person-info-value">{value}</span>}
+                      </label>)}
+                      {groupEditFields && <div className="mochi-person-edit-actions">
+                        <button type="submit" className="mochi-person-save-btn" disabled={savePhoneDataMutation.isPending || !groupEditFields.name.trim()}>{savePhoneDataMutation.isPending ? 'Saving…' : localizeUi("ui.chat.mochiosview.save")}</button>
+                        <button type="button" className="mochi-person-cancel-btn" disabled={savePhoneDataMutation.isPending} onClick={() => setGroupEditFields(null)}>Cancel</button>
+                      </div>}
+                      </form>
                     </div>
                   </>
                 )}
