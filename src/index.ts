@@ -18,6 +18,12 @@ import { ctx, offEvent, onEvent, stReady } from './st/adapter';
 import { disposeLauncher, installLauncher, LAUNCHER_ID, updateLauncherTheme } from './st/launcher';
 import { disposeExtensionSettings, installExtensionSettings } from './st/extension-settings';
 import { mayContainMochiWidget } from './st/widget-records';
+import { deleteNativeStickers } from './st/sticker-native-storage';
+
+export async function onDelete(): Promise<void> {
+  await stReady();
+  await deleteNativeStickers();
+}
 
 const LOG = '[Mochi OS]';
 const WAND_CONTAINER_ID = 'mochi_os_wand_container';

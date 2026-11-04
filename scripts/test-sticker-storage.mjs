@@ -274,12 +274,12 @@ export async function runStickerStorageTests(api) {
     browserRecords = [different];
     // Recreate its colliding disk name to exercise the nonblocking migration warning.
     await first.add([{ file: png, name: 'Browser sticker' }]);
-    const warned = await api.extensionStickerStorage();
+    const warned = await api.extensionStickerStorage(backend());
     assert.match(warned.warning, /conflicts.*original browser library is untouched/i);
     assert.ok((await warned.read()).length > 0, 'A migration warning does not hide or disable the disk library');
     const readCount = legacyReads;
     globalThis.fetch = async () => new Response(null, { status: 404 });
-    const unavailable = api.createStickerLibrary(() => api.extensionStickerStorage(), urls);
+    const unavailable = api.createStickerLibrary(() => api.extensionStickerStorage(api.createServerStickerStorage('MochiOS')), urls);
     await assert.rejects(unavailable.load(), (error) => {
       assert.match(error.message, /Install the Mochi OS sticker server plugin/);
       assert.match(error.message, /plugins\/mochi-os-stickers\.mjs/);

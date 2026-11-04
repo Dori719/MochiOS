@@ -166,7 +166,7 @@ function main() {
         if (!stickerStorageOnly) console.log(`Mochi OS sticker plugin -> ${path.join(target, 'plugins', 'mochi-os-stickers.mjs')}`);
         console.log('Sticker plugin installed. Set enableServerPlugins: true in this SillyTavern installation\'s active config.yaml and fully restart SillyTavern; the installer does not change configuration or restart the server.');
       } else {
-        console.log('Sticker storage requires a separate server plugin. Use --with-sticker-storage, or --sticker-storage-only to preserve browser runtime files; enableServerPlugins alone does not install it.');
+        console.log('Stickers use SillyTavern built-in storage. No server plugin or configuration change is needed.');
       }
     } catch (error) {
       console.error(`Mochi OS could not be installed into ${target}:`, error.message);
