@@ -191,7 +191,7 @@ export function ConversationMediaPickerPanel({
               {stickers.error && <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => { setImportError(null); void loadMochiStickers().catch(() => {}); }}>Retry storage</button>}
               {(stickers.warning || (!stickers.loaded && stickers.error)) && <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => void downloadBackup(true)}>Export browser JSON</button>}
             </div>
-            {stickers.loaded && <p className="mochi-media-empty-hint">Saved in the extension folder: {stickers.location}.</p>}
+            {stickers.loaded && <p className="mochi-media-empty-hint">Saved on the SillyTavern server: {stickers.location}.</p>}
             {stickers.warning && <p className="mochi-media-error" role="alert">{stickers.warning}</p>}
             <input
               ref={fileRef}

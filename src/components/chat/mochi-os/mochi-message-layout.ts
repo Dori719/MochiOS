@@ -43,14 +43,19 @@ export function alignMochiMessageLayout(message: HTMLElement): void {
     const clock = time?.getBoundingClientRect();
     const fits = Boolean(minimum && time?.textContent?.trim() && clock && minimum + TIMESTAMP_CLEARANCE <= clock.left - content.left);
     setLayoutValue(message, '--mochi-bubble-meta-block-size', metadata?.getBoundingClientRect().height || 0);
-    // Sharing the footer is all-or-nothing. Reserve the same geometry while
-    // hidden, and fall back below the timestamp if any button would cover it.
     message.classList.toggle('mochi-actions-inline', fits);
+    // Measure wrapped controls even while collapsed. Inline controls reclaim
+    // the timestamp height only when revealed, leaving no hidden footprint.
+    const top = actions.getBoundingClientRect().top;
+    const height = Math.max(0, ...Array.from(actions.children, (control) => control.getBoundingClientRect().bottom - top));
+    setLayoutValue(actions, '--mochi-actions-block-size', height);
     const width = actions.getBoundingClientRect().width;
     const offset = Math.min(Math.max(0, content.left - wrapper.left), Math.max(0, wrapper.width - width));
     setLayoutValue(actions, '--mochi-actions-inline-offset', offset);
     setLayoutValue(actions, '--mochi-actions-wrapper-inline-size', wrapper.width);
   }
+  const swipe = message.querySelector<HTMLElement>(':scope > .mochi-swipe-trigger');
+  if (swipe) setLayoutValue(swipe, '--mochi-actions-block-size', Math.max(0, ...Array.from(swipe.children, (control) => (control as HTMLElement).offsetHeight)) + 6);
 }
 
 /** One observer per frame, retained across clock ticks and action reveals.

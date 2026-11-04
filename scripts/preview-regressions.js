@@ -318,12 +318,13 @@ function checkTextActionPlacement(bubble, assert, label) {
   const minimum = Array.from(actions.children).reduce((width, control) => width + Math.max(28, control.offsetWidth), 0) + Math.max(0, actions.children.length - 1) * gap;
   const fits = Boolean(minimum && clock?.textContent.trim() && minimum + 8 <= clock.getBoundingClientRect().left - bubble.getBoundingClientRect().left);
   const inline = actions.parentElement.classList.contains('mochi-actions-inline');
-  assert(inline === fits, `${label}: actions share the timestamp row if and only if every button fits with clearance`);
-  if (inline) {
+  assert(inline === fits, `${label}: actions share the timestamp row only when every button fits with clearance`);
+  if (inline && row.classList.contains('actions-visible')) {
     assert(Math.abs(actions.getBoundingClientRect().top - meta.getBoundingClientRect().top) < 1 && actions.getBoundingClientRect().right <= clock.getBoundingClientRect().left - 7.5, `${label}: the full action row is top-aligned without blocking the timestamp`);
     assert(getComputedStyle(actions).flexWrap === 'nowrap' && Array.from(actions.children).every((control) => Math.abs(control.getBoundingClientRect().top - actions.getBoundingClientRect().top) < 1), `${label}: no action wraps onto a partially shared timestamp row`);
-  } else {
-    assert(actions.getBoundingClientRect().top >= meta.getBoundingClientRect().bottom + 3 && getComputedStyle(actions).flexWrap === 'wrap', `${label}: a non-fitting action row stays entirely below the timestamp`);
+  } else if (!inline) {
+    assert(actions.getBoundingClientRect().top >= meta.getBoundingClientRect().bottom - 1 && getComputedStyle(actions).flexWrap === 'wrap', `${label}: actions stay below the timestamp`);
+    assert(row.classList.contains('actions-visible') ? actions.getBoundingClientRect().height >= 28 : actions.getBoundingClientRect().height === 0, `${label}: only visible actions occupy vertical space`);
   }
   const frame = actions.parentElement.getBoundingClientRect();
   assert(Array.from(actions.children).every((control) => {

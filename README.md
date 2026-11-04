@@ -66,8 +66,8 @@ app shell.
 - **The same data, in SillyTavern's terms.** The phone document lives in the
   chat's metadata, so it travels with export, import and branching. Transcript
   turns stay in the ordinary roleplay messages — no parallel store to keep in
-  step. Sticker image files are the exception: they live in the Mochi extension's
-  `stickers/` folder, not browser storage, chat metadata, or SillyTavern's media directories.
+  step. Sticker image files live in the current SillyTavern user's
+  `user/images/mochi-os-stickers/` folder, with uninstall cleanup through the extension's delete hook.
 
 ## Opening it
 
@@ -131,24 +131,23 @@ backup format is `{ "format": "mochi-os-stickers", "version": 1, "stickers": [..
 each sticker has `name`, `mimeType`, a base64 image data URL in `data`, and optional
 `aliases` for its previous names. No other files are needed to transfer it.
 
-Images are saved on the machine running SillyTavern, inside the installed
-Mochi OS extension's **`stickers/`** folder, alongside its runtime files. That
-folder contains `.library.json` (names, aliases, and migration receipts) and
-dot-prefixed UUID image files. Dotfiles are intentionally not served by
-SillyTavern's public static-file handler; images are read through the authenticated
-plugin API. The **Mochi OS sticker server plugin** below is required:
-browser extensions cannot directly write to the server's filesystem. If it is
-unavailable, Mochi shows setup instructions and does not silently save in the browser.
-The picker displays the actual extension folder name, including installations named `MochiOS`.
+Images are saved on the SillyTavern server in the current user's
+`user/images/mochi-os-stickers/` directory. Names, aliases, and migration receipts
+are saved in `user/files/mochi-os-stickers-library.json`. These use SillyTavern's
+built-in APIs: **no server plugin or `enableServerPlugins` setting is required**.
 
 The library survives page reloads, chat switches, and clearing browser site data.
 Other browsers/devices connected to the same installation read the same files;
-reopening Mochi or focusing its tab refreshes the library. Revision-checked saves
-prevent one device from overwriting another's changes. A globally installed
-extension shares its library; only SillyTavern admins may change it. User-local
-extension installs keep their own libraries and do not require admin privileges.
-Sticker files are not included in chat exports. Export JSON or back up the
-`stickers/` folder before uninstalling the extension. **×** removes a sticker
+reopening Mochi or focusing its tab refreshes the library. Libraries are per user,
+including globally installed extensions. Stale saves are checked before uploading
+the index, but the native APIs cannot prevent simultaneous cross-device writes;
+avoid editing the library from two devices at once.
+Uninstalling through SillyTavern runs a delete hook that removes the current user's
+images and index, including abandoned image uploads. SillyTavern's five-second hook
+timeout, failed requests, manual folder deletion, and other users' libraries are
+outside this cleanup guarantee. An empty image directory may remain.
+Sticker files are not included in chat exports. Export JSON before uninstalling.
+**×** removes a sticker
 from that library; older transcripts then show its name if its image is unavailable.
 
 Existing OPFS/IndexedDB stickers migrate automatically when disk storage is first
@@ -189,15 +188,11 @@ floating-bubble toggle in its settings drawer. Installing from this repository i
 ```powershell
 npm install          # once, to build
 node build.mjs --no-install
-node scripts/install.mjs --target "D:\path\to\SillyTavern" --with-sticker-storage
+node scripts/install.mjs --target "D:\path\to\SillyTavern"
 ```
 
-Then set **`enableServerPlugins: true`** in SillyTavern's `config.yaml` and restart
-SillyTavern. Install server plugins only from sources you trust. The installer
-does not enable plugins, change server configuration, or restart a live server.
-For manual installs, copy `sticker-storage.mjs` to
-`SillyTavern/plugins/mochi-os-stickers.mjs`, enable the same setting, and restart.
-The rest of the phone still works without the sticker server plugin.
+Reload SillyTavern. Stickers work with server plugins disabled.
+The bundled server helper is retained only for legacy-library recovery.
 
 `npm run build` builds and updates runtime files in neighboring SillyTavern
 installations, but does not activate the server plugin. `--with-sticker-storage`
@@ -212,7 +207,13 @@ second differently named install. It updates only runtime/helper files, preservi
 runtime/helper files themselves are replaced, so back those up first. If several
 Mochi OS installs exist, select one explicitly with `--folder MochiOS`.
 
-### Repairing sticker storage when plugins are already enabled
+### Legacy sticker storage recovery (older versions only)
+
+The following instructions are only for recovering an older extension-folder
+library. Current versions use native storage. If the old plugin is already
+available, Mochi imports its library automatically and leaves the original intact.
+Otherwise import an existing sticker JSON backup; enabling plugins is not required
+for new sticker libraries.
 
 **`enableServerPlugins: true` is not a plugin installer.** SillyTavern scans its
 own `plugins/` folder when the server starts; it does not load the helper just

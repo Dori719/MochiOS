@@ -1,4 +1,5 @@
 import { ctx } from './adapter';
+import { createNativeStickerStorage } from './sticker-native-storage';
 import {
   BACKUP_FORMAT, checkedManifest, imageDataUrl, namesFor, newStickerId, STICKER_FOLDER,
   stickerFileType, stickerNameKey, StickerStorageConflictError,
@@ -160,7 +161,7 @@ export async function mergeBrowserStickers(saved: StoredSticker[], incoming: Sto
     const matches = merged.filter((entry) => namesFor(entry).some((name) => keys.has(stickerNameKey(name))));
     if (matches.length) {
       if (matches.length !== 1 || !await sameImage(matches[0], record)) {
-        throw new Error(`The browser sticker ${JSON.stringify(record.name)} conflicts with a sticker already saved in the extension folder.`);
+        throw new Error(`The browser sticker ${JSON.stringify(record.name)} conflicts with a sticker already saved on the server.`);
       }
       const existing = matches[0];
       merged[merged.indexOf(existing)] = { ...existing,
@@ -201,10 +202,24 @@ export async function exportBrowserStickersJson(): Promise<string> {
   return JSON.stringify({ format: BACKUP_FORMAT, version: 1, stickers }, null, 2);
 }
 
-export async function extensionStickerStorage(): Promise<StickerStorage> {
-  const backend = createServerStickerStorage(stickerExtensionFolder());
+export async function extensionStickerStorage(backend: StickerStorage = createNativeStickerStorage()): Promise<StickerStorage> {
   // Verify server availability first; never fall back to writing in the browser.
   await backend.read();
+  if (!backend.hasMigration?.('legacy-plugin-v1')) {
+    // A disabled/uninstalled legacy plugin is normal. JSON import remains available.
+    const probe = await fetch(`${API}/library?extension=${encodeURIComponent(stickerExtensionFolder())}`, {
+      headers: ctx().getRequestHeaders(), cache: 'no-store',
+    }).catch(() => null);
+    if (probe?.ok) {
+      try {
+        const legacy = await createServerStickerStorage(stickerExtensionFolder()).read();
+        const merged = await mergeBrowserStickers(await backend.read(), legacy);
+        await backend.write(merged, ['legacy-plugin-v1']);
+      } catch (error) {
+        backend.warning = `Old plugin stickers could not be migrated: ${error instanceof Error ? error.message : String(error)}. Use a JSON backup to recover them.`;
+      }
+    }
+  }
   try { await migrateBrowserStickerPacks(backend, await readBrowserStickerPacks()); }
   catch (error) {
     backend.warning = `${error instanceof Error ? error.message : 'Browser stickers could not be migrated.'} The original browser library is untouched. Export browser JSON and import it with different names to resolve conflicts.`;

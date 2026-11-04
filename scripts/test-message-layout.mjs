@@ -104,20 +104,20 @@ async function checkMessageLayouts(root, output) {
   const geometry = (type, outgoing, bubbleWidth = 20, timeWidth = 52) => {
     const state = { bubbleWidth, timeWidth, maxWidth: 400 };
     const classes = new Set();
-    const rect = (left, width, height = 14) => ({ left, right: left + width, width, height });
+    const rect = (left, width, height = 14) => ({ top: 0, bottom: height, left, right: left + width, width, height });
     const wrapperWidth = () => Math.max(state.bubbleWidth, Math.min(state.maxWidth, parseFloat(actions.style.getPropertyValue('--mochi-actions-inline-size')) || 220));
     const bubbleLeft = () => outgoing ? wrapperWidth() - state.bubbleWidth : 0;
     const bubble = { type, offsetTop: 0, offsetHeight: 16, getBoundingClientRect: () => rect(bubbleLeft(), state.bubbleWidth, 16) };
     const time = { textContent: '11:59 PM', getBoundingClientRect: () => rect(bubbleLeft() + state.bubbleWidth - state.timeWidth, state.timeWidth) };
     const metadata = { querySelector: () => time, getBoundingClientRect: () => rect(bubbleLeft(), state.bubbleWidth) };
     const actions = {
-      style: style(), children: Array.from({ length: 7 }, () => ({ offsetWidth: 28 })), gap: '4px',
+      style: style(), children: Array.from({ length: 7 }, () => ({ offsetWidth: 28, getBoundingClientRect: () => rect(0, 28, 28) })), gap: '4px',
       getBoundingClientRect: () => rect(0, Math.min(wrapperWidth(), parseFloat(actions.style.getPropertyValue(classes.has('mochi-actions-inline') ? '--mochi-actions-compact-inline-size' : '--mochi-actions-inline-size')) || 220)),
     };
     const message = {
       style: style(), getBoundingClientRect: () => rect(0, wrapperWidth()),
       classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } },
-      querySelector: (selector) => selector.includes('msg-actions-trigger') ? actions : selector.includes('mochi-bubble-meta') ? metadata : bubble,
+      querySelector: (selector) => selector.includes('mochi-swipe-trigger') ? null : selector.includes('msg-actions-trigger') ? actions : selector.includes('mochi-bubble-meta') ? metadata : bubble,
       parentElement: { querySelector: () => outgoing ? null : { offsetHeight: 28 } },
     };
     return { state, classes, bubble, time, metadata, actions, message };
@@ -136,18 +136,19 @@ async function checkMessageLayouts(root, output) {
 
         const wide = geometry(type, outgoing, 280);
         alignMochiMessageLayout(wide.message);
-        assert.equal(wide.classes.has('mochi-actions-inline'), true, `${type}: the complete row fits with 8px timestamp clearance`);
+        assert.equal(wide.classes.has('mochi-actions-inline'), true, `${type}: all controls fit beside the timestamp with 8px clearance`);
         assert.equal(wide.actions.style.getPropertyValue('--mochi-actions-compact-inline-size'), '220px');
-        assert.equal(wide.message.style.getPropertyValue('--mochi-bubble-meta-block-size'), '14px', 'The timestamp height anchors the shared row');
+        assert.equal(wide.actions.style.getPropertyValue('--mochi-actions-block-size'), '28px', 'Natural control height defines the expanded row');
         wide.state.timeWidth = 53;
         alignMochiMessageLayout(wide.message);
         assert.equal(wide.classes.has('mochi-actions-inline'), false, 'Even 1px less than the required clearance uses the fallback row');
         wide.state.timeWidth = 52;
         wide.state.bubbleWidth = 320;
         alignMochiMessageLayout(wide.message);
-        assert.equal(wide.classes.has('mochi-actions-inline'), true, 'Resizing the bubble can restore a fully fitting row');
-        wide.actions.children.push({ offsetWidth: 44 }, { offsetWidth: 28 });
+        assert.equal(wide.classes.has('mochi-actions-inline'), true, 'Resizing restores inline controls when every button fits');
+        wide.actions.children.push({ offsetWidth: 44, getBoundingClientRect: () => ({ top: 32, bottom: 60, left: 0, right: 44, width: 44, height: 28 }) });
         alignMochiMessageLayout(wide.message);
+        assert.equal(wide.actions.style.getPropertyValue('--mochi-actions-block-size'), '60px', 'Wrapped controls expand the row to their actual bottom edge');
         assert.equal(wide.classes.has('mochi-actions-inline'), false, 'New/wider controls are all included in the fit check');
       }
     }
@@ -169,5 +170,5 @@ async function checkMessageLayouts(root, output) {
     assert.match(source, /<MochiMessageLayout/, `${component} must use the shared frame`);
     assert.doesNotMatch(source, /className=["`]wmsg|className=["`]mrow|<MochiBubbleMeta[^>]*sender=/, `${component} must not retain a message-type-specific frame or footer author`);
   }
-  console.log('PASS: every message type shares phone/widget frames, group-only headers, timestamp/action order, keyboard targets, compact control footprints, top-avatar clearance and all-or-nothing timestamp/action alignment');
+  console.log('PASS: shared phone/widget frames, group-only headers, timestamp/action order, keyboard targets, compact control widths, top-avatar clearance and measured expanding action rows');
 }
