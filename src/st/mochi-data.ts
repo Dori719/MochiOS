@@ -247,12 +247,12 @@ export interface GeneratePhoneDataInput {
 /** Select only this request's output envelope, not prose or another phone app.
  * Old bare YAML remains readable, but XML from an unrelated response never
  * falls through into the parser's direct-message fallback. */
-function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType, targetNames: string[]): { content: string; environments: string[] } {
+function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType, targetNames: string[]): { contents: string[]; environments: string[] } {
   const source = stripUnrelatedOutputTags(cleaned, THREAD_OUTPUT_TAGS);
-  const pattern = /<(chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat)\b[^>]*>[\s\S]*?<\/(?:\1|chat_history|privatechat_history|groupchat_history|group_message)>/gi;
+  const pattern = /<(chat_history|privatechat_history|groupchat_history|group_message|messages|message|private_chat|chat)\b[^>]*>[\s\S]*?<\/(?:\1|chat_history|privatechat_history|groupchat_history|group_message)\s*>/gi;
   const records = [...source.matchAll(pattern)];
   const wantedNames = targetNames.map((name) => name.trim().toLowerCase());
-  const record = records.find((match) => {
+  const selected = records.filter((match) => {
     const opener = match[0].slice(0, match[0].indexOf('>') + 1);
     const tag = match[1].toLowerCase();
     const type = /\btype\s*=\s*["']([^"']+)["']/i.exec(opener)?.[1]?.toLowerCase();
@@ -263,19 +263,23 @@ function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType
     if (tag === 'privatechat_history' || tag === 'private_chat') return recordType === 'private';
     return true;
   });
-  if (!record) {
+  if (!selected.length) {
     const content = source.replace(ENVIRONMENT_BLOCK, '').trim();
-    if (records.length || /<\/?[a-z][\w-]*\b[^>]*>/i.test(content)) return { content: '', environments: [] };
-    return { content, environments: environmentBlocks(source) };
+    if (records.length || /<\/?[a-z][\w-]*\b[^>]*>/i.test(content)) return { contents: [], environments: [] };
+    return { contents: [content], environments: environmentBlocks(source) };
   }
-  const end = record.index! + record[0].length;
-  const nextRecord = records.find((match) => match.index! >= end)?.index ?? source.length;
-  // A single response can put its environment before, inside or after the
-  // record. Do not steal leading metadata from a previous, unrelated thread.
-  const start = record === records[0] ? 0 : record.index!;
+  // Models may split one reply into several envelopes for the same thread.
+  // Keep every matching envelope in order, still saving them as one native turn.
   return {
-    content: record[0].replace(ENVIRONMENT_BLOCK, ''),
-    environments: environmentBlocks(source.slice(start, nextRecord)),
+    contents: selected.map((record) => record[0].replace(ENVIRONMENT_BLOCK, '')),
+    environments: selected.flatMap((record) => {
+      const index = records.indexOf(record);
+      // Environment can precede, sit inside or follow its record. Never borrow
+      // metadata belonging to a neighbouring, unrelated thread.
+      const start = index === 0 ? 0 : record.index!;
+      const end = records[index + 1]?.index ?? source.length;
+      return environmentBlocks(source.slice(start, end));
+    }),
   };
 }
 
@@ -316,8 +320,12 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
     ? input.contactName || input.characterName || 'Group'
     : input.characterName || input.contactName || 'Character').trim();
   const thread = extractGeneratedThread(cleaned, recordType, [targetName, input.contactName || '', input.characterName || '']);
-  const threadOutput = thread.content;
-  const parsed = parseMochiChatResponse(threadOutput, targetName, { structuredOnly: true });
+  const parsed = thread.contents.flatMap((content) => {
+    const replies = parseMochiChatResponse(content, targetName, { structuredOnly: true });
+    // A valid earlier envelope must not hide a later incompatible message list.
+    if (!replies.length) throw new Error('Mochi OS returned no incoming chat messages');
+    return replies;
+  });
 
   const firstTime = parsed.find((reply) => reply.time)?.time ?? nowClock();
   const lines = resolveUserMessageLines({
@@ -357,13 +365,14 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
 
   const environment = parseEnvironmentYaml(thread.environments.at(-1) || '');
-  const record = parseChatHistoryBlocks(threadOutput)[0];
+  const records = thread.contents.flatMap((content) => parseChatHistoryBlocks(content));
+  const record = records[0];
   const finalOutput = serializeChatHistoryYaml({
     targetName,
     recordType,
     date: record?.date || environment?.date,
     time: record?.time || environment?.time,
-    members: record?.members,
+    members: Math.max(...records.map((item) => item.members || 0)) || undefined,
     messages: messages as any,
     // Parsing is only for clock/date fallbacks; never use it to rewrite or
     // decide whether the generated environment is allowed into the transcript.

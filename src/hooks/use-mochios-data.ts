@@ -7,7 +7,7 @@ import type {
   MochiOsGroupData,
   MochiOsUserData,
   MochiOsPhoneData,
-} from "@marinara-engine/shared";
+} from "@mochi-os/shared";
 
 const MAX_MOCHI_RATE_LIMIT_RETRIES = 6;
 const MOCHI_RATE_LIMIT_BACKOFF_BASE_MS = 2_000;

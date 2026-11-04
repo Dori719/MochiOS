@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useMochiOsSettings } from "../../../hooks/use-mochi-os-settings";
 import { useConversationCustomStickers } from "../../../hooks/use-conversation-custom-stickers";
 import { getMochiCharacterColor } from "./mochi-character-color";
-import { DEFAULT_MOCHI_OS_SETTINGS } from "@marinara-engine/shared";
+import { DEFAULT_MOCHI_OS_SETTINGS } from "@mochi-os/shared";
 import { fmtMsgTime, isMochiTransferType, type ParsedMochiChatWidget } from "./mochi-os.utils";
 import { buildMochiCustomTokens } from "./mochi-os.color";
 import { useMochiThemeMode } from "./use-mochi-theme-mode";
@@ -63,6 +63,7 @@ export function MochiGroupChatWidget({ data }: { data: ParsedMochiChatWidget }) 
   return (
     <section
       className={`mochi-scope mochi-private-widget mochi-group-widget${open ? " is-open" : ""} theme-${settings.theme}${settings.colorPreset ? ` color-${settings.colorPreset}` : ""}`}
+      data-mochi-theme={themeMode}
       style={(settings.colorPreset === "custom" ? customThemeTokens : null) as React.CSSProperties}
       aria-label={t("ui.chat.mochiGroupChat.widgetLabel", { name: groupName })}
     >

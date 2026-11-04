@@ -491,6 +491,114 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
   const widgetControl = document.createElement('button');
   widgetControl.id = 'test-widget-records'; widgetControl.textContent = 'Check widget coverage';
   q('#preview-tools').append(widgetControl);
+  const replyControl = document.createElement('button');
+  replyControl.id = 'test-theme-swipes'; replyControl.textContent = 'Check themes & swipes';
+  q('#preview-tools').append(replyControl);
+  replyControl.onclick = async () => {
+    const checks = [];
+    const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };
+    const nativeMatchMedia = window.matchMedia;
+    const systemTheme = Object.assign(new EventTarget(), { matches: false, media: '(prefers-color-scheme: dark)' });
+    const hostGlow = document.createElement('style');
+    hostGlow.textContent = 'body, .mochi-scope :is(button,input,textarea), .mochi-scope button::before { text-shadow: 0 0 8px magenta; }';
+    const settingsSection = async (name) => {
+      if (!q('.modal-settings-split')) {
+        press(q('#mochi-os-host .dock button:last-child'));
+        await until(() => q('.modal-settings-split'), 'settings');
+      }
+      press(all('.settings-nav-item').find((item) => item.textContent.trim() === name)); await settle();
+    };
+    const selectTheme = async (name, mode) => {
+      press(all('.settings-split-content .seg button').find((item) => item.textContent.trim() === name));
+      await until(() => all('.mochi-scope').every((scope) => scope.dataset.mochiTheme === mode), `${name} resolved theme`);
+    };
+    const texts = () => incoming().map((row) => row.querySelector('.b')?.textContent);
+    replyControl.disabled = true; report.textContent = 'Checking light-mode text and full generated swipes locally…';
+    try {
+      closeMochiOs(); await settle();
+      window.matchMedia = (query) => query === systemTheme.media ? systemTheme : nativeMatchMedia.call(window, query);
+      document.head.append(hostGlow);
+      preview.reset(); setKeyboard(false);
+      await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
+      await settingsSection('Appearance');
+      await selectTheme('Light', 'light');
+      const crispText = () => all('.mochi-scope').every((scope) => [scope, ...scope.querySelectorAll('*')].every((element) => getComputedStyle(element).textShadow === 'none'));
+      assert(crispText(), 'Light mode removes both Mochi and inherited host-theme text shadows from the phone and both widgets');
+      assert(all('.mochi-scope button').every((button) => getComputedStyle(button, '::before').textShadow === 'none' && getComputedStyle(button, '::after').textShadow === 'none'), 'Light-mode button pseudo-elements cannot inherit a glow');
+      assert(getComputedStyle(q('#top-bar')).textShadow !== 'none', 'The light-mode reset never changes SillyTavern text outside Mochi');
+      assert(getComputedStyle(q('#mochi-os-host .tile')).boxShadow !== 'none', 'Decorative tile shadows are unchanged');
+      await selectTheme('Dark', 'dark');
+      assert(getComputedStyle(q('#mochi-os-host .label')).textShadow !== 'none', 'Dark mode retains its original text treatment');
+      await selectTheme('Auto', 'light');
+      await until(crispText, 'Auto light text transitions settle');
+      assert(crispText(), 'Auto mode also removes text glow when the system is light');
+      systemTheme.matches = true; systemTheme.dispatchEvent(new MediaQueryListEvent('change', { matches: true, media: systemTheme.media }));
+      await until(() => all('.mochi-scope').every((scope) => scope.dataset.mochiTheme === 'dark'), 'Auto system dark change');
+      assert(getComputedStyle(q('#mochi-os-host .label')).textShadow !== 'none', 'Auto mode switches back to dark-mode text when the system changes');
+      systemTheme.matches = false; systemTheme.dispatchEvent(new MediaQueryListEvent('change', { matches: false, media: systemTheme.media }));
+      await until(() => all('.mochi-scope').every((scope) => scope.dataset.mochiTheme === 'light'), 'Auto system light change');
+      await until(crispText, 'Auto system light text transitions settle');
+      assert(crispText(), 'Auto mode clears text shadows on a system change back to light');
+      await selectTheme('Light', 'light');
+      await settingsSection('Version');
+      assert(q('.settings-split-content p').textContent.endsWith('built directly inside SillyTavern.'), 'About describes Mochi OS inside SillyTavern');
+
+      for (const profile of ['', 'preview-one']) {
+        await settingsSection('API');
+        const select = q('#mochi-api-profile'); select.value = profile; select.dispatchEvent(new Event('change', { bubbles: true }));
+        await until(() => getContext().extensionSettings.mochi_os['mochi-os-settings']?.connectionProfileId === (profile || null), 'API selection');
+        for (const [name, tag, target, index] of [
+          ['Preview Contact', 'privatechat_history', 'Preview Character', 0],
+          ['Preview Group', 'groupchat_history', 'Preview Group', 1],
+        ]) {
+          closeMochiOs(); await settle(); preview.reset();
+          await getContext().printMessages(); await getContext().eventSource.emit('CHAT_CHANGED'); refreshMochiWidgets();
+          openMochiOs(); await settle(350); await openThread(name);
+          const original = getContext().chat[index].mes;
+          const originalCount = incoming().length;
+          const expected = ['She said "stay here" and kept talking until the very last word.', 'Second reply: every word stays.', 'First line\nLast line', 'Final reply in a second envelope.'];
+          const reply = `<think>Local hidden planning</think>\n\`\`\`yaml\n<${tag} target="${target}">\nmessages:\n  - t: text\n    c: "She said "stay here" and kept talking until the very last word."\n    sender: {name: Preview Character}\n  - t: text\n    c: Second reply: every word stays.\n    sender: {name: Other Character}\n  - t: text\n    c: |-\n      First line\n      Last line\n    sender: {name: Preview Character}\n</${tag}>\n<${tag} target="${target}">\nmessages:\n  - t: text\n    c: Final reply in a second envelope.\n    sender: {name: Other Character}\n</${tag}>\n<environment>\nweather: Rainy\n</environment>\n\`\`\``;
+          let last = incoming().at(-1); press(last.querySelector('.b')); await settle();
+          preview.mock([reply]); press(last.querySelector('.mochi-swipe-trigger button:last-child'));
+          await until(() => getContext().chat[index].swipes?.length === 2, `${name} generated swipe`);
+          await until(() => JSON.stringify(texts()) === JSON.stringify(expected), `${name} complete phone reply`);
+          assert(getContext().chat.length === 2 && getContext().chat[index].swipe_id === 1, `${name}: generating a swipe preserves one connected roleplay turn`);
+          assert(JSON.stringify(texts()) === JSON.stringify(expected), `${name}: quotes, unquoted colons, multiline text and every envelope reach the phone through ${profile || 'default API'}`);
+          const saved = getContext().chat[index].mes;
+          await until(() => q(`#chat .mes[mesid="${index}"] .mochi-private-widget`), `${name} inline swipe remount`);
+          const inline = q(`#chat .mes[mesid="${index}"] .mochi-private-widget`);
+          press(inline.querySelector('.mochi-private-contact-open'));
+          await until(() => inline.querySelectorAll('.mochi-private-bubble').length === expected.length, `${name} inline full reply`);
+          assert(JSON.stringify([...inline.querySelectorAll('.mochi-private-bubble')].map((bubble) => bubble.textContent)) === JSON.stringify(expected), `${name}: the embedded roleplay widget shows exactly the same complete text`);
+          assert(crispText(), `${name}: generated phone/widget text stays glow-free in light mode`);
+
+          last = incoming().at(-1); press(last.querySelector('.b')); await settle(); press(last.querySelector('.mochi-swipe-trigger button:first-child'));
+          await until(() => getContext().chat[index].swipe_id === 0 && incoming().length === originalCount, `${name} original swipe`);
+          assert(getContext().chat[index].mes === original, `${name}: the original swipe remains unchanged`);
+          last = incoming().at(-1); press(last.querySelector('.b')); await settle(); press(last.querySelector('.mochi-swipe-trigger button:last-child'));
+          await until(() => getContext().chat[index].swipe_id === 1 && JSON.stringify(texts()) === JSON.stringify(expected), `${name} restored generated swipe`);
+          assert(getContext().chat[index].mes === saved, `${name}: switching back restores the complete saved response without another request`);
+
+          last = incoming().at(-1); press(last.querySelector('.b')); await settle();
+          preview.mock([`<${tag} target="${target}">\nmessages:\n  - t: text\n    c: A partial reply must not be saved\n  - t: quote\n    quote: [broken YAML\n</${tag}>`]);
+          press(last.querySelector('.mochi-swipe-trigger button:last-child'));
+          await until(() => preview.replies.length === 0 && !q('#chatView .c-bar > button:last-child').disabled, `${name} rejected partial reply`);
+          await settle(250);
+          assert(getContext().chat[index].mes === saved && getContext().chat[index].swipes.length === 2 && JSON.stringify(texts()) === JSON.stringify(expected), `${name}: invalid output leaves the saved swipe and all visible bubbles intact`);
+        }
+        closeMochiOs(); await settle(); openMochiOs(); await settle(350);
+      }
+      report.textContent = `PASS: ${checks.length} theme and full-response swipe checks.`;
+      report.dataset.themeSwipeChecks = JSON.stringify(checks);
+    } catch (error) {
+      report.textContent = `FAIL after ${checks.length} theme/swipe checks: ${error.message}`;
+      report.dataset.themeSwipeChecks = JSON.stringify(checks); console.error(error);
+    } finally {
+      window.matchMedia = nativeMatchMedia; hostGlow.remove();
+      closeMochiOs(); await settle(); await getContext().printMessages(); refreshMochiWidgets(); openMochiOs();
+      replyControl.disabled = false;
+    }
+  };
   widgetControl.onclick = async () => {
     const checks = [];
     const assert = (ok, description) => { if (!ok) throw new Error(description); checks.push(description); };

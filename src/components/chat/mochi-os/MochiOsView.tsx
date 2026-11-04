@@ -4,7 +4,7 @@ import { MochiBubbleMeta } from "./MochiBubbleMeta";
 import { createMochiRoleplayHistoryIndexer } from "./mochi-history-index";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import type { Character, Message, MessageReaction } from "@marinara-engine/shared";
+import type { Character, Message, MessageReaction } from "@mochi-os/shared";
 import type {
   MochiTheme,
   MochiColorPreset,
@@ -3710,6 +3710,7 @@ export function MochiOsView({
   return (
     <div
       className={scopeClasses}
+      data-mochi-theme={resolvedTheme}
       style={{
         ...((customColorTokens ?? {}) as React.CSSProperties),
       }}

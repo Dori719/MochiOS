@@ -7,6 +7,7 @@ import { runHistoryContextTests } from './test-history-context.mjs';
 import { runPromptHistoryTests } from './test-prompt-history.mjs';
 import { runWidgetRecordTests } from './test-widget-records.mjs';
 import { runMessageLayoutTests } from './test-message-layout.mjs';
+import { runReplySwipeTests } from './test-reply-swipes.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -41,7 +42,7 @@ const result = await build({
   write: false,
   platform: 'browser',
   format: 'esm',
-  alias: { '@marinara-engine/shared': path.join(root, 'src/shared/index.ts') },
+  alias: { '@mochi-os/shared': path.join(root, 'src/shared/index.ts') },
   plugins: [{
     name: 'mock-sillytavern-context',
     setup(builder) {
@@ -773,6 +774,8 @@ for (const profileId of [null, 'profile-1']) {
     await api.request('DELETE', `${chatPath}/messages/${saved.id}`);
   }
 }
+await runReplySwipeTests({ api, host, phonePath, chatPath, choose, setReply(value) { rawReply = value; } });
+
 // Preserve complete environment blocks verbatim, independent of recognized
 // fields, YAML validity, placement, casing, attributes or phone output category.
 const generatedEnvironments = [

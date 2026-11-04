@@ -10,7 +10,7 @@ import { useConversationCustomStickers } from "../../../hooks/use-conversation-c
 import { useMochiOSPhoneData } from "../../../hooks/use-mochios-data";
 import { useChatStore } from "../../../stores/chat.store";
 import { getMochiCharacterColor } from "./mochi-character-color";
-import { DEFAULT_MOCHI_OS_SETTINGS, type MochiOsCharacterData } from "@marinara-engine/shared";
+import { DEFAULT_MOCHI_OS_SETTINGS, type MochiOsCharacterData } from "@mochi-os/shared";
 import {
   fmtMsgTime,
   mochiSocialHandle,
@@ -72,6 +72,7 @@ export function MochiPrivateChatWidget({ data }: { data: ParsedMochiPrivateChatW
   return (
     <section
       className={`mochi-scope mochi-private-widget${open ? " is-open" : ""} theme-${settings.theme}${settings.colorPreset ? ` color-${settings.colorPreset}` : ""}`}
+      data-mochi-theme={themeMode}
       style={(settings.colorPreset === "custom" ? customThemeTokens : null) as React.CSSProperties}
       aria-label={t("ui.chat.mochiPrivateChat.widgetLabel", { name })}
     >

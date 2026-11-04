@@ -5,7 +5,7 @@ import {
   normalizeMochiOsSettings,
   type AppSettingsResponse,
   type MochiOsSettings,
-} from "@marinara-engine/shared";
+} from "@mochi-os/shared";
 import { api } from "../lib/api-client";
 import { readChatSettings } from "../st/adapter";
 

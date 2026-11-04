@@ -1,7 +1,7 @@
 /**
  * The line shown after a slash command runs.
  *
- * The engine's panel was Tailwind chrome built on `--marinara-chat-chrome-*`
+ * The engine's panel was Tailwind chrome built on its own chat-chrome
  * variables that SillyTavern does not define; the port renders the same content
  * with the Mochi OS tokens instead, so it looks like the rest of the phone.
  */

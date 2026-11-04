@@ -56,6 +56,11 @@ app shell.
   Environment blocks retain their original tags, comments and fields, including
   during phone-data generation. AM/PM times keep the correct time of day in either
   12-hour or 24-hour displays.
+- **Complete swipes.** Regenerated private/group replies retain every bubble and
+  matching output envelope. Common YAML content-quoting mistakes are recovered
+  without shortening the text; unrepairable output leaves the existing swipe intact.
+- **Crisp light-mode text.** The phone and embedded widgets suppress text shadows
+  in Light mode and when Auto resolves to light, without changing Dark mode.
 - **Emoji and global stickers.** More → Emoji opens the emoji/sticker picker.
   Import images once and use them in any Mochi chat, browser, or device connected
   to the same SillyTavern extension library.
@@ -275,6 +280,9 @@ writes to a SillyTavern installation.
 **Check widget coverage** verifies target-only private records without environment
 data, drawing-guide and mixed private/group records, contact aliases, preserved
 prose, in-place edits, record-type changes and native swipe/re-render events.
+**Check themes & swipes** verifies glow-free Light/Auto text, unchanged Dark text,
+complete generated private/group swipes through both local mock API paths, matching
+roleplay widgets, and safe rejection of partial/unparseable output.
 For a read-only comparison with an installed SillyTavern's history formatters:
 
 ```powershell
@@ -319,8 +327,7 @@ has:
 | Engine toasts | `toastr`. |
 | Capability packages | Reported as none installed; Mochi OS only asks whether there are any. |
 
-The `@marinara-engine/shared` package is not available outside the engine, so
-`src/shared/` stands in for it: the engine's pure helpers (verbatim) plus the
+The local `@mochi-os/shared` alias points at `src/shared/`: pure helpers plus the
 types the interface reads. `src/compat/` does the same for `clsx`,
 `tailwind-merge`, `i18next`, `react-i18next` and `sonner`.
 

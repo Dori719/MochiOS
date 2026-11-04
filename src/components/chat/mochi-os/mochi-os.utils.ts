@@ -176,54 +176,34 @@ export interface ParsedMochiChatReply {
 export function parseMochiChatResponse(rawText: string, defaultSenderName?: string, options?: { structuredOnly?: boolean }): ParsedMochiChatReply[] {
   if (!rawText || !rawText.trim()) return [];
 
-  let text = stripMochiReasoning(rawText);
+  let text = cleanAndExtractRawYaml(rawText);
   if (!text) return [];
 
-  // 2. Extract content strictly within the supported Mochi wrappers. A new
-  // private-chat output closes a targeted record with </privatechat_history>, and
-  // a group-chat output is wrapped in <groupchat_history target="…">.
-  const tagMatch =
-    text.match(/<messages>([\s\S]*?)<\/messages>/i) ||
-    text.match(/<message>([\s\S]*?)<\/message>/i) ||
-    text.match(/<(?:groupchat_history|group_message)(?:\s[^>]*)?>([\s\S]*?)<\/(?:groupchat_history|group_message)>/i) ||
-    text.match(
-      /<(?:chat_history|privatechat_history)[^>]*>([\s\S]*?)<\/(?:chat_history|privatechat_history|groupchat_history)>/i,
-    ) ||
-    text.match(/<private_chat>([\s\S]*?)<\/private_chat>/i) ||
-    text.match(/<chat>([\s\S]*?)<\/chat>/i);
-  if (tagMatch && tagMatch[1]) {
-    text = tagMatch[1].trim();
-  } else {
-    const fenceMatch = text.match(/```(?:yaml)?\s*([\s\S]*?)\s*```/i);
-    if (fenceMatch && fenceMatch[1]) {
-      text = fenceMatch[1].trim();
-      const innerMatch =
-        text.match(/<messages>([\s\S]*?)<\/messages>/i) ||
-        text.match(/<message>([\s\S]*?)<\/message>/i) ||
-        text.match(
-          /<(?:groupchat_history|group_message)(?:\s[^>]*)?>([\s\S]*?)<\/(?:groupchat_history|group_message)>/i,
-        ) ||
-        text.match(
-          /<(?:chat_history|privatechat_history)[^>]*>([\s\S]*?)<\/(?:chat_history|privatechat_history|groupchat_history)>/i,
-        );
-      if (innerMatch && innerMatch[1]) {
-        text = innerMatch[1].trim();
-      }
-    }
-  }
+  // Use the saved-history scanner too, including legacy/drawing envelopes,
+  // reordered attributes and spaced closers. Only unwrap actual list containers,
+  // not tag-shaped strings inside a message's YAML content.
+  const record = scanMochiChatRecords(text)[0];
+  if (record) text = cleanAndExtractRawYaml(record.body);
+  const listWrapper = /^<(messages|message|private_chat|chat)\b[^>]*>([\s\S]*?)<\/\1\s*>\s*$/i.exec(text);
+  if (listWrapper) text = cleanAndExtractRawYaml(listWrapper[2]);
 
   // 3. Try parsing with YAML parser first
   try {
     // The canonical transcript deliberately writes this marker unquoted, while
     // YAML requires it to be a string key. Normalize before parsing replies too.
-    const parsedObj = yaml.parse(text.replace(/^(\s*)\{\{user\}\}:/gm, '$1"{{user}}":'));
+    const parsedObj = parseMochiChatYaml(text);
     if (parsedObj && typeof parsedObj === "object") {
       const messagesList = Array.isArray(parsedObj.messages)
         ? parsedObj.messages
         : Array.isArray(parsedObj)
           ? parsedObj
-          : null;
+          : typeof (parsedObj.t ?? parsedObj.type) === "string"
+            ? [parsedObj]
+            : null;
       if (messagesList && Array.isArray(messagesList)) {
+        if (options?.structuredOnly && messagesList.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
+          throw new Error("Invalid chat message item");
+        }
         const results: ParsedMochiChatReply[] = [];
         for (const item of messagesList) {
           if (!item || typeof item !== "object") continue;
@@ -270,9 +250,15 @@ export function parseMochiChatResponse(rawText: string, defaultSenderName?: stri
         }
       }
     }
-  } catch {
-    // Fall back to regex parsing
+  } catch (error) {
+    // Regex recovery is display-only: it can lose quoted/multiline content and
+    // later items. Never use that partial result to overwrite a saved swipe.
+    if (options?.structuredOnly) {
+      throw new Error("Mochi OS returned invalid chat YAML. No partial response was saved.", { cause: error });
+    }
   }
+
+  if (options?.structuredOnly) return [];
 
   // 4. Try regex parsing line-by-line / block-by-block
   const results: ParsedMochiChatReply[] = [];
@@ -1137,7 +1123,7 @@ function parseSingleChatHistoryRecord(
   blockBody = blockBody.replace(/^(\s*)\{\{([^}]+)\}\}:/gm, '$1"{{$2}}":');
 
   try {
-    const parsed = yaml.parse(repairTrailingQuotedYamlContent(blockBody));
+    const parsed = parseMochiChatYaml(blockBody);
     if (!parsed || typeof parsed !== "object") return null;
     const rawList = Array.isArray((parsed as any).messages) ? ((parsed as any).messages as any[]) : [];
     const normalizedUserName = (userName || "").trim().toLowerCase();
@@ -1239,15 +1225,47 @@ function parseSingleChatHistoryRecord(
   }
 }
 
-/** Keep generated trailing text inside a quoted message scalar when YAML quotes are unbalanced. */
-function repairTrailingQuotedYamlContent(source: string): string {
-  return source.replace(
-    /^(\s*c:\s*)"([^"]*)"([^\r\n]+)$/gm,
-    (_line, prefix: string, quoted: string, trailing: string) => {
-      if (!trailing.trim() || trailing.trimStart().startsWith("#")) return `${prefix}"${quoted}"${trailing}`;
-      return `${prefix}${JSON.stringify(`"${quoted}"${trailing}`)}`;
-    },
-  );
+/** Reply generation and saved-history readers must recover the same complete
+ * scalars. Repair only content lines the YAML parser actually flags, so valid
+ * escapes, comments and multiline/block scalars are never rewritten. */
+function parseMochiChatYaml(source: string) {
+  const normalized = source.replace(/^([ \t]*(?:-[ \t]+)?)\{\{([^}]+)\}\}:/gm, '$1"{{$2}}":');
+  const document = yaml.parseDocument(normalized);
+  if (document.errors.length === 0) return document.toJS();
+
+  const errorsByLine = new Map<number, typeof document.errors>();
+  for (const error of document.errors) {
+    const line = error.linePos?.[0].line;
+    if (line) errorsByLine.set(line, [...(errorsByLine.get(line) || []), error]);
+  }
+  const repaired = normalized.split(/\r?\n/).map((line, index) => {
+    const errors = errorsByLine.get(index + 1);
+    if (!errors) return line;
+    const match = /^([ \t]*(?:-[ \t]+)?(?:c|content|text|note):[ \t]*)(.+)$/i.exec(line);
+    if (!match || yaml.parseDocument(`value: ${match[2]}`).errors.length === 0) return line;
+
+    let value = match[2].trim();
+    const quote = value[0];
+    // Plain prose may contain an unquoted colon and continue on subsequent
+    // indented lines. Quoting just its first line strands those continuations
+    // outside the scalar. A folded block preserves the entire YAML paragraph.
+    if (quote !== '"' && quote !== "'" && !/^[\[{|>]/.test(value)) {
+      const keyColumn = line.search(/(?:c|content|text|note):/i);
+      return `${match[1]}>-\n${" ".repeat(keyColumn + 2)}${value}`;
+    }
+    if (quote === '"' || quote === "'") {
+      if (value.length > 1 && value.endsWith(quote)) {
+        value = value.slice(1, -1);
+        if (quote === "'") value = value.replace(/''/g, "'");
+      } else if (errors.some((error) => error.code === "MISSING_CHAR")) {
+        value = value.slice(1);
+      }
+    }
+    return `${match[1]}${JSON.stringify(value)}`;
+  }).join("\n");
+  // Any remaining structural error fails the whole turn, rather than quietly
+  // dropping a bubble or its sender/media fields.
+  return yaml.parse(repaired);
 }
 
 /**
