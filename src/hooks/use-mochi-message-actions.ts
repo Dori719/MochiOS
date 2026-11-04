@@ -78,6 +78,11 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
   const interaction = (message: MessageActionTarget): HTMLAttributes<HTMLDivElement> => ({
     tabIndex: 0,
     'aria-label': `${message.author}: ${message.text || 'Message'}`,
+    onPointerOver(event) {
+      if (event.pointerType !== 'mouse' || !isBubble(event.target)) return;
+      activeElement.current = event.currentTarget;
+      setActiveId(message.id);
+    },
     onPointerDown(event) {
       cancelHold();
       suppressClick.current = null;
@@ -103,7 +108,12 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
     },
     onPointerUp: cancelHold,
     onPointerCancel: cancelHold,
-    onPointerLeave: cancelHold,
+    onPointerLeave(event) {
+      cancelHold();
+      if (event.pointerType === 'mouse') {
+        setActiveId((previous) => previous === message.id ? null : previous);
+      }
+    },
     onContextMenu(event) {
       if (isBubble(event.target)) { event.preventDefault(); cancelHold(); }
     },

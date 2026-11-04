@@ -819,10 +819,13 @@
 .mochi-scope .mrow:is(.out, :hover, :focus-within) .wmsg > .msg-actions-trigger {
   position: static;
   display: flex;
+  align-content: flex-start;
   align-items: flex-start;
   align-self: flex-start;
   justify-content: flex-start;
-  min-height: 32px;
+  min-height: 0;
+  height: 0;
+  flex-shrink: 0;
   flex-wrap: wrap;
   max-width: 100%;
   width: var(--mochi-actions-inline-size, 100%);
@@ -830,27 +833,17 @@
   gap: 4px;
   box-sizing: border-box;
   padding: 0;
-  margin: 4px 0 0 var(--mochi-actions-inline-offset, 0px);
+  margin: 0 0 0 var(--mochi-actions-inline-offset, 0px);
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: none;
+  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
 }
 
 .mochi-scope .wmsg > .msg-actions-trigger > * {
   flex: 0 0 28px;
   min-width: 28px;
   box-sizing: border-box;
-}
-
-/* Share the timestamp's top edge only when the full button row fits to its
-   left. A negative margin keeps both in flow, so swipes stay below the footer
-   and revealing actions never changes the reserved message geometry. */
-.mochi-scope .wmsg.mochi-actions-inline > .msg-actions-trigger,
-.mochi-scope .mrow:is(.out, :hover, :focus-within) .wmsg.mochi-actions-inline > .msg-actions-trigger {
-  width: var(--mochi-actions-compact-inline-size);
-  margin-top: calc(0px - var(--mochi-bubble-meta-block-size, 0px));
-  flex-wrap: nowrap;
 }
 
 .mochi-scope .msg-actions-trigger .mochi-reaction-btn {
@@ -879,6 +872,8 @@
 }
 
 .mochi-scope .mrow.actions-visible .wmsg > :is(.msg-actions-trigger, .mochi-swipe-trigger) {
+  height: var(--mochi-actions-block-size, 28px);
+  margin-top: 4px;
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -888,7 +883,13 @@
   align-self: flex-start;
   align-items: center;
   justify-content: center;
-  margin-top: 4px;
+  margin-top: 0;
+  height: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  padding-block: 0;
+  border-block-width: 0;
+  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
   width: min(96px, 100%);
   max-width: 100%;
   box-sizing: border-box;
@@ -903,6 +904,23 @@
   outline: 1px solid var(--acc);
   outline-offset: 3px;
   border-radius: 12px;
+}
+
+.mochi-scope .wmsg.mochi-actions-inline > .msg-actions-trigger,
+.mochi-scope .mrow:is(.out, :hover, :focus-within) .wmsg.mochi-actions-inline > .msg-actions-trigger {
+  width: var(--mochi-actions-compact-inline-size);
+  flex-wrap: nowrap;
+}
+
+.mochi-scope .mrow.actions-visible .wmsg.mochi-actions-inline > .msg-actions-trigger {
+  margin-top: calc(0px - var(--mochi-bubble-meta-block-size, 0px));
+  height: max(var(--mochi-actions-block-size, 28px), var(--mochi-bubble-meta-block-size, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mochi-scope .wmsg > :is(.msg-actions-trigger, .mochi-swipe-trigger) {
+    transition: none;
+  }
 }
 
 .mochi-scope .mochi-reaction-add-popover {
