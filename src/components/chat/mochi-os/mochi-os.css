@@ -3378,6 +3378,7 @@
 }
 
 .mochi-scope .mochi-group-profile-header-btn {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -5827,6 +5828,173 @@
   border-radius: inherit; background: rgb(0 0 0 / 25%); color: white;
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+
+.mochi-scope .mochi-group-profile-header-btn b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mochi-scope .mochi-group-info-heading {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mochi-scope .mochi-group-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+
+.mochi-scope .mochi-group-member {
+  min-width: 0;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.mochi-scope .mochi-group-member[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--acc) 18%, transparent);
+}
+
+.mochi-scope .mochi-group-member:not(:disabled):hover {
+  border-color: var(--acc);
+}
+
+.mochi-scope .mochi-group-member:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.mochi-scope .mochi-group-member-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  box-sizing: border-box;
+  border: 2px solid var(--bubble-line);
+  border-radius: 50%;
+  background: var(--paper);
+  font-size: 24px;
+}
+
+.mochi-scope .mochi-group-member[aria-pressed="true"] .mochi-group-member-avatar {
+  border-color: var(--acc);
+}
+
+.mochi-scope .mochi-group-member-avatar img {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.mochi-scope .mochi-group-member-image {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  isolation: isolate;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mochi-scope .mochi-group-member-check {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--acc);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+
+.mochi-scope .mochi-group-member-check svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mochi-scope .mochi-group-member-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.mochi-scope .mochi-group-readonly {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mochi-scope .mochi-group-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mochi-scope .mochi-group-info-form textarea {
+  min-height: 0;
+  resize: vertical;
+}
+
+
+.mochi-scope .mochi-group-info-form .mochi-person-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--bubble-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.mochi-scope .mochi-group-info-form .mochi-person-edit-input:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.mochi-scope .mochi-group-info-form button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mochi-scope .mochi-group-info-form .mochi-group-member:disabled {
+  opacity: 1;
+  cursor: default;
 }
 .mochi-scope .mochi-editable-avatar:hover .mochi-avatar-edit,
 .mochi-scope .mochi-avatar-edit:focus-visible { opacity: 1; }
