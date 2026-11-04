@@ -37,6 +37,18 @@ try {
   await first.write([{ ...record, name: 'Renamed', aliases: ['Hello'] }]);
   await assert.rejects(second.write([]), /another device/);
   assert.deepEqual((await second.read())[0].aliases, ['Hello']);
+  files.delete('user/images/mochi-os-stickers/native-test.png');
+  const recovery = api.createNativeStickerStorage();
+  assert.deepEqual(await recovery.read(), [], 'missing images must not block loading');
+  assert.match(recovery.warning, /missing sticker/i);
+  await recovery.write([{ ...record, id: 'replacement', fileName: 'replacement.png' }]);
+  assert.equal((await api.createNativeStickerStorage().read()).length, 1, 'new stickers can be saved after an image goes missing');
+  files.delete('user/images/mochi-os-stickers/replacement.png');
+  const reset = api.createNativeStickerStorage();
+  await reset.read();
+  await reset.write([]);
+  assert.deepEqual(await api.createNativeStickerStorage().read(), [], 'reset persists despite missing files');
+  assert.ok(reset.hasMigration('receipt'), 'reset preserves migration receipts');
   files.set('user/images/mochi-os-stickers/orphan.png', Buffer.from('orphan'));
   files.set('user/images/another-extension/keep.png', Buffer.from('keep'));
   await api.deleteNativeStickers();

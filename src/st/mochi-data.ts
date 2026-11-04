@@ -108,10 +108,15 @@ function parsePhoneData(rawYaml: string): MochiOsPhoneData | null {
  * document's own comments survive, because they are what the editor shows.
  */
 function extractDocument(rawText: string): string {
-  const cleaned = cleanAndExtractRawYaml(rawText ?? '').trim();
+  const cleaned = unwrapPhoneDataXml(cleanAndExtractRawYaml(rawText ?? '')).trim();
   if (!cleaned) return '';
   const tagged = cleaned.match(/<phone_data>([\s\S]*?)<\/phone_data>/i);
   return (tagged ? tagged[1] : cleaned).trim();
+}
+
+/** Some providers wrap the requested YAML in a generic XML envelope. */
+function unwrapPhoneDataXml(text: string): string {
+  return text.replace(/<xml\s*>\s*(phone_data\s*:[\s\S]*?)\s*<\/xml\s*>/gi, '$1');
 }
 
 /** `GET /mochios-data/:chatId` — the phone document for the open chat. */
@@ -303,15 +308,34 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   const cleaned = preserveEnvironmentBlocks(raw, cleanAndExtractRawYaml);
 
   if (!isThreadCategory(category)) {
-    const sourceWithEnvironment = stripUnrelatedOutputTags(cleaned, 'phone_data|environment');
+    const sourceWithEnvironment = stripUnrelatedOutputTags(unwrapPhoneDataXml(cleaned), 'phone_data|environment');
     const source = sourceWithEnvironment.replace(ENVIRONMENT_BLOCK, '');
     const document = source.match(/<phone_data\b[^>]*>([\s\S]*?)<\/phone_data\s*>/i)?.[1]?.trim();
-    const output = document ? `<phone_data>\n${document}\n</phone_data>` : source.trim();
+    let output = document ? `<phone_data>\n${document}\n</phone_data>` : source.trim();
     if (!output || (!document && /<\/?[a-z][\w-]*\b[^>]*>/i.test(output))) throw new Error('Mochi OS returned no phone data');
+    // Generation excludes pictures; restore user-managed values by stable ID
+    // (or name for older documents) before the view saves the replacement YAML.
+    const previous = readPhoneData().phoneData;
+    const next = parsePhoneData(output);
+    if (previous && next) {
+      let restored = false;
+      if (previous.user?.avatar !== undefined && next.user) {
+        next.user.avatar = previous.user.avatar;
+        restored = true;
+      }
+      for (const key of ['characters', 'groups', 'private_contacts'] as const) {
+        for (const entry of next[key] ?? []) {
+          const old = previous[key]?.find((item) => entry.id && item.id === entry.id)
+            ?? previous[key]?.find((item) => entry.name && item.name === entry.name);
+          if (old?.avatar !== undefined) { entry.avatar = old.avatar; restored = true; }
+        }
+      }
+      if (restored) output = `<phone_data>\n${yaml.stringify({ phone_data: next }).trim()}\n</phone_data>`;
+    }
     const environments = environmentBlocks(sourceWithEnvironment);
     // The storage parser needs a document boundary when old bare YAML is
     // followed by environment XML; the view still receives both intact.
-    const phoneOutput = environments.length && !document ? `<phone_data>\n${output}\n</phone_data>` : output;
+    const phoneOutput = environments.length && !/^<phone_data\b/i.test(output) ? `<phone_data>\n${output}\n</phone_data>` : output;
     return { rawOutput: [phoneOutput, ...environments].join('\n\n') };
   }
 

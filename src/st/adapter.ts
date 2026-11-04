@@ -220,7 +220,12 @@ export function listPersonas(): Array<Record<string, any>> {
   const names: StRecord = power.personas ?? {};
   const descriptions: StRecord = power.persona_descriptions ?? {};
   const out: Array<Record<string, any>> = [];
-  for (const [id, name] of Object.entries(names)) {
+  // ST can select an uploaded user avatar without a named persona entry.
+  // Include that live selection so the phone still has its actual image.
+  const selectedId = activePersonaId();
+  const availableNames = { ...names };
+  if (selectedId && !(selectedId in availableNames)) availableNames[selectedId] = context.name1 || 'User';
+  for (const [id, name] of Object.entries(availableNames)) {
     const entry = descriptions[id] ?? {};
     out.push({
       id: String(id),

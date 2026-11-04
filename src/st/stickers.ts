@@ -119,6 +119,13 @@ export function createStickerLibrary(getStorage: () => Promise<StickerStorage>, 
       await backend.write(records);
       render(records, backend);
     }),
+    clear: () => run(async () => {
+      const backend = await getStorage();
+      // Missing files are skipped by storage reads; refresh the revision before saving.
+      await backend.read();
+      await backend.write([]);
+      render([], backend);
+    }),
   };
 }
 
@@ -157,5 +164,6 @@ export function loadMochiStickers(): Promise<void> {
 }
 export const importMochiStickers = (uploads: Array<File | StickerUpload>) => locked(() => library.add(uploads));
 export const deleteMochiSticker = (id: string) => locked(() => library.remove(id));
+export const clearMochiStickers = () => locked(() => library.clear());
 export const renameMochiSticker = (id: string, name: string) => locked(() => library.rename(id, name));
 export const exportMochiStickersJson = () => locked(() => library.exportJson(), false);

@@ -1344,12 +1344,15 @@ export function buildMochiTimeDateWeatherBlock(params: {
  * out first, since the model is asked to extend it rather than start over.
  */
 export function buildMochiDataGenerationGuideBlock(params: { existingYaml?: string; dataGuide: string }): string {
+  // Pictures are user-managed, not model-generated data. Filter custom guides
+  // as well as saved documents so existing image links never enter this block.
+  const withoutAvatars = (text: string) => text.replace(/^[ \t]*avatar\s*:[^\r\n]*(?:\r?\n|$)/gm, '');
   let block = "以下是现有的数据，请在此基础上按照已知信息补充数据，允许新增人物群聊：";
   if (params.existingYaml) {
-    block += `\n\n<current_phone_data>\n${params.existingYaml}\n</current_phone_data>\n\nModify, update, or expand this data according to the user's instructions and roleplay context while preserving existing IDs and details unless asked to change them.`;
+    block += `\n\n<current_phone_data>\n${withoutAvatars(params.existingYaml)}\n</current_phone_data>\n\nModify, update, or expand this data according to the user's instructions and roleplay context while preserving existing IDs and details unless asked to change them.`;
   }
   if (params.dataGuide) {
-    block += `\n\n${params.dataGuide}`;
+    block += `\n\n${withoutAvatars(params.dataGuide)}`;
   }
   return block;
 }

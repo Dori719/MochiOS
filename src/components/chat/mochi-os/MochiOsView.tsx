@@ -112,6 +112,7 @@ import { useMochiMessageActions, type MochiReplyTarget } from "../../../hooks/us
 import { MochiMessageLayout } from "./MochiMessageLayout";
 import { MochiSettingsSplit } from "./MochiSettingsSplit";
 import { stickerName } from "../../../st/stickers";
+import { AvatarEditor } from "./AvatarEditor";
 import { toggleReaction, removeCharacterReaction, reactionTargetOf, USER_REACTOR } from "../../../lib/reactions";
 import { api } from "../../../lib/api-client";
 import { buildMochiPresetMessages } from "../../../st/preset";
@@ -485,6 +486,7 @@ export function MochiOsView({
   const { data: savedPhoneDataResponse } = useMochiOSPhoneData(activeChatId);
   const generatePhoneDataMutation = useGenerateMochiOSPhoneData();
   const savePhoneDataMutation = useSaveMochiOSPhoneData();
+  const [avatarTarget, setAvatarTarget] = useState<{ kind: 'user' | 'characters' | 'groups'; id?: string; name: string } | null>(null);
   const updateRoleplayMessage = useUpdateMessage(activeChatId ?? null);
   const setActiveSwipe = useSetActiveSwipe(activeChatId ?? null);
   const deletePhoneDataMutation = useDeleteMochiOSPhoneData();
@@ -2837,9 +2839,8 @@ export function MochiOsView({
   /**
    * Delete the saved phone data and everything it filled in.
    *
-   * Reached by emptying the editor, which is the only signal available: the panel
-   * and its controls disappear once the text is gone, so there is nothing left to
-   * click. A guard on the previous value keeps a no-op re-render from firing it.
+   * Reached by emptying the editor. Keep the generation popup open so the user
+   * can immediately request a replacement document.
    */
   const handleErasePhoneDataYaml = useCallback(async () => {
     if (!activeChatId || deletingPhoneDataRef.current) return;
@@ -2853,7 +2854,6 @@ export function MochiOsView({
       resetProfileDraftsFromPhoneData();
       setAiDataYamlDraft("");
       toast.success(localizeUi("ui.chat.mochiosview.phoneDataDeleted"));
-      handleCloseAiDataModal();
     } catch (err: any) {
       console.error("Failed to delete Mochi OS data:", err);
       toast.error(err?.message || localizeUi("ui.chat.mochiosview.phoneDataFailed"));
@@ -2866,7 +2866,6 @@ export function MochiOsView({
     primaryRoleplayCharName,
     resetProfileDraftsFromPhoneData,
     localizeUi,
-    handleCloseAiDataModal,
   ]);
 
   // Handler to apply / save user-confirmed YAML
@@ -2926,6 +2925,27 @@ export function MochiOsView({
     handleCloseAiDataModal,
     localizeUi,
   ]);
+
+  const saveAvatarToPhoneData = async (avatar: string) => {
+    if (!activeChatId || !avatarTarget) throw new Error('Open a chat before editing its pictures.');
+    const data = structuredClone(savedPhoneDataResponse?.phoneData ?? {});
+    if (avatarTarget.kind === 'user') {
+      data.user = { ...data.user, avatar };
+    } else {
+      const target = data[avatarTarget.kind]?.find((entry) => (entry.id || entry.name) === avatarTarget.id);
+      if (!target) throw new Error('This contact or group is no longer in phone data.');
+      target.avatar = avatar;
+    }
+    const rawYaml = yaml.stringify(data);
+    await savePhoneDataMutation.mutateAsync({ chatId: activeChatId, rawYaml, category: 'data_generation', characterName: primaryRoleplayCharName });
+    setAiDataYamlDraft(rawYaml);
+    toast.success('Picture saved.');
+  };
+
+  const phoneContactAvatar = (id?: string | null, name?: string) => {
+    const entries = [...savedPhoneDataResponse?.phoneData?.characters ?? [], ...savedPhoneDataResponse?.phoneData?.private_contacts ?? []];
+    return entries.find((entry) => entry.id === id || [entry.name, entry.contactname].some((value) => value && name && value.toLowerCase() === name.toLowerCase()))?.avatar;
+  };
 
   // Save changes to user profile into Phone Data YAML
   const handleSaveUserProfileToPhoneData = useCallback(
@@ -3715,6 +3735,8 @@ export function MochiOsView({
         ...((customColorTokens ?? {}) as React.CSSProperties),
       }}
     >
+      {avatarTarget && <AvatarEditor key={`${avatarTarget.kind}:${avatarTarget.id ?? activeChatId}`} title={avatarTarget.name}
+        onSave={saveAvatarToPhoneData} onClose={() => setAvatarTarget(null)} />}
       <div
         className="screen"
         onClick={() => {
@@ -4107,13 +4129,16 @@ export function MochiOsView({
                           }}
                         >
                           <span
-                            className="ava on"
+                            className="ava on mochi-editable-avatar"
                             style={{
                               background: "linear-gradient(135deg, var(--tile-a), var(--tile-b))",
                               color: "var(--ink)",
                             }}
                           >
-                            {(group.name && group.name[0]?.toUpperCase()) || "G"}
+                            {group.avatar ? <img src={group.avatar} alt="" /> : (group.name && group.name[0]?.toUpperCase()) || "G"}
+                            <span role="button" tabIndex={0} className="mochi-avatar-edit" aria-label={`Edit ${group.name || 'group'} picture`}
+                              onClick={(event) => { event.stopPropagation(); setAvatarTarget({ kind: 'groups', id: group.id || group.name, name: group.name || 'group' }); }}
+                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); setAvatarTarget({ kind: 'groups', id: group.id || group.name, name: group.name || 'group' }); } }}>✎</span>
                           </span>
                           <span className="info">
                             <b>{group.name || localizeUi("ui.chat.mochiosview.groupChat")}</b>
@@ -4161,7 +4186,7 @@ export function MochiOsView({
                           className={`ava ${c.online ? "on" : ""}`}
                           style={{ "--c": getMochiCharacterColor(c.name) } as React.CSSProperties}
                         >
-                          {c.name[0]}
+                          {phoneContactAvatar(id, c.name) ? <img src={phoneContactAvatar(id, c.name)} alt="" /> : c.name[0]}
                         </span>
                         <span className="info">
                           <b>{c.name}</b>
@@ -4284,7 +4309,7 @@ export function MochiOsView({
                                   onClick={() => setExpandedPersonId((prev) => (prev === personId ? null : personId))}
                                 >
                                   <div
-                                    className="ava"
+                                    className="ava mochi-editable-avatar"
                                     style={{
                                       background: avatarBg,
                                       color: "#fff",
@@ -4300,7 +4325,9 @@ export function MochiOsView({
                                       flexShrink: 0,
                                     }}
                                   >
-                                    {initial}
+                                    {person.avatar ? <img src={person.avatar} alt="" /> : initial}
+                                    <button type="button" className="mochi-avatar-edit" aria-label={`Edit ${effectiveDisplayName} picture`}
+                                      onClick={(event) => { event.stopPropagation(); setAvatarTarget({ kind: 'characters', id: personId, name: effectiveDisplayName }); }}>✎</button>
                                   </div>
                                   <div className="info" style={{ flex: 1, minWidth: 0 }}>
                                     <b
@@ -4590,12 +4617,12 @@ export function MochiOsView({
           {activeTab === "profile" && (
             <div id="emptyMain" className="mochi-profile-view">
               <div className="profile-card">
-                <div className="p-ava">
-                  {activeLinkedPersona?.avatarPath ? (
+                <div className="p-ava mochi-editable-avatar">
+                  {(savedPhoneDataResponse?.phoneData?.user?.avatar || activeLinkedPersona?.avatarPath) ? (
                     <img
-                      src={activeLinkedPersona.avatarPath}
+                      src={savedPhoneDataResponse?.phoneData?.user?.avatar || activeLinkedPersona?.avatarPath || undefined}
                       alt=""
-                      style={getAvatarCropStyle(activeLinkedPersona.avatarCrop)}
+                      style={savedPhoneDataResponse?.phoneData?.user?.avatar ? undefined : getAvatarCropStyle(activeLinkedPersona?.avatarCrop)}
                     />
                   ) : (
                     <span>
@@ -4604,6 +4631,8 @@ export function MochiOsView({
                         : localizeUi("ui.chat.mochiosview.y")}
                     </span>
                   )}
+                  <button type="button" className="mochi-avatar-edit" aria-label="Edit profile picture"
+                    onClick={() => setAvatarTarget({ kind: 'user', name: activeLinkedPersona?.name || 'profile' })}>✎</button>
                 </div>
                 <h3>{activeLinkedPersona?.name || localizeUi("ui.noodle.stageprofileview.yourProfile")}</h3>
 
@@ -4777,7 +4806,7 @@ export function MochiOsView({
                             color: "var(--ink)",
                           }}
                         >
-                          {chatDisplayName[0]?.toUpperCase() || "G"}
+                          {groupObj.avatar ? <img src={groupObj.avatar} alt="" /> : chatDisplayName[0]?.toUpperCase() || "G"}
                         </span>
                         <b style={{ color: "var(--text)", fontSize: 16 }}>{chatDisplayName}</b>
                       </button>
@@ -4790,7 +4819,7 @@ export function MochiOsView({
                           background: chatNameColor,
                         }}
                       >
-                        {chatDisplayName[0]?.toUpperCase() || "C"}
+                        {phoneContactAvatar(activeContactId, chatDisplayName) ? <img src={phoneContactAvatar(activeContactId, chatDisplayName)} alt="" /> : chatDisplayName[0]?.toUpperCase() || "C"}
                       </span>
                       <b>{chatDisplayName}</b>
                     </>
@@ -5306,8 +5335,8 @@ export function MochiOsView({
                                 name={identityName}
                                 sender={isGroupThread ? bubbleSender : undefined}
                                 color={isGroupThread && bubbleSender ? getMochiCharacterColor(bubbleSender) : activeCharacterColor}
-                                avatar={identityCharacter?.avatarPath}
-                                crop={identityCharacter?.avatarCrop}
+                                avatar={phoneContactAvatar(identityCharacter?.id, m.sender || currentActiveContact?.name) || identityCharacter?.avatarPath}
+                                crop={phoneContactAvatar(identityCharacter?.id, m.sender || currentActiveContact?.name) ? undefined : identityCharacter?.avatarCrop}
                                 className={activeMochiMsgActionId === msgBubbleId ? "actions-visible" : ""}
                                 data-msg-id={msgBubbleId}
                                 data-message-type={m.type}
