@@ -37,7 +37,7 @@ const SKIP_INSTALL = process.argv.includes('--no-install');
  * instead of from a monorepo.
  */
 const alias = {
-  '@marinara-engine/shared': path.join(ROOT, 'src', 'shared', 'index.ts'),
+  '@mochi-os/shared': path.join(ROOT, 'src', 'shared', 'index.ts'),
   clsx: path.join(ROOT, 'src', 'compat', 'clsx.ts'),
   'tailwind-merge': path.join(ROOT, 'src', 'compat', 'tailwind-merge.ts'),
   i18next: path.join(ROOT, 'src', 'compat', 'i18next.ts'),

@@ -202,8 +202,8 @@ const MAX_MACRO_EXPANSIONS = 2_000;
 const MAX_MACRO_OUTPUT_LENGTH = 200_000;
 // Private placeholders used while character macros are deferred.
 // Internal-only and should be resolved before provider requests.
-const DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX = "\x1eMARINARA_DEFERRED_CHARACTER_";
-const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX = "\x1eMARINARA_DEFERRED_CHARACTER_IF:";
+const DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX = "\x1eMOCHI_DEFERRED_CHARACTER_";
+const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX = "\x1eMOCHI_DEFERRED_CHARACTER_IF:";
 const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_RE = new RegExp(
   `${DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\x1f]+)\\x1f`,
   "g",
@@ -212,7 +212,7 @@ const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_RE = new RegExp(
 // operand (e.g. a conversation relocation macro whose value is injected later).
 // The prefix deliberately does NOT contain "DEFERRED_CHARACTER_", so the
 // per-character decode and hasDeferredCharacterMacros never touch it.
-const DEFERRED_RELOCATION_CONDITIONAL_TOKEN_PREFIX = "\x1eMARINARA_DEFERRED_RELOCATION_IF:";
+const DEFERRED_RELOCATION_CONDITIONAL_TOKEN_PREFIX = "\x1eMOCHI_DEFERRED_RELOCATION_IF:";
 export const DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE = new RegExp(
   `${DEFERRED_RELOCATION_CONDITIONAL_TOKEN_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\x1f]+)\\x1f`,
   "g",

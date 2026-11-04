@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { MochiTheme } from "@marinara-engine/shared";
+import type { MochiTheme } from "@mochi-os/shared";
 import type { MochiCustomThemeMode } from "./mochi-os.color";
 
 /** Resolve Mochi's auto mode for the custom palette calculated in JavaScript. */

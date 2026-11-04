@@ -1,4 +1,4 @@
-import { estimateCharacterCardTokens, estimateTextTokens } from "@marinara-engine/shared";
+import { estimateCharacterCardTokens, estimateTextTokens } from "@mochi-os/shared";
 import type { TFunction } from "i18next";
 
 export { estimateCharacterCardTokens, estimateTextTokens };

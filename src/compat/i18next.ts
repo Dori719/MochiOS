@@ -7,8 +7,8 @@
  * engine's own English catalog, looked up literally, with `{{name}}`
  * interpolation and `count` plurals — the two features the Mochi OS UI uses.
  *
- * The catalog is the engine's `localization/locales/en.json`, shipped whole so
- * every label renders exactly as it does in Dori-Engine.
+ * The catalog is adapted from the original English labels. Unused engine-branded
+ * entries are omitted, and the phone's About text describes its SillyTavern host.
  */
 import catalog from '../st/en.json';
 

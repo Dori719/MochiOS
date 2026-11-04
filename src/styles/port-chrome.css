@@ -14,6 +14,17 @@
    background, for instance, which the engine's own panel brought with it.
    ════════════════════════════════════════════════════════════════════════ */
 
+/* Light-mode text stays crisp, including host-theme shadows inherited by
+   controls and pseudo-elements. The resolved mode also covers Auto and widgets;
+   dark-mode text and decorative box/icon shadows are deliberately unchanged. */
+.mochi-scope[data-mochi-theme="light"],
+.mochi-scope[data-mochi-theme="light"] *,
+.mochi-scope[data-mochi-theme="light"] *::before,
+.mochi-scope[data-mochi-theme="light"] *::after,
+.mochi-scope[data-mochi-theme="light"] *::placeholder {
+  text-shadow: none !important;
+}
+
 /* ── Add-reaction button ─────────────────────────────────────────────── */
 
 .mochi-scope .mochi-reaction-add {

@@ -4,7 +4,7 @@ import {
   resolveMacros,
   type MacroContext,
   type Persona,
-} from "@marinara-engine/shared";
+} from "@mochi-os/shared";
 
 export interface MacroCharacterData {
   id?: string;

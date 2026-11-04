@@ -16,7 +16,7 @@
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "@marinara-engine/shared": ["src/shared/index.ts"],
+      "@mochi-os/shared": ["src/shared/index.ts"],
       "clsx": ["src/compat/clsx.ts"],
       "tailwind-merge": ["src/compat/tailwind-merge.ts"],
       "i18next": ["src/compat/i18next.ts"],

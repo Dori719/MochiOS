@@ -1,5 +1,5 @@
 /**
- * The engine's `@marinara-engine/shared`, reduced to what the Mochi OS port uses.
+ * Local `@mochi-os/shared` helpers and types used by the Mochi OS port.
  *
  * The engine's shared package is a monorepo package with its own build. The port
  * cannot depend on it, so this module stands in for the import specifier: the

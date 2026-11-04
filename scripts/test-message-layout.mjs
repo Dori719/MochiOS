@@ -42,7 +42,7 @@ async function buildMessageLayoutBundle(root, output) {
     packages: 'external',
     jsx: 'automatic',
     alias: {
-      '@marinara-engine/shared': path.join(root, 'src/shared/index.ts'),
+      '@mochi-os/shared': path.join(root, 'src/shared/index.ts'),
       clsx: path.join(root, 'src/compat/clsx.ts'),
       'tailwind-merge': path.join(root, 'src/compat/tailwind-merge.ts'),
       'react-i18next': path.join(root, 'src/compat/react-i18next.ts'),

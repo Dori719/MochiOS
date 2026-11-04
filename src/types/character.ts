@@ -45,69 +45,69 @@ export interface CharacterExtensions {
   fav: boolean;
   world: string;
   depth_prompt: DepthPrompt;
-  /** Marinara Engine extension: character backstory / lore */
+  /** Extended character backstory / lore */
   backstory: string;
-  /** Marinara Engine extension: physical appearance description */
+  /** Extended physical appearance description */
   appearance: string;
-  /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
+  /** Use `imageAppearance` instead of `appearance` in image prompts. */
   imageAppearanceEnabled?: boolean;
-  /** Marinara Engine: appearance text used for image prompts when the override is enabled. */
+  /** Appearance text used for image prompts when the override is enabled. */
   imageAppearance?: string;
-  /** Marinara Engine: Name display color/gradient (CSS value, e.g. "linear-gradient(90deg, #ff6b6b, #ffd93d)" or "#ff6b6b") */
+  /** Name display color/gradient (CSS value, e.g. "linear-gradient(90deg, #ff6b6b, #ffd93d)" or "#ff6b6b") */
   nameColor?: string;
-  /** Marinara Engine: Dialogue highlight color — text in quotation marks is bold + colored with this */
+  /** Dialogue highlight color — text in quotation marks is bold + colored with this */
   dialogueColor?: string;
-  /** Marinara Engine: Chat bubble / dialogue box background color */
+  /** Chat bubble / dialogue box background color */
   boxColor?: string;
-  /** Marinara Engine: Alternative names/nicknames that should be colored with this
+  /** Alternative names/nicknames that should be colored with this
    *  character's nameColor when they appear in chat prose. The character's primary
    *  `name` is always a trigger; these are additional aliases (e.g. "Kate", "Kitty"). */
   nameAliases?: string[];
-  /** Marinara Engine: RPG stats toggle + custom attributes */
+  /** RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
-  /** Marinara Engine: starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
+  /** Starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
    *  the one it needs; a sheet for a ruleset that is not installed is kept dormant. */
   rulesetSheets?: Record<string, unknown>;
-  /** Marinara Engine: per-character Tracker fields copied into each new Roleplay chat. */
+  /** Per-character Tracker fields copied into each new Roleplay chat. */
   trackerCustomFieldDefaults?: CharacterTrackerCustomFieldDefault[];
-  /** Marinara Engine: Conversation-mode availability status */
+  /** Conversation-mode availability status */
   conversationStatus?: ConversationPresenceStatus;
-  /** Marinara Engine (Conversation mode ONLY): manual presence override. Like the
+  /** Conversation mode ONLY: manual presence override. Like the
    *  schedule, it belongs to the character and applies in every Conversation chat;
    *  `null` means no override. Chats cache a resolved copy in
    *  `chats.metadata.conversationStatusOverrides`. */
   conversationStatusOverride?: ConversationStatusOverride | null;
-  /** Marinara Engine (Conversation mode ONLY): the character's weekly schedule. The
+  /** Conversation mode ONLY: the character's weekly schedule. The
    *  character owns it; every conversation chat caches a resolved copy in
    *  `chats.metadata.characterSchedules`. Per-chat opt-out lives on the chat as
    *  `conversationSchedulesEnabled`. */
   conversationSchedule?: WeekSchedule;
   /** Renew the weekly Conversation schedule when its week ends. Defaults on when a schedule exists. */
   conversationScheduleAutoRenew?: boolean;
-  /** Marinara Engine: pronunciation override used when sending this character's name to TTS. */
+  /** Pronunciation override used when sending this character's name to TTS. */
   phoneticName?: string;
-  /** Marinara Engine (Conversation mode ONLY): display name shown as the sender label
+  /** Conversation mode ONLY: display name shown as the sender label
    *  in Convo and used for attribution in the convo prompt. Never read in RP/VN/Game. */
   convoDisplayName?: string;
-  /** Marinara Engine (Conversation mode ONLY): when true, prepend a line declaring the
+  /** Conversation mode ONLY: when true, prepend a line declaring the
    *  convo display name to this character's card so the model can map the display name
    *  to this specific card. No effect without a convoDisplayName. Never read in RP/VN/Game. */
   convoDisplayNameInCard?: boolean;
-  /** Marinara Engine (Conversation mode ONLY): public "about me" profile. The
+  /** Conversation mode ONLY: public "about me" profile. The
    *  cross-chat default; a per-chat override can supersede it. Never read in RP/VN/Game. */
   aboutMe?: string;
-  /** Marinara Engine (Conversation mode ONLY): behavior directive + insertion strategy.
+  /** Conversation mode ONLY: behavior directive + insertion strategy.
    *  Never read in RP/VN/Game. */
   convoBehavior?: ConvoBehaviorConfig;
-  /** Marinara Engine: character-specific direction for Conversation selfie image prompts. */
+  /** Character-specific direction for Conversation selfie image prompts. */
   conversationImageInstructions?: string;
   /** Retain prior card revisions and automatically advance character_version on edits. */
   versioningEnabled?: boolean;
-  /** Marinara Engine: also apply conversationImageInstructions to this character's Noodle images. */
+  /** Also apply conversationImageInstructions to this character's Noodle images. */
   applyConversationImageInstructionsToNoodle?: boolean;
-  /** Marinara Engine: gallery image selected as this character's optional visual reference sheet. */
+  /** Gallery image selected as this character's optional visual reference sheet. */
   characterSheetImageId?: string | null;
-  /** Marinara Engine: prefer the selected character sheet over the avatar for image references. */
+  /** Prefer the selected character sheet over the avatar for image references. */
   useCharacterSheetAsReference?: boolean;
   [key: string]: unknown;
 }
@@ -242,9 +242,9 @@ export interface PersonaCardSnapshot {
   scenario: string;
   backstory: string;
   appearance: string;
-  /** Marinara Engine: image-prompt override flag, stored as a string like its siblings. */
+  /** Image-prompt override flag, stored as a string like its siblings. */
   imageAppearanceEnabled?: string;
-  /** Marinara Engine: appearance text used for image prompts while the override is on. */
+  /** Appearance text used for image prompts while the override is on. */
   imageAppearance?: string;
   characterSheetImageId: string;
   useCharacterSheetAsReference: string;

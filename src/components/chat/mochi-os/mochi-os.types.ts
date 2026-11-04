@@ -1,4 +1,4 @@
-import type { MessageReaction } from "@marinara-engine/shared";
+import type { MessageReaction } from "@mochi-os/shared";
 
 export type {
   MochiTheme,
@@ -10,7 +10,7 @@ export type {
   MochiHomeIndicatorMode,
   MochiPresetMode,
   MochiOsSettings,
-} from "@marinara-engine/shared";
+} from "@mochi-os/shared";
 
 export interface MochiMessage {
   id?: string;

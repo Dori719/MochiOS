@@ -17,7 +17,7 @@
 //    phone's clipping and sits over the message list exactly as the portal did.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { MessageReaction } from '@marinara-engine/shared';
+import type { MessageReaction } from '@mochi-os/shared';
 import { USER_REACTOR, customEmojiReactionName } from '../../lib/reactions';
 import { useTranslation as useUiTranslation } from 'react-i18next';
 
