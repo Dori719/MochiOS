@@ -35,14 +35,17 @@ export function createNativeStickerStorage(): StickerStorage {
       const value = text ? JSON.parse(text) : { version: 1, stickers: [], migrations: [] };
       if (value.version !== 1 || !Array.isArray(value.migrations) || !value.migrations.every((id: unknown) => typeof id === 'string')) throw new Error('Invalid Mochi sticker library index.');
       const manifest = checkedManifest(value.stickers);
-      const records = await Promise.all(manifest.map(async (entry) => {
+      const missing: string[] = [];
+      const loaded = await Promise.all(manifest.map(async (entry) => {
         const cached = previous.find((record) => record.fileName === entry.fileName);
         const response = cached ? null : await request(`/${IMAGE_PATH}${imageName(entry.fileName)}`);
-        if (response?.status === 404) throw new Error(`Missing sticker image: ${entry.name}. Restore its JSON backup.`);
+        if (response?.status === 404) { missing.push(entry.name); return null; }
         const blob = cached?.blob ?? await response!.blob();
         if ((await stickerFileType(blob)).mimeType !== entry.mimeType) throw new Error(`Invalid sticker image: ${entry.name}.`);
         return { ...entry, blob };
       }));
+      const records = loaded.filter((record): record is StoredSticker => record !== null);
+      backend.warning = missing.length ? `${missing.length} missing sticker image(s) were skipped. Restore a JSON backup or erase all stickers to reset the library.` : undefined;
       revision = text;
       migrations = value.migrations;
       previous = records;

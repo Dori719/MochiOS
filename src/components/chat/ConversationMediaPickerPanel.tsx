@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useConversationCustomStickers } from '../../hooks/use-conversation-custom-stickers';
 import {
-  deleteMochiSticker, exportBrowserStickersJson, exportMochiStickersJson, importMochiStickers, loadMochiStickers, MAX_STICKER_NAME_LENGTH,
+  clearMochiStickers, deleteMochiSticker, exportBrowserStickersJson, exportMochiStickersJson, importMochiStickers, loadMochiStickers, MAX_STICKER_NAME_LENGTH,
   readStickerBackup, renameMochiSticker, stickerFileType, stickerNameError, suggestStickerName,
   type StickerUpload,
 } from '../../st/stickers';
@@ -76,16 +76,18 @@ export function ConversationMediaPickerPanel({
 }: ConversationMediaPickerPanelProps) {
   const [importError, setImportError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [drafts, setDrafts] = useState<StickerDraft[]>([]);
   const [renameDraft, setRenameDraft] = useState<{ id: string; name: string; originalName: string } | null>(null);
   const [working, setWorking] = useState(false);
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const stickers = useConversationCustomStickers();
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const jsonRef = useRef<HTMLInputElement>(null);
   const nextDraftKey = useRef(0);
   const busy = working || stickers.loading;
-  const editing = drafts.length > 0 || renameDraft !== null;
+  const editing = drafts.length > 0 || renameDraft !== null || linkDraft !== null || confirmClear;
   const savedNames = stickers.list.flatMap(namesFor);
   const draftErrors = drafts.map((draft, index) => {
     const usedNames = [...savedNames, ...drafts.filter((_, other) => other !== index).flatMap(namesFor)];
@@ -182,6 +184,7 @@ export function ConversationMediaPickerPanel({
               <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => fileRef.current?.click()}>
                 Upload images
               </button>
+              <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => { setLinkDraft(''); setImportError(null); }}>Add image link</button>
               <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => jsonRef.current?.click()}>
                 Import JSON
               </button>
@@ -191,8 +194,43 @@ export function ConversationMediaPickerPanel({
               {stickers.error && <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => { setImportError(null); void loadMochiStickers().catch(() => {}); }}>Retry storage</button>}
               {(stickers.warning || (!stickers.loaded && stickers.error)) && <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => void downloadBackup(true)}>Export browser JSON</button>}
             </div>
+            <button type="button" className="mochi-media-empty-action" disabled={busy || editing} onClick={() => { setConfirmClear(true); setImportError(null); setNotice(null); }}>Erase all stickers</button>
+            {confirmClear && <div className="mochi-sticker-editor" role="group" aria-label="Confirm sticker reset">
+              <strong>Erase the shared sticker library?</strong>
+              <p className="mochi-media-empty-hint">This removes all saved stickers across Mochi chats. Existing sticker messages may lose their images. This cannot be undone.</p>
+              <div className="mochi-sticker-editor-actions">
+                <button type="button" className="mochi-media-empty-action" disabled={busy} onClick={async () => {
+                  setWorking(true); setImportError(null);
+                  try { await clearMochiStickers(); setConfirmClear(false); setNotice('All stickers erased. You can add new stickers now.'); }
+                  catch (error) { setImportError(error instanceof Error ? error.message : 'Could not erase stickers. Try again.'); }
+                  finally { setWorking(false); }
+                }}>{busy ? 'Erasing…' : 'Erase all stickers'}</button>
+                <button type="button" disabled={busy} onClick={() => setConfirmClear(false)}>Cancel</button>
+              </div>
+            </div>}
             {stickers.loaded && <p className="mochi-media-empty-hint">Saved on the SillyTavern server: {stickers.location}.</p>}
             {stickers.warning && <p className="mochi-media-error" role="alert">{stickers.warning}</p>}
+            {linkDraft !== null && <form className="mochi-sticker-editor" onSubmit={async (event) => {
+              event.preventDefault(); setWorking(true); setImportError(null);
+              try {
+                const url = new URL(linkDraft.trim());
+                if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Enter an HTTP or HTTPS image link.');
+                const response = await fetch(url.href, { credentials: 'omit', signal: AbortSignal.timeout(30000) });
+                if (!response.ok) throw new Error(`Image download failed (${response.status}).`);
+                const blob = await response.blob();
+                const type = await stickerFileType(blob);
+                const name = decodeURIComponent(url.pathname.split('/').pop() || `sticker.${type.extension}`);
+                reviewUploads([{ file: new File([blob], name, { type: type.mimeType }) }]);
+                setLinkDraft(null);
+              } catch (error) { setImportError(error instanceof TypeError ? 'Could not download this image. The host may block downloads; upload the image instead.' : error instanceof Error ? error.message : 'Image download failed.'); }
+              finally { setWorking(false); }
+            }}>
+              <label>Sticker image link<input autoFocus type="url" className="mochi-sticker-name-input" value={linkDraft} required disabled={busy} onChange={(event) => setLinkDraft(event.target.value)} placeholder="https://…" /></label>
+              <div className="mochi-sticker-editor-actions">
+                <button type="submit" className="mochi-media-empty-action" disabled={busy || !linkDraft.trim()}>{busy ? 'Downloading…' : 'Next: name sticker'}</button>
+                <button type="button" disabled={busy} onClick={() => { setLinkDraft(null); setImportError(null); }}>Cancel</button>
+              </div>
+            </form>}
             <input
               ref={fileRef}
               type="file"

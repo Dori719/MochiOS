@@ -5819,3 +5819,53 @@
   }
 
 }
+.mochi-scope .mochi-editable-avatar { position: relative; overflow: hidden; }
+.mochi-scope .mochi-editable-avatar > img { width: 100%; height: 100%; object-fit: cover; }
+.mochi-scope .ava > img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.mochi-scope .mochi-avatar-edit {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+  border-radius: inherit; background: rgb(0 0 0 / 25%); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+.mochi-scope .mochi-editable-avatar:hover .mochi-avatar-edit,
+.mochi-scope .mochi-avatar-edit:focus-visible { opacity: 1; }
+@media (hover: none) { .mochi-scope .mochi-avatar-edit { opacity: 1; } }
+.mochi-scope .modal.mochi-avatar-editor {
+  display: flex; flex-direction: column; padding: 0; gap: 0;
+  width: min(380px, 92%); max-height: 92%; overflow: hidden;
+  background: var(--modal-bg); color: var(--text); border-radius: 20px;
+}
+.mochi-scope .avatar-editor-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.mochi-scope .avatar-editor-head h3 { margin: 0; padding: 0; border: 0; font-size: 19px; font-weight: 750; }
+.mochi-scope .avatar-editor-head h3::before { content: none; }
+.mochi-scope .mochi-avatar-editor button { min-height: 44px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; }
+.mochi-scope .mochi-avatar-editor .avatar-editor-close { width: 44px; padding: 0; }
+.mochi-scope .avatar-editor-body { min-height: 0; overflow-y: auto; padding: 20px; scrollbar-color: var(--line) var(--modal-bg); }
+.mochi-scope .avatar-editor-preview { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.mochi-scope .avatar-editor-preview strong { overflow-wrap: anywhere; font-size: 16px; }
+.mochi-scope .avatar-editor-image { width: 96px; height: 96px; flex-shrink: 0; border-radius: 24px; background: var(--input-bg); border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+.mochi-scope .avatar-editor-image { position: relative; }
+.mochi-scope .avatar-editor-image.has-image { width: 176px; height: 176px; border: 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.mochi-scope .avatar-editor-image.has-image:active { cursor: grabbing; }
+.mochi-scope .avatar-editor-image img { position: absolute; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.mochi-scope .avatar-editor-crop-controls { display: grid; gap: 8px; margin-top: 16px; }
+.mochi-scope .avatar-editor-crop-controls label { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12px; font-size: 13px; }
+.mochi-scope .avatar-editor-crop-controls input { width: 100%; min-width: 0; accent-color: var(--text); }
+.mochi-scope .avatar-editor-body p { margin: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.mochi-scope .avatar-editor-sources { display: flex; padding: 4px; gap: 4px; margin: 20px 0 16px; border-radius: 12px; background: var(--input-bg); }
+.mochi-scope .avatar-editor-sources button { flex: 1; font-size: 14px; }
+.mochi-scope .avatar-editor-sources button[aria-pressed="true"] { background: var(--modal-bg); box-shadow: 0 2px 6px rgb(0 0 0 / 10%); font-weight: 750; }
+.mochi-scope .avatar-editor-upload { display: grid; gap: 8px; text-align: center; }
+.mochi-scope .mochi-avatar-editor .avatar-editor-choose { border: 1px dashed var(--acc); width: 100%; }
+.mochi-scope .avatar-editor-link { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 700; }
+.mochi-scope .avatar-editor-link input { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--input-bg); color: var(--text); font: inherit; caret-color: var(--text); }
+.mochi-scope .avatar-editor-link input::placeholder { color: var(--text); opacity: .75; }
+.mochi-scope .avatar-editor-link span { font-size: 13px; font-weight: 400; }
+.mochi-scope .avatar-editor-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.mochi-scope .mochi-avatar-editor .avatar-editor-save { background: var(--text); color: var(--modal-bg); font-weight: 750; }
+.mochi-scope .mochi-avatar-editor button:disabled { opacity: .5; cursor: default; }
+.mochi-scope .mochi-avatar-editor button:not(:disabled):hover { background: var(--paper-dim); color: var(--text); }
+.mochi-scope .mochi-avatar-editor .avatar-editor-sources button[aria-pressed="true"]:not(:disabled):hover { background: var(--modal-bg); }
+.mochi-scope .mochi-avatar-editor :is(button, input):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.mochi-scope .avatar-editor-body .avatar-editor-error { margin-top: 16px; padding: 12px; border: 1px solid var(--text); border-radius: 10px; }
