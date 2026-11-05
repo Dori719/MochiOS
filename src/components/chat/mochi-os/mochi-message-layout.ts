@@ -1,4 +1,4 @@
-const BUBBLE_SELECTOR = ':scope > .b, :scope > .sticker, :scope > .mochi-private-bubble, :scope > .mochi-private-transfer, :scope > .mochi-photo';
+const BUBBLE_SELECTOR = ':scope > .b, :scope > .sticker, :scope > .mochi-photo, :scope > .mochi-private-bubble, :scope > .mochi-private-transfer';
 const META_SELECTOR = ':scope > .mochi-bubble-meta, :scope > .mochi-private-time';
 const TIMESTAMP_CLEARANCE = 8;
 
