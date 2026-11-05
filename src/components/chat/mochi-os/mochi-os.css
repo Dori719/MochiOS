@@ -2377,6 +2377,11 @@
   letter-spacing: -0.02em;
 }
 
+@media (max-width: 768px) {
+  .mochi-scope .app-store-hero-content h3 { border-left: 0; padding-left: 0; }
+  .mochi-scope .app-store-hero-content h3::before { content: none; }
+}
+
 .mochi-scope .app-store-hero p {
   font-size: 12.5px;
   font-weight: 600;

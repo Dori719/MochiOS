@@ -123,6 +123,7 @@ import { buildMochiPresetMessages } from "../../../st/preset";
 import { resolveMochiFormatGuide } from "../../../st/format-guides";
 import { readMochiSettings } from "../../../st/mochi-settings";
 import { mochiGeneratedPhoto } from "../../../st/generated-photo";
+import { MochiPhoto } from './MochiPhoto';
 import {
   useMochiOSPhoneData,
   useGenerateMochiOSPhoneData,
@@ -283,7 +284,7 @@ function MochiTextBubble({
   const quotedName = quote && typeof quote === "object" ? String(quote.name || "") : "";
   const stickerUrl = stickerMap.get(MochiStickerName(quotedText));
   const photo = mochiGeneratedPhoto(message.rawItem);
-  if (photo) return <div className={`b ${direction}`}><img src={photo} alt={String(message.rawItem?.c || 'Generated photo')} style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 12 }} /></div>;
+  if (photo) return <MochiPhoto src={photo} item={message.rawItem!} />;
 
   if (!quotedText) {
     return <div className={`b ${direction} mochi-text-bubble`}>{message.text}</div>;

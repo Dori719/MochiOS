@@ -40,6 +40,7 @@ async function buildMessageLayoutBundle(root, output) {
     platform: 'node',
     format: 'esm',
     packages: 'external',
+    external: ['/scripts/*', '/script.js'],
     jsx: 'automatic',
     alias: {
       '@mochi-os/shared': path.join(root, 'src/shared/index.ts'),
