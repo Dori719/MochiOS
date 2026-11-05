@@ -5,6 +5,7 @@ import { createMochiRoleplayHistoryIndexer } from "./mochi-history-index";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Character, Message, MessageReaction } from "@mochi-os/shared";
+import { DEFAULT_MOCHI_OS_SETTINGS } from "@mochi-os/shared";
 import type {
   MochiTheme,
   MochiColorPreset,
@@ -620,6 +621,9 @@ export function MochiOsView({
   );
   const [clockOffset, setClockOffset] = useState<number>(() => persistedSettings?.clockOffset ?? 0);
   const [clockAiDecide, setClockAiDecide] = useState<boolean>(() => persistedSettings?.clockAiDecide ?? false);
+  const [aiFields, setAiFields] = useState(() => persistedSettings?.aiFields ?? DEFAULT_MOCHI_OS_SETTINGS.aiFields);
+  const aiDate = clockAiDecide && aiFields.date;
+  const aiTime = clockAiDecide && aiFields.time;
   const [aiDecidedDate, setAiDecidedDate] = useState<string>(() => (persistedSettings as any)?.aiDecidedDate ?? "");
   const [aiDecidedTime, setAiDecidedTime] = useState<string>(() => (persistedSettings as any)?.aiDecidedTime ?? "");
   const [nowDate, setNowDate] = useState<Date>(() => new Date());
@@ -629,6 +633,9 @@ export function MochiOsView({
   const [wxCondition, setWxCondition] = useState<string>(() => persistedSettings?.wxCondition ?? "Sunny");
   const [wxPlace, setWxPlace] = useState<string>(() => persistedSettings?.wxPlace ?? "");
   const [wxAiDecide, setWxAiDecide] = useState<boolean>(() => persistedSettings?.wxAiDecide ?? false);
+  const aiLocation = wxAiDecide && aiFields.location;
+  const aiTemperature = wxAiDecide && aiFields.temperature;
+  const aiCondition = wxAiDecide && aiFields.condition;
 
   // Linked Persona State
   const [personaChoice, setPersonaChoice] = useState<{ chatId: string | null; id: string } | null>(null);
@@ -692,6 +699,7 @@ export function MochiOsView({
       setClockTz(persistedSettings.clockTz || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
       setClockOffset(persistedSettings.clockOffset);
       setClockAiDecide(persistedSettings.clockAiDecide);
+      setAiFields(persistedSettings.aiFields);
       setAiDecidedDate((persistedSettings as any)?.aiDecidedDate ?? "");
       setAiDecidedTime((persistedSettings as any)?.aiDecidedTime ?? "");
       setWxTemp(persistedSettings.wxTemp);
@@ -778,6 +786,7 @@ export function MochiOsView({
         clockTz,
         clockOffset,
         clockAiDecide,
+        aiFields,
         aiDecidedDate,
         aiDecidedTime,
         wxTemp,
@@ -806,6 +815,7 @@ export function MochiOsView({
       clockTz,
       clockOffset,
       clockAiDecide,
+      aiFields,
       aiDecidedDate,
       aiDecidedTime,
       wxTemp,
@@ -2013,13 +2023,13 @@ export function MochiOsView({
 
       if (clockAiDecide) {
         // Date and Time matching: retain fixed date and time from <environment> until a new one is generated
-        if (parsedEnv.date) {
+        if (aiDate && parsedEnv.date) {
           const dateStr = parsedEnv.date.replace(/^["']|["']$/g, "").trim();
           if (dateStr) {
             setAiDecidedDate(dateStr);
           }
         }
-        if (parsedEnv.time) {
+        if (aiTime && parsedEnv.time) {
           const timeStr = parsedEnv.time.replace(/^["']|["']$/g, "").trim();
           if (timeStr) {
             setAiDecidedTime(timeStr);
@@ -2028,13 +2038,13 @@ export function MochiOsView({
       }
 
       if (wxAiDecide) {
-        if (parsedEnv.weather) {
+        if (aiCondition && parsedEnv.weather) {
           const newCond = parsedEnv.weather.replace(/^["']|["']$/g, "").trim();
           if (newCond) {
             setWxCondition(newCond);
           }
         }
-        if (parsedEnv.temperature) {
+        if (aiTemperature && parsedEnv.temperature) {
           const rawTemp = parsedEnv.temperature.replace(/^["']|["']$/g, "").trim();
           const num = parseFloat(rawTemp);
           if (!isNaN(num)) {
@@ -2042,7 +2052,7 @@ export function MochiOsView({
             setWxTemp(numInC);
           }
         }
-        if (parsedEnv.location) {
+        if (aiLocation && parsedEnv.location) {
           const newLoc = parsedEnv.location.replace(/^["']|["']$/g, "").trim();
           if (newLoc && newLoc.toLowerCase() !== "not specified") {
             setWxPlace(newLoc);
@@ -2050,7 +2060,7 @@ export function MochiOsView({
         }
       }
     },
-    [clockAiDecide, wxAiDecide, tempUnit],
+    [clockAiDecide, wxAiDecide, aiDate, aiTime, aiCondition, aiTemperature, aiLocation, tempUnit],
   );
 
   // Show the weather and clock the thread's archived turns declared.
@@ -2121,20 +2131,7 @@ export function MochiOsView({
     let dateStr = "";
     let weekdayStr = "";
 
-    if (clockAiDecide && (aiDecidedDate || aiDecidedTime)) {
-      dateStr =
-        aiDecidedDate ||
-        new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(nowDate);
-      try {
-        const parsedD = new Date(aiDecidedDate);
-        weekdayStr = !isNaN(parsedD.getTime())
-          ? new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(parsedD)
-          : new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(nowDate);
-      } catch {
-        weekdayStr = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(nowDate);
-      }
-      timeStr = fmtMsgTime(aiDecidedTime, isHour12) || fmtTime(nowDate, isHour12);
-    } else if (clockMode === "tz") {
+    if (clockMode === "tz") {
       d = nowDate;
       try {
         dateStr = new Intl.DateTimeFormat("en-US", {
@@ -2165,8 +2162,14 @@ export function MochiOsView({
       timeStr = fmtTime(d, isHour12);
     }
 
+    if (aiDate && aiDecidedDate) {
+      dateStr = aiDecidedDate;
+      const parsedDate = new Date(aiDecidedDate);
+      if (!isNaN(parsedDate.getTime())) weekdayStr = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+    }
+    if (aiTime && aiDecidedTime) timeStr = fmtMsgTime(aiDecidedTime, isHour12) || timeStr;
     return { liveTime: timeStr, liveDateStr: dateStr, liveWeekday: weekdayStr };
-  }, [nowDate, clockMode, clockTz, clockOffset, clockAiDecide, aiDecidedDate, aiDecidedTime, isHour12]);
+  }, [nowDate, clockMode, clockTz, clockOffset, aiDate, aiTime, aiDecidedDate, aiDecidedTime, isHour12]);
 
   // Weather formatted
   const formattedWx = useMemo(() => {
@@ -2416,13 +2419,13 @@ export function MochiOsView({
   const handleApplyCustomWx = () => {
     let t = wxTemp;
     const parsed = parseFloat(customWxTemp);
-    if (!isNaN(parsed)) {
+    if (!aiTemperature && !isNaN(parsed)) {
       // Convert to Celsius if user entered Fahrenheit
       t = tempUnit === "F" ? ((parsed - 32) * 5) / 9 : parsed;
       setWxTemp(t);
     }
-    const cond = customWxCondChoice === "__custom" ? customWxCondText.trim() || "Custom" : customWxCondChoice;
-    const place = customWxLoc.trim();
+    const cond = aiCondition ? wxCondition : customWxCondChoice === "__custom" ? customWxCondText.trim() || "Custom" : customWxCondChoice;
+    const place = aiLocation ? wxPlace : customWxLoc.trim();
     setWxCondition(cond);
     setWxPlace(place);
     saveSettings({ wxTemp: t, wxCondition: cond, wxPlace: place });
@@ -2584,14 +2587,14 @@ export function MochiOsView({
               day: "numeric",
               year: "numeric",
             });
-      const dateFormatted = clockAiDecide
+      const dateFormatted = aiDate
         ? aiDecidedDate || lastMsg?.d || existingContact?.started || fallbackDate
         : lastMsg?.d || fallbackDate;
 
       // Determine the effective time for user message:
       // If clockAiDecide is enabled and we have an AI decided time (or liveTime), use it;
       // otherwise, if following a previous message, advance from last message or use liveTime.
-      const timeFormatted = clockAiDecide
+      const timeFormatted = aiTime
         ? aiDecidedTime || liveTime || (lastMsg?.t ? lastMsg.t : fmtTime(new Date(), isHour12))
         : liveTime || fmtTime(new Date(), isHour12);
 
@@ -2648,7 +2651,8 @@ export function MochiOsView({
       userScreenName,
       canComposeInGroup,
       isHour12,
-      clockAiDecide,
+      aiDate,
+      aiTime,
       aiDecidedDate,
       aiDecidedTime,
       liveDateStr,
@@ -2967,6 +2971,18 @@ export function MochiOsView({
     setAiDataYamlDraft(rawYaml);
     toast.success('Picture saved.');
   };
+
+  const aiFieldCheckbox = (field: keyof typeof aiFields, enabled: boolean) => enabled ? (
+    <input
+      type="checkbox"
+      checked={aiFields[field]}
+      onChange={(event) => {
+        const next = { ...aiFields, [field]: event.target.checked };
+        setAiFields(next);
+        saveSettings({ aiFields: next });
+      }}
+    />
+  ) : null;
 
   const renderGroupMemberPicker = (editing: boolean) => {
     const selected = editing && groupEditFields ? groupEditFields.main.split(/[,，\n]/).map((name) => name.trim()).filter(Boolean) : splitMochiGroupMembers(activeGroupObj).main;
@@ -3395,15 +3411,17 @@ export function MochiOsView({
         const chosenDate = new Date(Date.now() + clockOffset);
         const dateStr = chosenDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
         const timeStr = fmtTime(chosenDate, isHour12);
-        envLines.push(`Date: "${clockAiDecide ? "" : dateStr}"`);
-        envLines.push(`Time: "${clockAiDecide ? "" : timeStr}"`);
+        envLines.push(`Date: "${aiDate ? "" : dateStr}"`);
+        envLines.push(`Time: "${aiTime ? "" : timeStr}"`);
       } else {
         envLines.push(`Timezone: "${clockAiDecide ? "" : clockTz}"`);
+        envLines.push(`Date: "${aiDate ? "" : liveDateStr}"`);
+        envLines.push(`Time: "${aiTime ? "" : liveTime}"`);
       }
-      envLines.push(`Location: "${wxAiDecide ? "" : wxPlace || ""}"`);
+      envLines.push(`Location: "${aiLocation ? "" : wxPlace || ""}"`);
       const currentDispTemp = tempUnit === "F" ? `${Math.round((wxTemp * 9) / 5 + 32)}°F` : `${Math.round(wxTemp)}°C`;
-      envLines.push(`Temperature: "${wxAiDecide ? "" : currentDispTemp}"`);
-      if (wxAiDecide) {
+      envLines.push(`Temperature: "${aiTemperature ? "" : currentDispTemp}"`);
+      if (aiCondition) {
         envLines.push(
           `Weather Condition: "Sunny, Partly Cloudy, Cloudy, Foggy, Drizzle, Rainy, Showers, Snowy, Thunderstorm, or write a Custom weather condition."`,
         );
@@ -3418,7 +3436,7 @@ export function MochiOsView({
       const timeDateWeatherBlock = buildMochiTimeDateWeatherBlock({
         template: timeDateWeatherTemplate,
         envLines,
-        hasConfiguredSettings: !clockAiDecide || !wxAiDecide,
+        hasConfiguredSettings: !aiDate || !aiTime || !aiLocation || !aiTemperature || !aiCondition,
       });
 
       // Format Guide for private chat (or group chat if in a group), followed by time/date/weather
@@ -3426,7 +3444,7 @@ export function MochiOsView({
         ? formatGuidesDraft?.formatGuide?.groupChat || DEFAULT_FORMAT_GUIDES.formatGuide.groupChat
         : formatGuidesDraft?.formatGuide?.privateChat || DEFAULT_FORMAT_GUIDES.formatGuide.privateChat;
       const stickerNames = conversationStickers.map((sticker) => sticker.name);
-      const stickerLibraryBlock = `## Sticker Library\n\nBelow is a list of available sticker names. When sending a sticker message, simply enter the sticker name:\n\n### General Stickers\n${stickerNames.length ? stickerNames.join(", ") : "(No stickers available)"}\n\nRules of Use：\n- Sticker Messages c Just enter the name of the sticker in the field.\n- The system will automatically match the corresponding image based on the names.\n- You may only use the stickers listed above; do not use any stickers not included in the list.\n- Try not to reuse stickers you've used in past chats.\n\n## Output Format Requirements\n\n`;
+      const stickerLibraryBlock = `## Sticker Library\n\nBelow is a list of available sticker names. When sending a sticker message, simply enter the sticker name:\n\n### General Stickers\n${stickerNames.length ? stickerNames.join(", ") : "(No stickers available)"}\n\nRules of Use：\n- Sticker Messages: Just enter the name of the sticker in the field.\n- The system will automatically match the corresponding image based on the names.\n- You may only use the stickers listed above; do not use any stickers not included in the list.\n- Try not to reuse stickers you've used in past chats.\n\n## Output Format Requirements\n\n`;
 
       // Fill the thread-name placeholders from the selected Mochi contact or
       // group, never from the roleplay chat's primary-character fallback.
@@ -6033,9 +6051,10 @@ export function MochiOsView({
           {clockModalTab === "custom" && (
             <div className="panel">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span className="lbl" style={{ margin: 0 }}>
+                <label className="lbl ai-field-label" style={{ margin: 0 }}>
+                  {aiFieldCheckbox("date", clockAiDecide)}
                   {localizeUi("ui.chat.mochiosview.pickADate")}
-                </span>
+                </label>
                 <button
                   type="button"
                   className={`mochi-ai-decide-btn ${clockAiDecide ? "active" : ""}`}
@@ -6068,15 +6087,15 @@ export function MochiOsView({
 
               <div
                 style={{
-                  opacity: clockAiDecide ? 0.45 : 1,
-                  pointerEvents: clockAiDecide ? "none" : "auto",
+                  opacity: aiDate ? 0.45 : 1,
+                  pointerEvents: aiDate ? "none" : "auto",
                   transition: "opacity 0.2s ease",
                 }}
               >
                 <div className="cal-head">
                   <button
                     type="button"
-                    disabled={clockAiDecide}
+                    disabled={aiDate}
                     onClick={() => {
                       const next = new Date(calView);
                       next.setMonth(next.getMonth() - 1);
@@ -6093,7 +6112,7 @@ export function MochiOsView({
                   </strong>
                   <button
                     type="button"
-                    disabled={clockAiDecide}
+                    disabled={aiDate}
                     onClick={() => {
                       const next = new Date(calView);
                       next.setMonth(next.getMonth() + 1);
@@ -6123,7 +6142,7 @@ export function MochiOsView({
                       <button
                         key={dayNum}
                         type="button"
-                        disabled={clockAiDecide}
+                        disabled={aiDate}
                         className={`cal-day ${isSelected ? "sel" : ""}`}
                         onClick={() => setCalSel(new Date(calDays.y, calDays.m, dayNum))}
                       >
@@ -6133,9 +6152,13 @@ export function MochiOsView({
                   })}
                 </div>
 
-                <span className="lbl">{localizeUi("ui.chat.mochiosview.pickATime")}</span>
+              </div>
+                <label className="lbl ai-field-label">
+                  {aiFieldCheckbox("time", clockAiDecide)}
+                  {localizeUi("ui.chat.mochiosview.pickATime")}
+                </label>
                 <div className="row">
-                  <select value={customHour} disabled={clockAiDecide} onChange={(e) => setCustomHour(+e.target.value)}>
+                  <select value={customHour} disabled={aiTime} onChange={(e) => setCustomHour(+e.target.value)}>
                     {(isHour12 ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : Array.from({ length: 24 }, (_, i) => i)).map(
                       (h) => (
                         <option key={h} value={h}>
@@ -6144,7 +6167,7 @@ export function MochiOsView({
                       ),
                     )}
                   </select>
-                  <select value={customMin} disabled={clockAiDecide} onChange={(e) => setCustomMin(+e.target.value)}>
+                  <select value={customMin} disabled={aiTime} onChange={(e) => setCustomMin(+e.target.value)}>
                     {Array.from({ length: 60 }, (_, i) => i).map((m) => (
                       <option key={m} value={m}>
                         {two(m)}
@@ -6154,7 +6177,7 @@ export function MochiOsView({
                   {isHour12 && (
                     <select
                       value={customAmPm}
-                      disabled={clockAiDecide}
+                      disabled={aiTime}
                       onChange={(e) => setCustomAmPm(e.target.value as "AM" | "PM")}
                     >
                       <option value="AM">{localizeUi("ui.chat.mochiosview.am")}</option>
@@ -6162,8 +6185,6 @@ export function MochiOsView({
                     </select>
                   )}
                 </div>
-              </div>
-
               <button type="button" className="btn" style={{ marginTop: 12 }} onClick={handleApplyCustomClock}>
                 {localizeUi("ui.modals.modeldownloadmodal.apply")}
               </button>
@@ -6266,40 +6287,41 @@ export function MochiOsView({
                 </button>
               </div>
 
-              <div
-                style={{
-                  opacity: wxAiDecide ? 0.45 : 1,
-                  pointerEvents: wxAiDecide ? "none" : "auto",
-                  transition: "opacity 0.2s ease",
-                }}
-              >
-                <span className="lbl">{localizeUi("ui.noodle.noodleprofilesurface.location")}</span>
+              <div>
+                <label className="lbl ai-field-label">
+                  {aiFieldCheckbox("location", wxAiDecide)}
+                  {localizeUi("ui.noodle.noodleprofilesurface.location")}
+                </label>
                 <input
                   type="text"
-                  disabled={wxAiDecide}
+                  disabled={aiLocation}
                   placeholder={localizeUi("ui.chat.mochiosview.eGNewYork")}
                   value={customWxLoc}
                   onChange={(e) => setCustomWxLoc(e.target.value)}
                 />
-                <span className="lbl">
+                <label className="lbl ai-field-label">
+                  {aiFieldCheckbox("temperature", wxAiDecide)}
                   {tempUnit === "F"
                     ? localizeUi("ui.chat.mochiosview.temperatureF")
                     : localizeUi("ui.chat.mochiosview.temperatureC")}
-                </span>
+                </label>
                 <input
                   type="number"
                   step="0.5"
-                  disabled={wxAiDecide}
+                  disabled={aiTemperature}
                   placeholder={
                     tempUnit === "F" ? localizeUi("ui.chat.mochiosview.eG68") : localizeUi("ui.chat.mochiosview.eG20")
                   }
                   value={customWxTemp}
                   onChange={(e) => setCustomWxTemp(e.target.value)}
                 />
-                <span className="lbl">{localizeUi("ui.chat.mochiosview.condition")}</span>
+                <label className="lbl ai-field-label">
+                  {aiFieldCheckbox("condition", wxAiDecide)}
+                  {localizeUi("ui.chat.mochiosview.condition")}
+                </label>
                 <select
                   value={customWxCondChoice}
-                  disabled={wxAiDecide}
+                  disabled={aiCondition}
                   onChange={(e) => setCustomWxCondChoice(e.target.value)}
                 >
                   <option value="Sunny">{localizeUi("ui.chat.mochiosview.sunny")}</option>
@@ -6316,7 +6338,7 @@ export function MochiOsView({
                 {customWxCondChoice === "__custom" && (
                   <input
                     type="text"
-                    disabled={wxAiDecide}
+                    disabled={aiCondition}
                     placeholder={localizeUi("ui.chat.mochiosview.typeYourConditionEGRainingCats")}
                     value={customWxCondText}
                     onChange={(e) => setCustomWxCondText(e.target.value)}
