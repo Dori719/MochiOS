@@ -860,6 +860,12 @@
   scrollbar-width: none;
 }
 
+/* Expanding a footer must not make browser scroll anchoring move the thread
+   in the opposite direction on every animation frame. */
+.mochi-scope .c-body {
+  overflow-anchor: none;
+}
+
 .mochi-scope :is(.c-body, .mochi-private-thread)::-webkit-scrollbar {
   display: none;
 }
@@ -893,9 +899,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translateY(-6px);
-  /* Snap the inline timestamp offset before revealing controls, so they descend
-     from above instead of sliding upward from the collapsed footer. */
-  transition: height 180ms ease, opacity 120ms ease, transform 180ms ease-out;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease, transform 220ms ease-out;
 }
 
 .mochi-scope .wmsg > .msg-actions-trigger > * {
@@ -948,7 +952,7 @@
   flex-shrink: 0;
   padding-block: 0;
   border-block-width: 0;
-  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease;
   width: min(96px, 100%);
   max-width: 100%;
   box-sizing: border-box;
@@ -969,6 +973,10 @@
 .mochi-scope .mrow:is(.out, :hover, :focus-within) .wmsg.mochi-actions-inline > .msg-actions-trigger {
   width: var(--mochi-actions-compact-inline-size);
   flex-wrap: nowrap;
+  /* Keep the timestamp overlap identical in both states. The collapsed height
+     cancels its negative margin, so opening animates only the extra space. */
+  margin-top: calc(0px - var(--mochi-bubble-meta-block-size, 0px));
+  height: var(--mochi-bubble-meta-block-size, 0px);
 }
 
 .mochi-scope .mrow.actions-visible .wmsg.mochi-actions-inline > .msg-actions-trigger {

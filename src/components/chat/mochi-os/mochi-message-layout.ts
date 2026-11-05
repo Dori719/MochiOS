@@ -64,10 +64,39 @@ export function observeMochiMessageLayout(message: HTMLElement): () => void {
   let watched = new Set<Element>();
   let actions: Element | null = null;
   let metadata: Element | null = null;
+  let previousHeight = message.getBoundingClientRect().height;
+  let previouslyExpanded = false;
+  const chatBody = message.closest<HTMLElement>('.c-body');
+  let previousScrollHeight = chatBody?.scrollHeight ?? 0;
+  let atBottom = !chatBody || chatBody.scrollHeight - chatBody.clientHeight - chatBody.scrollTop <= 2;
+  const trackScroll = () => {
+    if (chatBody) atBottom = chatBody.scrollHeight - chatBody.clientHeight - chatBody.scrollTop <= 2;
+  };
+  chatBody?.addEventListener('scroll', trackScroll, { passive: true });
   const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
   const mutation = typeof MutationObserver === 'undefined' ? null : new MutationObserver(update);
   function update() {
     alignMochiMessageLayout(message);
+    const height = message.getBoundingClientRect().height;
+    const growth = height - previousHeight;
+    const row = message.parentElement;
+    const expanded = Boolean(row?.classList.contains('actions-visible'));
+    const thread = row?.closest<HTMLElement>('.c-body');
+    // Scroll anchoring is disabled for smooth footer animation. Follow only the
+    // final row when its previous frame was at the bottom, including swipe rows.
+    // Comparing against growth preserves a user's position when reading above.
+    if (thread && (expanded || previouslyExpanded) && growth !== 0
+      && row === Array.from(thread.querySelectorAll('.mrow')).at(-1)) {
+      const remaining = thread.scrollHeight - thread.clientHeight - thread.scrollTop;
+      const scrollGrowth = thread.scrollHeight - previousScrollHeight;
+      if (atBottom || remaining <= Math.max(0, growth, scrollGrowth) + 2) {
+        thread.scrollTop = thread.scrollHeight;
+        atBottom = true;
+      }
+    }
+    previousHeight = height;
+    previouslyExpanded = expanded;
+    previousScrollHeight = chatBody?.scrollHeight ?? 0;
     const current = new Set<Element>([message, ...message.children]);
     for (const element of watched) if (!current.has(element)) resize?.unobserve(element);
     for (const element of current) if (!watched.has(element)) resize?.observe(element);
@@ -85,5 +114,9 @@ export function observeMochiMessageLayout(message: HTMLElement): () => void {
   }
   mutation?.observe(message, { childList: true });
   update();
-  return () => { resize?.disconnect(); mutation?.disconnect(); };
+  return () => {
+    resize?.disconnect();
+    mutation?.disconnect();
+    chatBody?.removeEventListener('scroll', trackScroll);
+  };
 }
