@@ -10,6 +10,9 @@ const root = path.resolve(import.meta.dirname, '..');
 const port = Number(process.env.MOCHI_PREVIEW_PORT || 8127);
 const temporaryRoot = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA, 'Temp', 'opencode') : os.tmpdir();
 const fixtureRoot = fs.mkdtempSync(path.join(temporaryRoot, 'mochi-disk-preview-'));
+const nativeRoot = path.join(fixtureRoot, 'native');
+fs.mkdirSync(path.join(nativeRoot, 'user/images/mochi-os-stickers'), { recursive: true });
+fs.mkdirSync(path.join(nativeRoot, 'user/files'), { recursive: true });
 const extensionRoot = path.join(fixtureRoot, 'public/scripts/extensions/third-party/mochi-os');
 fs.mkdirSync(extensionRoot, { recursive: true });
 fs.copyFileSync(path.join(root, 'manifest.json'), path.join(extensionRoot, 'manifest.json'));
@@ -221,6 +224,37 @@ document.querySelector('#test-layout').onclick=async()=>{
 
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, 'http://localhost');
+  if (/^\/(api\/(images|files)\/|user\/(images|files)\/)/.test(url.pathname)) {
+    try {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+      const safe = (name) => typeof name === 'string' && name.length > 0 && !/[\\/]/.test(name) && name !== '.' && name !== '..';
+      const resolve = (relative) => {
+        if (!/^user\/(images\/mochi-os-stickers\/[^/]+|files\/mochi-os-stickers-library\.json)$/.test(relative) || relative.includes('..') || relative.includes('\\')) throw new Error('Invalid fixture path');
+        return path.join(nativeRoot, relative);
+      };
+      let result;
+      if (url.pathname === '/api/images/list') {
+        if (body.folder !== 'mochi-os-stickers') throw new Error('Invalid fixture folder');
+        result = fs.readdirSync(path.join(nativeRoot, 'user/images/mochi-os-stickers'));
+      } else if (url.pathname === '/api/images/upload' || url.pathname === '/api/files/upload') {
+        const image = url.pathname.includes('/images/');
+        if (image && (body.ch_name !== 'mochi-os-stickers' || !safe(body.filename))) throw new Error('Invalid fixture upload');
+        const relative = image ? `user/images/mochi-os-stickers/${body.filename}` : `user/files/${body.name}`;
+        fs.writeFileSync(resolve(relative), Buffer.from(image ? body.image : body.data, 'base64'));
+        result = { path: `/${relative}` };
+      } else if (url.pathname.endsWith('/delete')) {
+        fs.rmSync(resolve(body.path), { force: true }); result = {};
+      } else if (request.method === 'GET') {
+        const file = resolve(decodeURIComponent(url.pathname.slice(1)));
+        if (!fs.existsSync(file)) { response.writeHead(404); response.end(); return; }
+        response.end(fs.readFileSync(file)); return;
+      } else { response.writeHead(404); response.end(); return; }
+      response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify(result));
+    } catch (error) { response.writeHead(400); response.end(JSON.stringify({ error: error.message })); }
+    return;
+  }
   if (url.pathname.startsWith('/api/plugins/mochi-os-stickers/')) {
     try {
       const chunks = [];
