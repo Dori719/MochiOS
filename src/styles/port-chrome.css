@@ -709,7 +709,7 @@
   line-height: 1.4;
 }
 
-.mochi-scope :is(.b, .wmsg .b, .mochi-private-bubble, .mochi-private-transfer) {
+.mochi-scope :is(.b, .wmsg .b, .mochi-private-bubble, .mochi-private-transfer, .mochi-photo) {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -718,8 +718,8 @@
 
 /* All bubbles size to their content, independently of names and controls.
    Cards retain a useful reading width; images retain their original bounds. */
-.mochi-scope .wmsg > :is(.b, .sticker),
-.mochi-scope .mochi-private-bubble-wrap > :is(.mochi-private-bubble, .mochi-private-transfer) {
+.mochi-scope .wmsg > :is(.b, .sticker, .mochi-photo),
+.mochi-scope .mochi-private-bubble-wrap > :is(.mochi-private-bubble, .mochi-private-transfer, .mochi-photo) {
   box-sizing: border-box;
   width: fit-content;
   min-height: 0;
