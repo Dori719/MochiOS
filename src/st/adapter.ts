@@ -597,6 +597,13 @@ async function replaceTurn(id: string, content: string, swipes?: string[], swipe
   return mapTurn(first);
 }
 
+export async function replaceGeneratedPhoto(chatId: string, previous: string, next: string): Promise<void> {
+  if (activeChatId() !== chatId) throw new Error('The selected chat changed.');
+  const index = ctx().chat.findIndex((message) => typeof message.mes === 'string' && message.mes.includes(previous));
+  if (index < 0) throw new Error('The original image message is no longer available.');
+  await updateMessageContent(ensureMessageId(index)!, ctx().chat[index].mes.split(previous).join(next));
+}
+
 export async function updateMessageContent(id: string, content: string): Promise<Record<string, any> | null> {
   const index = messageIndexOf(id);
   if (index < 0) return null;
