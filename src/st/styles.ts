@@ -23,6 +23,7 @@ import engineCss from '../components/chat/mochi-os/mochi-os.css';
 import privateChatWidgetCss from '../components/chat/mochi-os/mochi-private-chat-widget.css';
 import groupChatWidgetCss from '../components/chat/mochi-os/mochi-group-chat-widget.css';
 import portChromeCss from '../styles/port-chrome.css';
+import appStoreCss from '../styles/app-store.css';
 
 /**
  * Re-points the engine's measurements at the phone window.
@@ -66,4 +67,5 @@ export const MOCHI_OS_STYLES = [
   toPhoneMeasurements(privateChatWidgetCss, { blockAxis: false }),
   toPhoneMeasurements(groupChatWidgetCss, { blockAxis: false }),
   portChromeCss,
+  appStoreCss,
 ].join('\n\n');

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
 /** Keep the original split layout; mouse/pen dragging scrolls its navigation. */
-export function MochiSettingsSplit({ children }: { children: ReactNode }) {
+export function MochiSettingsSplit({ children, className = 'settings-split-body', dragSelector = '.settings-split-sidebar' }: { children: ReactNode; className?: string; dragSelector?: string }) {
   const drag = useRef<{
     sidebar: HTMLElement;
     pointerId: number;
@@ -58,12 +58,12 @@ export function MochiSettingsSplit({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="settings-split-body"
+      className={className}
       onPointerDown={(event) => {
         suppressClick.current = false;
         // Touch keeps the original native swipe scrolling.
         if (event.pointerType === 'touch' || event.button !== 0 || event.isPrimary === false) return;
-        const sidebar = event.target instanceof Element ? event.target.closest<HTMLElement>('.settings-split-sidebar') : null;
+        const sidebar = event.target instanceof Element ? event.target.closest<HTMLElement>(dragSelector) : null;
         if (!sidebar || !event.currentTarget.contains(sidebar)) return;
         drag.current = {
           sidebar, pointerId: event.pointerId, x: event.clientX, y: event.clientY,

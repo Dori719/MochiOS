@@ -982,6 +982,16 @@ export function MochiOsView({
   // Messages App State (empty initially for new chats / roleplay sessions)
   const [messagesAppOpen, setMessagesAppOpen] = useState(false);
   const [appStoreOpen, setAppStoreOpen] = useState(false);
+  const [storeDetail, setStoreDetail] = useState<AppStoreEntry | null>(null);
+  const storeDetailHeading = useRef<HTMLHeadingElement>(null);
+  const storeCardTrigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (storeDetail) storeDetailHeading.current?.focus();
+    else if (appStoreOpen) storeCardTrigger.current?.focus();
+  }, [storeDetail]);
+  useEffect(() => {
+    if (!appStoreOpen) setStoreDetail(null);
+  }, [appStoreOpen]);
   const [appStoreCategory, setAppStoreCategory] = useState<"all" | AppStoreEntry["category"]>("all");
   const [appStoreSearch, setAppStoreSearch] = useState<string>("");
   const [installedApps, setInstalledApps] = useState<Record<string, boolean>>({
@@ -2281,7 +2291,7 @@ export function MochiOsView({
           return;
         }
         if (appStoreOpen) {
-          consume(() => setAppStoreOpen(false));
+          consume(() => storeDetail ? setStoreDetail(null) : setAppStoreOpen(false));
           return;
         }
         if (isAppEditingMode) {
@@ -2317,6 +2327,7 @@ export function MochiOsView({
     handleExitChatView,
     messagesAppOpen,
     appStoreOpen,
+    storeDetail,
     isAppEditingMode,
     resetVoice,
   ]);
@@ -6496,14 +6507,14 @@ export function MochiOsView({
       </div>
 
       {/* ================= APP STORE WINDOW ================= */}
-      <div className={`app-store-window ${appStoreOpen ? "open" : ""}`}>
+      <div className={`app-store-window ${appStoreOpen ? "open" : ""}`} inert={!appStoreOpen} aria-label={localizeUi("ui.chat.mochiosview.appStore")}>
         <div className="app-store-header">
           <div className="app-store-header-left">
             <button
               type="button"
               className="icon-btn app-store-back-btn"
-              title={localizeUi("ui.chat.mochiosview.backToHome")}
-              onClick={() => setAppStoreOpen(false)}
+              title={localizeUi(storeDetail ? "ui.chat.mochiosview.appStore" : "ui.chat.mochiosview.backToHome")}
+              onClick={() => storeDetail ? setStoreDetail(null) : setAppStoreOpen(false)}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -6518,13 +6529,7 @@ export function MochiOsView({
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className="app-store-title-wrap">
-              <h2>
-                {localizeUi("ui.chat.mochiosview.appStore")}
-                <span className="app-store-header-tag">{localizeUi("ui.chat.mochiosview.os20")}</span>
-              </h2>
-              <span className="app-store-subtitle">{localizeUi("ui.chat.mochiosview.appStoreSubtitle")}</span>
-            </div>
+            <span className="app-store-home-label">{localizeUi(storeDetail ? "ui.chat.mochiosview.appStore" : "ui.chat.mochiosview.backToHome")}</span>
           </div>
           <button
             type="button"
@@ -6532,11 +6537,11 @@ export function MochiOsView({
             title={localizeUi("ui.chat.mochiosview.cancel")}
             onClick={() => setAppStoreOpen(false)}
           >
-            ✕
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
           </button>
         </div>
 
-        <div className="app-store-body">
+        <div className="app-store-body" hidden={!!storeDetail}>
           {/* Search bar */}
           <div className="app-store-search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -6545,6 +6550,7 @@ export function MochiOsView({
             </svg>
             <input
               type="text"
+              aria-label={localizeUi("ui.chat.mochiosview.searchAppsGamesStoriesTools")}
               placeholder={localizeUi("ui.chat.mochiosview.searchAppsGamesStoriesTools")}
               value={appStoreSearch}
               onChange={(e) => setAppStoreSearch(e.target.value)}
@@ -6556,7 +6562,7 @@ export function MochiOsView({
                 onClick={() => setAppStoreSearch("")}
                 aria-label={localizeUi("ui.chat.mochiosview.clearSearch")}
               >
-                ✕
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
               </button>
             )}
           </div>
@@ -6565,10 +6571,6 @@ export function MochiOsView({
           {!appStoreSearch && appStoreCategory === "all" && (
             <div className="app-store-hero">
               <div className="app-store-hero-content">
-                <span className="app-store-hero-pill">
-                  <span className="app-store-sparkle">✦</span>
-                  {localizeUi("ui.chat.mochiosview.featuredDiscovery")}
-                </span>
                 <h3>{localizeUi("ui.chat.mochiosview.mochiMessengerLiveVoice")}</h3>
                 <p>{localizeUi("ui.chat.mochiosview.connectWithYourAiCompanionsCustomizeRealTimePersonas")}</p>
                 <div className="app-store-hero-actions">
@@ -6582,6 +6584,7 @@ export function MochiOsView({
                     }}
                   >
                     {localizeUi("ui.chat.mochiosview.openMessenger")}
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
                   </button>
                   <span className="app-store-hero-badge">{localizeUi("ui.chat.mochiosview.preInstalled")}</span>
                 </div>
@@ -6590,7 +6593,7 @@ export function MochiOsView({
           )}
 
           {/* Categories */}
-          <div className="app-store-categories">
+          <MochiSettingsSplit className="app-store-categories" dragSelector=".app-store-categories">
             {APP_STORE_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
@@ -6599,26 +6602,23 @@ export function MochiOsView({
                 aria-pressed={appStoreCategory === cat.id}
                 onClick={() => setAppStoreCategory(cat.id)}
               >
-                <span className="app-store-chip-icon" aria-hidden="true">
-                  {cat.icon}
-                </span>
                 <span>{cat.label}</span>
               </button>
             ))}
-          </div>
+          </MochiSettingsSplit>
 
           {/* App Catalog Grid */}
           <div className="app-store-section">
             <div className="app-store-section-title">
-              <span>{localizeUi("ui.chat.mochiosview.popularOnMochiOs")}</span>
-              <span className="app-store-item-count">
+              <h3>{appStoreCategory === "all" ? localizeUi("ui.chat.mochiosview.popularOnMochiOs") : APP_STORE_CATEGORIES.find((category) => category.id === appStoreCategory)?.label}</h3>
+              <span className="app-store-item-count" role="status" aria-live="polite" aria-atomic="true">
                 {localizeUi("ui.chat.mochiosview.appsCount", { count: visibleStoreApps.length })}
               </span>
             </div>
             {visibleStoreApps.length === 0 ? (
               <div className="app-store-empty">
                 <span className="app-store-empty-mark" aria-hidden="true">
-                  ◍
+                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="10" cy="10" r="6" /><path d="m15 15 6 6M7 10h6" /></svg>
                 </span>
                 <p className="app-store-empty-title">{localizeUi("ui.chat.mochiosview.noAppsMatchSearch")}</p>
                 <p className="app-store-empty-body">{localizeUi("ui.chat.mochiosview.noAppsMatchSearchHint")}</p>
@@ -6639,19 +6639,21 @@ export function MochiOsView({
                   const isInstalled = !!installedApps[app.id];
                   return (
                     <div key={app.id} className="app-store-card">
+                      <button type="button" className="app-store-card-details" aria-label={localizeUi("ui.chat.mochiosview.viewAppDetails", { name: app.name })} onClick={(event) => {
+                        storeCardTrigger.current = event.currentTarget;
+                        setStoreDetail(app);
+                      }} />
                       <div className="app-store-card-left">
                         <div className={`app-store-card-icon tone-${app.tone}`}>{app.icon}</div>
                         <div className="app-store-card-info">
                           <div className="app-store-card-title-row">
                             <h4 className="app-store-card-name">{app.name}</h4>
-                            <span className="app-store-card-tag">{app.category}</span>
                           </div>
                           <p className="app-store-card-desc">{app.desc}</p>
                           <div className="app-store-card-meta">
+                            <span className="app-store-card-tag">{app.category}</span>
                             <span className="app-store-rating">
-                              <span className="app-store-star" aria-hidden="true">
-                                ★
-                              </span>
+                              <svg className="app-store-star" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" /></svg>
                               4.9
                             </span>
                             <span className="app-store-meta-dot" aria-hidden="true">
@@ -6692,6 +6694,33 @@ export function MochiOsView({
             )}
           </div>
         </div>
+        {storeDetail && <div className="app-store-body app-store-detail">
+          <section className="app-store-detail-summary">
+            <div className={`app-store-card-icon tone-${storeDetail.tone}`} aria-hidden="true">{storeDetail.icon}</div>
+            <div>
+              <h2 ref={storeDetailHeading} tabIndex={-1}>{storeDetail.name}</h2>
+              <p>{APP_STORE_CATEGORIES.find((category) => category.id === storeDetail.category)?.label}</p>
+              <button type="button" className={`app-store-card-btn ${installedApps[storeDetail.id] ? "installed" : "get"}`} onClick={() => {
+                if (storeDetail.id === "messages") {
+                  setAppStoreOpen(false);
+                  setIsPrivateMode(false);
+                  setMessagesAppOpen(true);
+                } else {
+                  setInstalledApps((prev) => ({ ...prev, [storeDetail.id]: !prev[storeDetail.id] }));
+                }
+              }}>{localizeUi(installedApps[storeDetail.id] ? "ui.chat.activelorebookentryrow.open" : "ui.chat.mochiosview.get")}</button>
+            </div>
+          </section>
+          <dl className="app-store-detail-facts">
+            <div><dt>{localizeUi("ui.chat.mochiosview.appCategory")}</dt><dd>{APP_STORE_CATEGORIES.find((category) => category.id === storeDetail.category)?.label}</dd></div>
+            <div><dt>{localizeUi("ui.chat.mochiosview.appAvailability")}</dt><dd>{localizeUi(installedApps[storeDetail.id] ? "ui.chat.mochiosview.installed" : "ui.chat.mochiosview.free")}</dd></div>
+          </dl>
+          <section className="app-store-detail-about">
+            <h3>{localizeUi("ui.chat.mochiosview.aboutApp")}</h3>
+            <p>{storeDetail.desc}</p>
+            {storeDetail.id === "messages" && <p>{localizeUi("ui.chat.mochiosview.connectWithYourAiCompanionsCustomizeRealTimePersonas")}</p>}
+          </section>
+        </div>}
       </div>
 
       {/* ================= SETTINGS MODAL (MASTER-DETAIL / SPLIT-VIEW) ================= */}

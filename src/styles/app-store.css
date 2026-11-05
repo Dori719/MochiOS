@@ -1,0 +1,166 @@
+/* Soft storefront. Scoped to the store; colors inherit the active phone theme. */
+.mochi-scope .app-store-window {
+  --store-action: color-mix(in srgb, var(--acc) 38%, var(--text));
+  --store-ground: color-mix(in srgb, var(--acc) 7%, var(--paper));
+  --store-feature: color-mix(in srgb, var(--acc) 19%, var(--paper));
+  --store-secondary: color-mix(in srgb, var(--text) 76%, var(--paper));
+  background: var(--store-ground);
+  scrollbar-color: var(--store-action) var(--store-ground);
+  scrollbar-width: thin;
+}
+.mochi-scope .app-store-window ::selection { background: var(--store-action); color: var(--paper); }
+.mochi-scope .app-store-header {
+  padding: 8px 16px;
+  background: var(--store-ground);
+  border: 0;
+  flex-shrink: 0;
+}
+.mochi-scope .app-store-header-left { gap: 3px; }
+.mochi-scope .app-store-home-label { font-size: 13px; color: var(--store-secondary); }
+.mochi-scope .app-store-back-btn,
+.mochi-scope .app-store-close-btn {
+  width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--store-action); transform: none;
+}
+.mochi-scope .app-store-body {
+  min-height: 0; padding: 8px 20px 32px; gap: 22px;
+  scrollbar-width: none; scroll-padding-block: 16px;
+}
+.mochi-scope .app-store-body::-webkit-scrollbar { display: none; }
+.mochi-scope .app-store-body > * { flex-shrink: 0; }
+.mochi-scope .app-store-subtitle {
+  margin: 0; white-space: normal; overflow: visible; font-size: 14px;
+  font-weight: 400; line-height: 1.5; color: var(--store-secondary);
+}
+.mochi-scope .app-store-search input {
+  min-height: 48px; padding: 12px 48px 12px 42px;
+  border: 1px solid transparent; border-radius: 16px; background: var(--paper);
+  font-size: 14px; font-weight: 400; caret-color: var(--store-action);
+}
+.mochi-scope .app-store-search input::placeholder { color: var(--store-secondary); }
+.mochi-scope .app-store-search input:focus { border-color: var(--store-action); box-shadow: none; }
+.mochi-scope .app-store-search > svg { color: var(--store-secondary); width: 18px; height: 18px; }
+.mochi-scope .app-store-search-clear { width: 44px; height: 44px; right: 2px; color: var(--store-action); }
+.mochi-scope .app-store-search-clear svg { position: static; width: 18px; height: 18px; color: inherit; }
+.mochi-scope .app-store-hero {
+  min-height: 0; padding: 26px; border-radius: 26px;
+  background: var(--store-feature); color: var(--text); box-shadow: none;
+}
+.mochi-scope .app-store-hero::before,
+.mochi-scope .app-store-hero::after { content: none; }
+.mochi-scope .app-store-hero h3 {
+  font-size: 29px; font-weight: 750; line-height: 1.15; letter-spacing: -.025em;
+  margin: 0 0 14px; text-wrap: balance;
+}
+.mochi-scope .app-store-hero p {
+  font-size: 14px; font-weight: 400; line-height: 1.55;
+  margin: 0 0 22px; opacity: 1; color: var(--store-secondary);
+}
+.mochi-scope .app-store-hero-actions { gap: 10px 14px; }
+.mochi-scope .app-store-hero-action {
+  min-height: 44px; padding: 11px 19px; gap: 10px;
+  font-size: 13px; font-weight: 650; line-height: 1.4;
+  background: var(--store-action); color: var(--paper); box-shadow: none;
+}
+.mochi-scope .app-store-hero-action svg { flex-shrink: 0; }
+.mochi-scope .app-store-hero-badge { font-size: 12px; font-weight: 450; color: var(--store-secondary); opacity: 1; }
+.mochi-scope .app-store-categories {
+  gap: 8px; margin: 0 -20px; padding: 3px 20px 6px;
+  scroll-padding-inline: 20px;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.mochi-scope .app-store-categories::-webkit-scrollbar { display: block; height: 3px; }
+.mochi-scope .app-store-category-chip {
+  min-height: 44px; padding: 0 17px; border: 1px solid transparent;
+  background: var(--paper); font-size: 13px; font-weight: 550;
+  color: var(--store-action); flex-shrink: 0;
+}
+.mochi-scope .app-store-category-chip.active { background: var(--store-action); color: var(--paper); font-weight: 700; }
+.mochi-scope .app-store-section { gap: 14px; }
+.mochi-scope .app-store-section-title { align-items: baseline; gap: 10px; }
+.mochi-scope .app-store-section-title h3 {
+  margin: 0; padding: 0; border: 0; font-size: 21px; line-height: 1.25;
+  font-weight: 700; letter-spacing: -.02em; color: var(--text);
+}
+.mochi-scope .app-store-section-title h3::before { content: none; }
+.mochi-scope .app-store-item-count { font-size: 12px; font-weight: 450; color: var(--store-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mochi-scope .app-store-grid { grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr)); gap: 12px; }
+.mochi-scope .app-store-card {
+  position: relative;
+  padding: 18px 16px; gap: 12px; background: var(--paper);
+  border: 0; border-radius: 20px; transition: none; align-items: center;
+}
+.mochi-scope .app-store-body[hidden] { display: none; }
+.mochi-scope .app-store-card-details {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border: 0; border-radius: inherit; background: transparent; cursor: pointer;
+}
+.mochi-scope .app-store-card > .app-store-card-btn { position: relative; z-index: 1; }
+.mochi-scope .app-store-card:hover { background: var(--store-action); color: var(--paper); }
+.mochi-scope .app-store-card:hover :is(.app-store-card-name, .app-store-card-desc, .app-store-card-meta) { color: var(--paper); }
+.mochi-scope .app-store-card-details:is(:hover, :active, :focus-visible) { background: transparent; }
+.mochi-scope .app-store-categories { cursor: grab; }
+.mochi-scope .app-store-categories.is-dragging,
+.mochi-scope .app-store-categories.is-dragging button { cursor: grabbing; user-select: none; }
+.mochi-scope .app-store-categories.is-dragging { scroll-snap-type: none; }
+.mochi-scope .app-store-detail-summary { display: flex; align-items: flex-start; gap: 18px; padding-block: 16px; }
+.mochi-scope .app-store-detail-summary > div:last-child { min-width: 0; }
+.mochi-scope .app-store-detail-summary .app-store-card-icon { width: 80px; height: 80px; border-radius: 22px; }
+.mochi-scope .app-store-detail-summary .app-store-card-icon svg { width: 40px; height: 40px; }
+.mochi-scope .app-store-detail h2 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.mochi-scope .app-store-detail-summary p { color: var(--store-secondary); margin: 8px 0 14px; font-size: 13px; }
+.mochi-scope .app-store-detail-facts { display: grid; grid-template-columns: 1fr 1fr; margin: 0; padding-block: 20px; border-block: 1px solid var(--line); gap: 16px; }
+.mochi-scope .app-store-detail-facts dt { font-size: 12px; color: var(--store-secondary); }
+.mochi-scope .app-store-detail-facts dd { margin: 6px 0 0; font-size: 14px; font-weight: 650; }
+.mochi-scope .app-store-detail-about h3 { margin: 0 0 12px; font-size: 20px; border: 0; padding: 0; }
+.mochi-scope .app-store-detail-about h3::before { content: none; }
+.mochi-scope .app-store-detail-about p { font-size: 14px; line-height: 1.65; color: var(--store-secondary); margin: 0 0 14px; }
+@container (max-width: 700px) {
+  .mochi-scope .app-store-categories { scrollbar-width: none; }
+  .mochi-scope .app-store-categories::-webkit-scrollbar { display: none; }
+}
+.mochi-scope .app-store-card:hover { transform: none; box-shadow: none; }
+.mochi-scope .app-store-card-left { gap: 12px; flex: 1; align-items: flex-start; }
+.mochi-scope .app-store-card-icon {
+  width: 48px; height: 48px; border-radius: 15px; box-shadow: none;
+  color: var(--store-secondary); background: var(--store-feature);
+}
+.mochi-scope .app-store-card-icon:is(.tone-blush, .tone-iris, .tone-tide, .tone-ember, .tone-leaf, .tone-clay, .tone-dusk, .tone-slate) {
+  background: color-mix(in srgb, var(--store-icon-tone, var(--acc)) 24%, var(--paper));
+}
+.mochi-scope .app-store-card-icon:is(.tone-iris, .tone-ember, .tone-clay) { --store-icon-tone: var(--tile-b); }
+.mochi-scope .app-store-card-icon:is(.tone-tide, .tone-leaf, .tone-dusk) { --store-icon-tone: var(--tile-a); }
+.mochi-scope .app-store-card-name { font-size: 15px; line-height: 1.35; font-weight: 700; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.mochi-scope .app-store-card-desc { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--store-secondary); display: block; overflow: visible; }
+.mochi-scope .app-store-card-meta { flex-wrap: wrap; gap: 5px 8px; margin-top: 8px; color: var(--store-secondary); font-size: 11px; font-weight: 450; }
+.mochi-scope .app-store-card-tag { padding: 0; background: transparent; color: inherit; font-size: inherit; font-weight: inherit; text-transform: capitalize; letter-spacing: normal; }
+.mochi-scope .app-store-rating { display: inline-flex; align-items: center; gap: 3px; }
+.mochi-scope .app-store-star { color: inherit; }
+.mochi-scope .app-store-card-btn { min-width: 58px; min-height: 44px; padding: 0 13px; font-size: 13px; font-weight: 650; }
+.mochi-scope .app-store-card-btn.get,
+.mochi-scope .app-store-card-btn.installed { background: var(--store-ground); color: var(--store-action); border-color: transparent; box-shadow: none; }
+.mochi-scope .app-store-card-btn.installed { border-color: var(--line); }
+.mochi-scope .app-store-window button { transition: background .16s ease-out, transform .16s cubic-bezier(.16, 1, .3, 1); }
+.mochi-scope .app-store-window button:hover { transform: none; }
+.mochi-scope .app-store-window button:active { transform: scale(.96); }
+.mochi-scope .app-store-card-btn:hover,
+.mochi-scope .app-store-hero-action:hover { background: var(--text); color: var(--paper); }
+.mochi-scope .app-store-window :is(button, input):focus-visible { outline: 2px solid var(--store-action); outline-offset: 3px; }
+.mochi-scope .app-store-empty { padding: 32px 20px; border: 0; border-radius: 22px; background: var(--paper); gap: 10px; }
+.mochi-scope .app-store-empty-mark { color: var(--store-secondary); }
+.mochi-scope .app-store-empty-body { color: var(--store-secondary); font-size: 13px; }
+.mochi-scope .app-store-empty-action { min-height: 44px; background: var(--store-action); color: var(--paper); }
+@container (max-width: 350px) {
+  .mochi-scope .app-store-body { padding-inline: 14px; gap: 20px; }
+  .mochi-scope .app-store-categories { margin-inline: -14px; padding-inline: 14px; scroll-padding-inline: 14px; }
+  .mochi-scope .app-store-hero { padding: 22px; }
+  .mochi-scope .app-store-hero h3 { font-size: 26px; }
+  .mochi-scope .app-store-card { padding: 16px 12px; gap: 8px; }
+  .mochi-scope .app-store-card-left { gap: 10px; }
+  .mochi-scope .app-store-card-icon { width: 40px; height: 40px; border-radius: 12px; }
+  .mochi-scope .app-store-section-title h3 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mochi-scope .app-store-window button { transition: none; }
+  .mochi-scope .app-store-window button:active { transform: none; }
+}
