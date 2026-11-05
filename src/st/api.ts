@@ -12,6 +12,8 @@
  * route in this layer shows up as an inexplicably empty panel.
  */
 import * as st from './adapter';
+import { MOCHI_OS_SETTINGS_KEY } from '../shared/mochi-os.schema';
+import { readMochiSettings, writeMochiSettings } from './mochi-settings';
 import { deletePhoneData, generatePhoneData, readPhoneData, savePhoneData } from './mochi-data';
 import { listLorebooks, readLorebookEntries, scanLorebooks } from './lorebooks';
 import { editPhoneMessage, updatePhoneMessageReactions } from './phone-actions';
@@ -298,6 +300,7 @@ route('GET', '/prompts', () => []);
 route('GET', '/capability-packages/installed', () => []);
 
 route('GET', '/app-settings/:key', (_request, params) => {
+  if (params.key === MOCHI_OS_SETTINGS_KEY) return { key: params.key, value: JSON.stringify(readMochiSettings()) };
   const settings = st.readChatSettings();
   return { key: params.key, value: JSON.stringify(settings[params.key] ?? null) };
 });
@@ -305,7 +308,8 @@ route('GET', '/app-settings/:key', (_request, params) => {
 route('PUT', '/app-settings/:key', (request, params) => {
   const value = request.body?.value;
   const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-  st.writeChatSettings({ [params.key]: parsed });
+  if (params.key === MOCHI_OS_SETTINGS_KEY) writeMochiSettings(parsed, st.activeChatId());
+  else st.writeChatSettings({ [params.key]: parsed });
   if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('mochios:settings', { detail: { key: params.key } }));
   return { key: params.key, value: typeof value === 'string' ? value : JSON.stringify(value) };
 });

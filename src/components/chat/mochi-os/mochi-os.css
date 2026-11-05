@@ -5869,14 +5869,15 @@
 
 .mochi-scope .ai-field-label input[type="checkbox"]:checked {
   border-color: var(--acc);
-  background: var(--acc);
+  background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
+  color: var(--ink);
 }
 
 .mochi-scope .ai-field-label input[type="checkbox"]:checked::after {
   content: "";
   width: 5px;
   height: 9px;
-  border: solid #fff;
+  border: solid currentColor;
   border-width: 0 2px 2px 0;
   transform: translateY(-1px) rotate(45deg);
 }

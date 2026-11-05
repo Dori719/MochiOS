@@ -152,6 +152,33 @@ const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_S
 });
 
 // Formatting must change notation, never the model-authored time of day.
+{
+  const path = `/app-settings/${api.MOCHI_OS_SETTINGS_KEY}`;
+  const metadata = host.chatMetadata;
+  const globals = structuredClone(host.extensionSettings);
+  await api.request('PUT', path, { value: JSON.stringify({
+    ...api.DEFAULT_MOCHI_OS_SETTINGS, theme: 'dark', clockMode: 'custom', clockOffset: 86400000,
+    wxPlace: 'Tokyo', wxTemp: 12, clockAiDecide: true,
+    aiFields: { date: false, time: true, location: false, temperature: true, condition: true },
+  }) });
+  const firstChat = host.chatMetadata;
+  host.chatMetadata = {};
+  const second = JSON.parse((await api.request('GET', path)).value);
+  assert.equal(second.wxPlace, '', 'A new roleplay must not inherit another chat weather');
+  assert.equal(second.clockOffset, 0);
+  assert.equal(second.clockAiDecide, false);
+  assert.equal(second.theme, 'dark', 'Theme remains extension-wide');
+  await api.request('PUT', path, { value: JSON.stringify({ ...second, wxPlace: 'Paris' }) });
+  host.chatMetadata = firstChat;
+  const restored = JSON.parse((await api.request('GET', path)).value);
+  assert.equal(restored.wxPlace, 'Tokyo');
+  assert.equal(restored.clockOffset, 86400000);
+  assert.equal(restored.aiFields.location, false);
+  host.chatMetadata = metadata;
+  delete host.chatMetadata.mochios.environmentSettings;
+  host.extensionSettings = globals;
+}
+
 for (const [input, twelveHour, twentyFourHour] of [
   ['3:15 PM', '3:15 PM', '15:15'], ['3:15 AM', '3:15 AM', '03:15'],
   ['12:00 AM', '12:00 AM', '00:00'], ['12:00 PM', '12:00 PM', '12:00'],
