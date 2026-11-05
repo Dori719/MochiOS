@@ -77,7 +77,7 @@ export function MochiWidgetMessageBubble({ message, currency, stickerMap }: {
 }) {
   const { t } = useTranslation();
   const photo = mochiGeneratedPhoto(message.rawItem);
-  if (photo) return <MochiPhoto src={photo} item={message.rawItem!} />;
+  if (photo) return <MochiPhoto src={photo} item={message.rawItem!} embedded />;
   if (isMochiTransferType(message.type)) return <MochiWidgetTransferCard message={message} currency={currency} />;
   if (message.type === 'voice') return (
     <div className="mochi-private-bubble voice" aria-label={`${t('ui.chat.mochiosview.voiceNote')}: ${message.text || message.dur || '0:05'}`}>

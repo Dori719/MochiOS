@@ -1,16 +1,29 @@
 .mochi-photo { min-width: 0; max-width: 100%; width: fit-content; }
 .mochi-photo-frame { position: relative; width: fit-content; min-width: 0; max-width: 100%; }
 .mochi-photo .mochi-photo-image { display: block; min-width: 0; max-width: 100%; padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; cursor: pointer; }
-.mochi-photo-image img { display: block; width: auto; height: auto; max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; }
-.mochi-photo .mochi-photo-control { position: absolute; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; margin: 0; border: 1px solid #ffffff80; border-radius: 50%; background: #202124; color: #fff; cursor: pointer; box-shadow: 0 2px 8px #0004; }
-.mochi-photo-control:hover { background: #3c4043; }
+.mochi-photo-image img, .mochi-photo-static { display: block; width: auto; height: auto; max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; }
+.mochi-photo .mochi-photo-control { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--text); cursor: pointer; box-shadow: 0 2px 6px #0002; }
+.mochi-photo .mochi-photo-control:hover { background: var(--acc-soft); color: var(--acc); }
+.mochi-photo-frame > .mochi-photo-control { opacity: 0; pointer-events: none; }
+.mochi-photo.is-selected .mochi-photo-frame > .mochi-photo-control,
+.mochi-photo:has(:focus-visible) .mochi-photo-frame > .mochi-photo-control,
+.mochi-photo.is-description .mochi-photo-frame > .mochi-photo-control { opacity: 1; pointer-events: auto; }
+@media (hover: hover) and (pointer: fine) {
+  .mochi-photo .mochi-photo-frame:hover > .mochi-photo-control { opacity: 1; pointer-events: auto; }
+  .mochi-photo.is-selected:not(:has(:focus-visible)):not(.is-description) .mochi-photo-frame:not(:hover) > .mochi-photo-control { opacity: 0; pointer-events: none; }
+}
+.mochi-photo .mochi-photo-frame > .mochi-photo-info { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.mochi-photo-info svg { fill: var(--paper); }
+.mochi-photo.is-description .mochi-photo-image img { visibility: hidden; }
+.mochi-photo-prompt { position: absolute; inset: 0; box-sizing: border-box; display: flex; padding: 36px 12px; overflow: auto; border-radius: 12px; background: var(--paper); color: var(--text); text-align: center; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mochi-photo-prompt > div { margin: auto; min-width: 0; width: 100%; }
 .mochi-photo-control:disabled { opacity: .5; cursor: wait; }
 .mochi-photo button:focus-visible { outline: 3px solid var(--accent, #7c68cc); outline-offset: 3px; }
 .mochi-photo-expand { top: 6px; left: 6px; }
 .mochi-photo-info { top: 6px; right: 6px; }
 .mochi-photo-refresh { bottom: 6px; right: 6px; }
 .mochi-photo-description { max-width: 36ch; margin: 8px 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.mochi-photo-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; border-radius: 12px; background: #000b; color: #fff; pointer-events: none; }
+.mochi-photo-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; border-radius: 12px; background: var(--paper); color: var(--text); pointer-events: none; }
 .mochi-photo-loading svg { animation: mochi-photo-spin 1s linear infinite; }
 @keyframes mochi-photo-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .mochi-photo-loading svg { animation: none; } }

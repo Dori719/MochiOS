@@ -72,8 +72,8 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
   }, [activeId, dismiss]);
 
   const isBubble = (target: EventTarget | null) => target instanceof Element
-    && !target.closest('button, a, textarea, input, select, [contenteditable="true"], .msg-actions-trigger, .mochi-reaction-row')
-    && Boolean(target.closest('.b, .sticker, .msg-image-thumb'));
+    && !target.closest('button:not(.mochi-photo-image), a, textarea, input, select, [contenteditable="true"], .msg-actions-trigger, .mochi-reaction-row')
+    && Boolean(target.closest('.b, .sticker, .msg-image-thumb, .mochi-photo'));
 
   const interaction = (message: MessageActionTarget): HTMLAttributes<HTMLDivElement> => ({
     tabIndex: 0,
@@ -108,7 +108,7 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
           '.msg-actions-trigger, .mochi-swipe-trigger, .mochi-reaction-row',
         ));
         const overContent = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-          '.wmsg > .b, .wmsg > .sticker, .wmsg > .msg-actions-trigger, .wmsg > .mochi-swipe-trigger',
+          '.wmsg > .b, .wmsg > .sticker, .wmsg > .mochi-photo, .wmsg > .msg-actions-trigger, .wmsg > .mochi-swipe-trigger',
         )).some((element) => {
           const rect = element.getBoundingClientRect();
           return rect.height > 0 && event.clientX >= rect.left && event.clientX <= rect.right
