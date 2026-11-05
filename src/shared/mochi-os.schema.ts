@@ -5,6 +5,7 @@ export const MOCHI_OS_SETTINGS_KEY = "mochi-os-settings";
 export const MochiThemeSchema = z.enum(["auto", "light", "dark"]);
 export const MochiColorPresetSchema = z.enum(["", "ocean", "plum", "peach", "custom"]);
 export const MochiTimeFormatSchema = z.enum(["12h", "24h"]);
+export const MochiDateFormatSchema = z.enum(["MDY", "DMY", "YMD"]);
 export const MochiTempUnitSchema = z.enum(["C", "F"]);
 
 /**
@@ -28,6 +29,7 @@ export const MochiOsSettingsSchema = z.object({
   colorPreset: MochiColorPresetSchema.default(""),
   customRgb: MochiCustomRgbSchema.default({ r: 127, g: 160, b: 97 }),
   timeFormat: MochiTimeFormatSchema.default("24h"),
+  dateFormat: MochiDateFormatSchema.default("MDY"),
   tempUnit: MochiTempUnitSchema.default("C"),
   currency: MochiCurrencySchema.default("$"),
   clockMode: z.enum(["tz", "custom"]).default("tz"),
@@ -59,6 +61,7 @@ export const MochiOsSettingsSchema = z.object({
 export type MochiTheme = z.infer<typeof MochiThemeSchema>;
 export type MochiColorPreset = z.infer<typeof MochiColorPresetSchema>;
 export type MochiTimeFormat = z.infer<typeof MochiTimeFormatSchema>;
+export type MochiDateFormat = z.infer<typeof MochiDateFormatSchema>;
 export type MochiTempUnit = z.infer<typeof MochiTempUnitSchema>;
 export type MochiCurrency = z.infer<typeof MochiCurrencySchema>;
 export type MochiCustomRgb = z.infer<typeof MochiCustomRgbSchema>;
@@ -71,6 +74,7 @@ export const DEFAULT_MOCHI_OS_SETTINGS: MochiOsSettings = {
   colorPreset: "",
   customRgb: { r: 127, g: 160, b: 97 },
   timeFormat: "24h",
+  dateFormat: "MDY",
   tempUnit: "C",
   currency: "$",
   clockMode: "tz",

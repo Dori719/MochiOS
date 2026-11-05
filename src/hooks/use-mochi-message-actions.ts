@@ -100,6 +100,25 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
       };
     },
     onPointerMove(event) {
+      // The row spans the thread width; blank space beside a bubble is not a
+      // hover target. Keep a small bridge to its controls so they stay reachable.
+      if (event.pointerType === 'mouse' && activeId === message.id) {
+        const target = event.target;
+        const overControl = target instanceof Element && Boolean(target.closest(
+          '.msg-actions-trigger, .mochi-swipe-trigger, .mochi-reaction-row',
+        ));
+        const overContent = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+          '.wmsg > .b, .wmsg > .sticker, .wmsg > .msg-actions-trigger, .wmsg > .mochi-swipe-trigger',
+        )).some((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.height > 0 && event.clientX >= rect.left && event.clientX <= rect.right
+            && event.clientY >= rect.top - 4 && event.clientY <= rect.bottom + 4;
+        });
+        if (!overControl && !overContent) {
+          activeElement.current = null;
+          setActiveId(null);
+        }
+      }
       const start = hold.current;
       if (start && (event.pointerId !== start.pointerId || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8)) {
         suppressClick.current = message.id;

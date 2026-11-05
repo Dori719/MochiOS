@@ -2,7 +2,7 @@ import { DEFAULT_MOCHI_OS_SETTINGS, MOCHI_OS_SETTINGS_KEY, normalizeMochiOsSetti
 import { activeChatId, readChatMeta, readChatSettings, writeChatMeta, writeChatSettings } from './adapter';
 
 const environmentKeys = [
-  'timeFormat', 'tempUnit', 'clockMode', 'clockTz', 'clockOffset', 'clockAiDecide',
+  'timeFormat', 'dateFormat', 'tempUnit', 'clockMode', 'clockTz', 'clockOffset', 'clockAiDecide',
   'aiFields', 'aiDecidedDate', 'aiDecidedTime', 'wxTemp', 'wxCondition', 'wxPlace', 'wxAiDecide',
 ] as const;
 

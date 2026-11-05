@@ -856,6 +856,20 @@
   white-space: nowrap;
 }
 
+.mochi-scope :is(.c-body, .mochi-private-thread) {
+  scrollbar-width: none;
+}
+
+/* Expanding a footer must not make browser scroll anchoring move the thread
+   in the opposite direction on every animation frame. */
+.mochi-scope .c-body {
+  overflow-anchor: none;
+}
+
+.mochi-scope :is(.c-body, .mochi-private-thread)::-webkit-scrollbar {
+  display: none;
+}
+
 .mochi-scope .mochi-history-more {
   flex-shrink: 0;
   border: 1px solid var(--bubble-line);
@@ -884,7 +898,8 @@
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+  transform: translateY(-6px);
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease, transform 220ms ease-out;
 }
 
 .mochi-scope .wmsg > .msg-actions-trigger > * {
@@ -919,6 +934,7 @@
 }
 
 .mochi-scope .mrow.actions-visible .wmsg > :is(.msg-actions-trigger, .mochi-swipe-trigger) {
+  transform: translateY(0);
   height: var(--mochi-actions-block-size, 28px);
   margin-top: 4px;
   visibility: visible;
@@ -936,7 +952,7 @@
   flex-shrink: 0;
   padding-block: 0;
   border-block-width: 0;
-  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease;
   width: min(96px, 100%);
   max-width: 100%;
   box-sizing: border-box;
@@ -957,6 +973,10 @@
 .mochi-scope .mrow:is(.out, :hover, :focus-within) .wmsg.mochi-actions-inline > .msg-actions-trigger {
   width: var(--mochi-actions-compact-inline-size);
   flex-wrap: nowrap;
+  /* Keep the timestamp overlap identical in both states. The collapsed height
+     cancels its negative margin, so opening animates only the extra space. */
+  margin-top: calc(0px - var(--mochi-bubble-meta-block-size, 0px));
+  height: var(--mochi-bubble-meta-block-size, 0px);
 }
 
 .mochi-scope .mrow.actions-visible .wmsg.mochi-actions-inline > .msg-actions-trigger {
@@ -1219,7 +1239,7 @@
   }
 
   #mochi-os-host .mochi-scope .c-head {
-    padding-block: 6px;
+    padding-block: 14px 6px;
   }
 
   #mochi-os-host .mochi-scope .c-bar {
