@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ImagePlus, Link, Upload, X } from 'lucide-react';
-import { imageLink, uploadAvatarImage, cropAvatarImage, type AvatarCrop } from '../../../st/avatar-images';
+import { imageLink, uploadAvatarImage, deleteAvatarImage, cropAvatarImage, type AvatarCrop } from '../../../st/avatar-images';
 
 export function AvatarEditor({ title, onSave, onClose }: {
   title: string; onSave: (url: string) => Promise<void>; onClose: () => void;
@@ -63,7 +63,13 @@ export function AvatarEditor({ title, onSave, onClose }: {
         event.preventDefault(); formRef.current?.focus(); setBusy(true); setError('');
         try {
           if (!imageRef.current || !dimensions.width || previewFailed) throw new Error('Choose an image that loads before saving.');
-          await onSave(await uploadAvatarImage(await cropAvatarImage(imageRef.current, crop))); onClose();
+          const uploaded = await uploadAvatarImage(await cropAvatarImage(imageRef.current, crop));
+          try { await onSave(uploaded); }
+          catch (error) {
+            await deleteAvatarImage(uploaded).catch(() => {});
+            throw error;
+          }
+          onClose();
         }
         catch (error) { setError(error instanceof Error ? error.message : 'Could not save picture.'); }
         finally { setBusy(false); }

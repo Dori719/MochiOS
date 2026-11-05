@@ -61,7 +61,7 @@ export interface MochiContactsMap {
 }
 
 export type MochiMessagesTab = "chats" | "calls" | "people" | "profile";
-export type MochiSettingsTab = "appearance" | "api" | "preset" | "format_guides" | "about";
+export type MochiSettingsTab = "appearance" | "api" | "image_api" | "preset" | "format_guides" | "about";
 
 export interface MochiCallItem {
   n: string;

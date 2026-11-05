@@ -30,6 +30,10 @@ const result = await build({
       export { formatFriendInfo, mochiSocialHandle, parseMochiChatContent, parseMochiPrivateChatContent, parseMochiGroupChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { mayContainMochiWidget } from './src/st/widget-records.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
+      export { resolveMochiFormatGuide } from './src/st/format-guides.ts';
+      export { extractMochiImage, mochiPhotoPrompt, renderMochiPhotos } from './src/st/image-generation.ts';
+      export { deleteAvatarImage } from './src/st/avatar-images.ts';
+      export { mochiPhotoFolder, mochiGeneratedPhoto } from './src/st/generated-photo.ts';
       export { formatMochiDate, parseMochiDate, formatMochiEnvironmentGuide } from './src/components/chat/mochi-os/mochi-environment-format.ts';
       export { buildMochiDataGenerationGuideBlock } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { getMochiWorldInfoPrompt } from './src/st/lorebooks.ts';
@@ -182,9 +186,81 @@ const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_S
   assert.equal(restored.timeFormat, '12h');
   assert.equal(restored.tempUnit, 'F');
   assert.equal(restored.aiFields.location, false);
+  await api.request('PUT', path, { value: JSON.stringify({ ...restored, clockMode: 'custom', customClockTime: 1715684400000 }) });
+  const fixedClock = JSON.parse((await api.request('GET', path)).value);
+  assert.equal(fixedClock.customClockTime, 1715684400000);
+  host.chatMetadata = {};
+  assert.equal(JSON.parse((await api.request('GET', path)).value).customClockTime, null, 'Custom time remains chat-specific');
   host.chatMetadata = metadata;
-  delete host.chatMetadata.mochios.environmentSettings;
+  if (host.chatMetadata.mochios) delete host.chatMetadata.mochios.environmentSettings;
   host.extensionSettings = globals;
+}
+
+// Drawing selection is per-guide, with General and its connection as fallback.
+{
+  const previousFetch = globalThis.fetch;
+  const previousHeaders = host.getRequestHeaders;
+  host.getRequestHeaders = () => ({ 'Content-Type': 'application/json' });
+  const calls = [];
+  globalThis.fetch = async (url, options) => { calls.push([url, JSON.parse(options.body)]); return { ok: true }; };
+  try {
+    await api.deleteAvatarImage('https://example.com/avatar.png');
+    await api.deleteAvatarImage('/user/images/mochi-os-stickers/avatar-a.png');
+    await api.deleteAvatarImage('/user/images/mochi-os-avatars/../avatar-a.png');
+    assert.equal(calls.length, 0);
+    await api.deleteAvatarImage('/user/images/mochi-os-avatars/avatar-a.png');
+    assert.deepEqual(calls, [['/api/images/delete', { path: 'user/images/mochi-os-avatars/avatar-a.png' }]]);
+  } finally { globalThis.fetch = previousFetch; host.getRequestHeaders = previousHeaders; }
+}
+{
+  assert.equal(api.mochiPhotoPrompt({ t: 'text', c: 'Private dialogue' }), null);
+  assert.equal(api.mochiPhotoFolder('Seraphina'), 'mochi-os-photos-Seraphina');
+  assert.equal(api.mochiPhotoFolder('A/B: C'), 'mochi-os-photos-A_B_ C');
+  assert.equal(api.mochiGeneratedPhoto({ image: '/user/images/mochi-os-photos-Seraphina/photo.png' }), '/user/images/mochi-os-photos-Seraphina/photo.png');
+  assert.equal(api.mochiGeneratedPhoto({ image: '/user/images/mochi-os-photos/photo.png' }), '/user/images/mochi-os-photos/photo.png');
+  assert.equal(api.mochiPhotoPrompt({ t: 'imgdesc', c: 'A garden', prompt: { lighting: 'sunset' }, sender: 'Secret', history: 'Private dialogue' }), 'A garden\n\n{"lighting":"sunset"}');
+  assert.equal(api.extractMochiImage({ choices: [{ message: { images: [{ image_url: { url: 'https://example.com/photo.png' } }] } }] }), 'https://example.com/photo.png');
+  assert.equal(api.extractMochiImage({ choices: [{ message: { content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,YQ==' } }] } }] }), 'data:image/png;base64,YQ==');
+  assert.equal(api.extractMochiImage({ choices: [{ message: { content: 'No image generated' } }] }), null);
+  assert.equal(api.extractMochiImage({ choices: [{ message: { content: '![photo](javascript:alert)' } }] }), null);
+  const noPhotos = [{ me: 0, rawItem: { t: 'text', c: 'Hello' } }];
+  await api.renderMochiPhotos(noPhotos, { ...api.DEFAULT_MOCHI_OS_SETTINGS, formatGuideMode: 'drawing_tags' }, id);
+  assert.equal(noPhotos[0].rawItem.c, 'Hello');
+  const oldService = host.ConnectionManagerRequestService;
+  const oldMap = host.CONNECT_API_MAP;
+  let imageRequest;
+  host.CONNECT_API_MAP = { ...oldMap, imageTest: { selected: 'openai' } };
+  host.ConnectionManagerRequestService = {
+    getProfile: () => ({ api: 'imageTest', model: 'image-model' }),
+    sendRequest: async (...args) => { imageRequest = args; return { choices: [{ message: { content: 'No image' } }] }; },
+  };
+  const photos = [{ me: 0, rawItem: { t: 'imgdesc', c: 'A garden', prompt: { lighting: 'sunset' }, sender: 'Secret' } }];
+  try {
+    await assert.rejects(api.renderMochiPhotos(photos, { ...api.DEFAULT_MOCHI_OS_SETTINGS, formatGuideMode: 'drawing_tags', imageConnectionProfileId: 'image-profile' }, id), /returned no image/);
+    assert.equal(imageRequest[0], 'image-profile');
+    assert.deepEqual(imageRequest[1], [{ role: 'user', content: 'A garden\n\n{"lighting":"sunset"}' }]);
+    assert.equal(imageRequest[3].extractData, false);
+    assert.equal(photos[0].rawItem.image, undefined, 'A failed image must not produce a partial image record');
+  } finally {
+    host.ConnectionManagerRequestService = oldService;
+    host.CONNECT_API_MAP = oldMap;
+  }
+}
+
+{
+  const settings = { ...api.DEFAULT_MOCHI_OS_SETTINGS, connectionProfileId: 'text', imageConnectionProfileId: 'drawing' };
+  const guides = structuredClone(api.DEFAULT_FORMAT_GUIDES);
+  for (const [mode, collection] of [['drawing_tags', 'tags'], ['drawing_natural', 'natural']]) {
+    settings.formatGuideMode = mode;
+    const drawing = api.resolveMochiFormatGuide(guides, 'privateChat', settings);
+    assert.equal(drawing.content, guides.formatGuideDrawing[collection].privateChat);
+    assert.equal(drawing.profileId, 'text', 'Drawing guides still go to the normal content API');
+    assert.equal(api.resolveMochiFormatGuide(guides, 'data', settings).profileId, 'text');
+    guides.formatGuideDrawing[collection].privateChat = '  ';
+    assert.equal(api.resolveMochiFormatGuide(guides, 'privateChat', settings).content, guides.formatGuide.privateChat);
+  }
+  settings.formatGuideMode = 'general';
+  assert.equal(api.resolveMochiFormatGuide(guides, 'camera', settings).profileId, 'text');
 }
 
 for (const [input, twelveHour, twentyFourHour] of [

@@ -2972,6 +2972,26 @@
   cursor: pointer;
 }
 
+.mochi-scope select.mochi-connection-profile,
+.mochi-scope select.mochi-connection-profile option {
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.mochi-scope select.mochi-connection-profile {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--tile-b);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.mochi-scope select.mochi-connection-profile:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .mochi-scope .people-search-clear:hover {
   background: var(--paper-dim);
 }

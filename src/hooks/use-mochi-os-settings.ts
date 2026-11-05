@@ -24,6 +24,7 @@ export function useUpdateMochiOsSettings() {
     mutationFn: async (settings: MochiOsSettings) => writeMochiSettings(settings, chatId),
     onSuccess: (settings) => {
       queryClient.setQueryData([...mochiOsKeys.settings, chatId], settings);
+      void queryClient.invalidateQueries({ queryKey: mochiOsKeys.settings });
       document.dispatchEvent(new CustomEvent('mochios:settings', { detail: { key: MOCHI_OS_SETTINGS_KEY } }));
     },
   });

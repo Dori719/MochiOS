@@ -614,6 +614,39 @@
   font-size: 16px !important;
 }
 
+/* Keep the date control and its native popup in the phone's palette even when
+   the host decorates selects with its own theme. */
+#mochi-os-host .mochi-scope #mochi-date-format {
+  color-scheme: light;
+  background: var(--paper-dim);
+  color: var(--text);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+#mochi-os-host .mochi-scope.theme-dark #mochi-date-format {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  #mochi-os-host .mochi-scope.theme-auto #mochi-date-format {
+    color-scheme: dark;
+  }
+}
+
+#mochi-os-host .mochi-scope #mochi-date-format:focus-visible {
+  border-color: var(--acc);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+#mochi-os-host .mochi-scope #mochi-date-format option {
+  background: var(--paper);
+  color: var(--text);
+}
+
 /* Host themes can decorate headings with a pink rule. The persona name is a
    plain heading, not a themed host section title. Keep the reset local to it. */
 #mochi-os-host .mochi-scope .profile-card h3 {

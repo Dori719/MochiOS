@@ -55,6 +55,7 @@ export function useGenerateMochiOSPhoneData() {
       chatId: string;
       messages: Array<{ role: "system" | "user" | "assistant"; content: string; name?: string }>;
       connectionId?: string;
+      profileId?: string | null;
       userPrompt?: string;
       category?: "data_generation" | "private_chats" | "group_chats" | string;
       characterName?: string;
@@ -76,6 +77,7 @@ export function useGenerateMochiOSPhoneData() {
       chatId,
       messages,
       connectionId,
+      profileId,
       userPrompt,
       category,
       characterName,
@@ -88,6 +90,7 @@ export function useGenerateMochiOSPhoneData() {
       const payload = {
         messages,
         connectionId,
+        profileId,
         userPrompt,
         category,
         characterName,
