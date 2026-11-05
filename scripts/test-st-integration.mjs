@@ -8,6 +8,7 @@ import { runPromptHistoryTests } from './test-prompt-history.mjs';
 import { runWidgetRecordTests } from './test-widget-records.mjs';
 import { runMessageLayoutTests } from './test-message-layout.mjs';
 import { runReplySwipeTests } from './test-reply-swipes.mjs';
+import { runEnvironmentFormatTests } from './test-environment-format.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const result = await build({
@@ -29,6 +30,7 @@ const result = await build({
       export { formatFriendInfo, mochiSocialHandle, parseMochiChatContent, parseMochiPrivateChatContent, parseMochiGroupChatContent, normalizeMochiPrivateChatGuide, normalizeMochiFormatGuides } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { mayContainMochiWidget } from './src/st/widget-records.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
+      export { formatMochiDate, parseMochiDate, formatMochiEnvironmentGuide } from './src/components/chat/mochi-os/mochi-environment-format.ts';
       export { buildMochiDataGenerationGuideBlock } from './src/components/chat/mochi-os/mochi-os.utils.ts';
       export { getMochiWorldInfoPrompt } from './src/st/lorebooks.ts';
       export { getMochiTokenLimits, fitMochiPromptToContext, markMochiBudgetCandidates, countMochiMessageTokens } from './src/st/context-budget.ts';
@@ -158,7 +160,7 @@ const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_S
   const globals = structuredClone(host.extensionSettings);
   await api.request('PUT', path, { value: JSON.stringify({
     ...api.DEFAULT_MOCHI_OS_SETTINGS, theme: 'dark', clockMode: 'custom', clockOffset: 86400000,
-    wxPlace: 'Tokyo', wxTemp: 12, clockAiDecide: true,
+    wxPlace: 'Tokyo', wxTemp: 12, clockAiDecide: true, dateFormat: 'DMY', timeFormat: '12h', tempUnit: 'F',
     aiFields: { date: false, time: true, location: false, temperature: true, condition: true },
   }) });
   const firstChat = host.chatMetadata;
@@ -167,12 +169,18 @@ const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_S
   assert.equal(second.wxPlace, '', 'A new roleplay must not inherit another chat weather');
   assert.equal(second.clockOffset, 0);
   assert.equal(second.clockAiDecide, false);
+  assert.equal(second.dateFormat, 'MDY', 'A new roleplay uses its own date preference');
+  assert.equal(second.timeFormat, '24h');
+  assert.equal(second.tempUnit, 'C');
   assert.equal(second.theme, 'dark', 'Theme remains extension-wide');
   await api.request('PUT', path, { value: JSON.stringify({ ...second, wxPlace: 'Paris' }) });
   host.chatMetadata = firstChat;
   const restored = JSON.parse((await api.request('GET', path)).value);
   assert.equal(restored.wxPlace, 'Tokyo');
   assert.equal(restored.clockOffset, 86400000);
+  assert.equal(restored.dateFormat, 'DMY');
+  assert.equal(restored.timeFormat, '12h');
+  assert.equal(restored.tempUnit, 'F');
   assert.equal(restored.aiFields.location, false);
   host.chatMetadata = metadata;
   delete host.chatMetadata.mochios.environmentSettings;
@@ -194,6 +202,7 @@ for (const [input, twelveHour, twentyFourHour] of [
 }
 assert.equal(api.formatRelativeTime('Today', '3:15 PM', true), '3:15 PM', 'Contact previews share the same suffix-aware formatter');
 assert.equal(api.formatRelativeTime('Today', '3:15 PM', false), '15:15');
+runEnvironmentFormatTests(api);
 
 assert.equal(api.normalizeMochiOsSettings({ theme: 'dark' }).connectionProfileId, null);
 assert.equal(typeof api.st().generateRaw, 'function', 'API must come from live getContext, not module exports');

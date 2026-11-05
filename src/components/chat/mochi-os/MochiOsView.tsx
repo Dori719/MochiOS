@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { MochiMessageActions } from "./MochiMessageActions";
+import { formatMochiDate, formatMochiEnvironmentGuide, parseMochiDate } from "./mochi-environment-format";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
 import { createMochiRoleplayHistoryIndexer } from "./mochi-history-index";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
@@ -10,6 +11,7 @@ import type {
   MochiTheme,
   MochiColorPreset,
   MochiTimeFormat,
+  MochiDateFormat,
   MochiTempUnit,
   MochiCurrency,
   MochiPresetMode,
@@ -610,6 +612,7 @@ export function MochiOsView({
     () => persistedSettings?.customRgb ?? { r: 127, g: 160, b: 97 },
   );
   const [timeFormat, setTimeFormat] = useState<MochiTimeFormat>(() => persistedSettings?.timeFormat ?? "24h");
+  const [dateFormat, setDateFormat] = useState<MochiDateFormat>(() => persistedSettings?.dateFormat ?? "MDY");
   const [tempUnit, setTempUnit] = useState<MochiTempUnit>(() => persistedSettings?.tempUnit ?? "C");
   // Transfer amounts are archived as bare numbers; the symbol is display-only.
   const [currency, setCurrency] = useState<MochiCurrency>(() => persistedSettings?.currency ?? "$");
@@ -658,7 +661,7 @@ export function MochiOsView({
     "general",
   );
   const [formatGuidesSearchQuery, setFormatGuidesSearchQuery] = useState("");
-  const [formatGuidesDraft, setFormatGuidesDraft] = useState<MochiFormatGuideData>(() => {
+  const [rawFormatGuidesDraft, setFormatGuidesDraft] = useState<MochiFormatGuideData>(() => {
     if (persistedSettings?.formatGuidesJson) {
       try {
         return normalizeMochiFormatGuides(JSON.parse(persistedSettings.formatGuidesJson));
@@ -693,6 +696,7 @@ export function MochiOsView({
       setColorPreset(persistedSettings.colorPreset);
       setCustomRgb(persistedSettings.customRgb);
       setTimeFormat(persistedSettings.timeFormat);
+      setDateFormat(persistedSettings.dateFormat);
       setTempUnit(persistedSettings.tempUnit);
       setCurrency(persistedSettings.currency);
       setClockMode(persistedSettings.clockMode);
@@ -772,6 +776,21 @@ export function MochiOsView({
     setProfileEmailDraft(user?.email ?? "");
   }, [savedPhoneDataResponse, activeLinkedPersona?.id, activeLinkedPersona?.name, activeChatData?.userName]);
 
+  // Appearance changes update examples without discarding edited guide instructions.
+  const formatGuidesDraft = useMemo<MochiFormatGuideData>(
+    () => ({
+      ...rawFormatGuidesDraft,
+      formatGuide: {
+        ...rawFormatGuidesDraft.formatGuide,
+        timeDateWeather: formatMochiEnvironmentGuide(
+          rawFormatGuidesDraft.formatGuide.timeDateWeather ?? DEFAULT_FORMAT_GUIDES.formatGuide.timeDateWeather,
+          { dateFormat, timeFormat, tempUnit },
+        ),
+      },
+    }),
+    [rawFormatGuidesDraft, dateFormat, timeFormat, tempUnit],
+  );
+
   // Save settings immediately helper
   const saveSettings = useCallback(
     (patch: Partial<Parameters<typeof updateSettingsMutation.mutate>[0]>) => {
@@ -780,6 +799,7 @@ export function MochiOsView({
         colorPreset,
         customRgb,
         timeFormat,
+        dateFormat,
         tempUnit,
         currency,
         clockMode,
@@ -799,7 +819,17 @@ export function MochiOsView({
         promptPresetMode,
         selectedEnginePresetId,
         customPresetJson: customPresetJsonDraft,
-        formatGuidesJson: JSON.stringify(formatGuidesDraft),
+        formatGuidesJson: JSON.stringify({
+          ...formatGuidesDraft,
+          formatGuide: {
+            ...formatGuidesDraft.formatGuide,
+            timeDateWeather: formatMochiEnvironmentGuide(formatGuidesDraft.formatGuide.timeDateWeather, {
+              dateFormat: patch.dateFormat ?? dateFormat,
+              timeFormat: patch.timeFormat ?? timeFormat,
+              tempUnit: patch.tempUnit ?? tempUnit,
+            }),
+          },
+        }),
         ...patch,
       };
       updateSettingsMutation.mutate(current);
@@ -809,6 +839,7 @@ export function MochiOsView({
       colorPreset,
       customRgb,
       timeFormat,
+      dateFormat,
       tempUnit,
       currency,
       clockMode,
@@ -2134,12 +2165,7 @@ export function MochiOsView({
     if (clockMode === "tz") {
       d = nowDate;
       try {
-        dateStr = new Intl.DateTimeFormat("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          timeZone: clockTz,
-        }).format(d);
+        dateStr = formatMochiDate(d, dateFormat, clockTz);
         weekdayStr = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: clockTz }).format(d);
         const parts = new Intl.DateTimeFormat("en-GB", {
           hour: "2-digit",
@@ -2152,24 +2178,27 @@ export function MochiOsView({
         timeStr = fmtHm(h, mi, isHour12);
       } catch {
         timeStr = fmtTime(d, isHour12);
-        dateStr = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        dateStr = formatMochiDate(d, dateFormat);
         weekdayStr = d.toLocaleDateString("en-US", { weekday: "long" });
       }
     } else {
       d = new Date(nowDate.getTime() + clockOffset);
-      dateStr = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(d);
+      dateStr = formatMochiDate(d, dateFormat);
       weekdayStr = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
       timeStr = fmtTime(d, isHour12);
     }
 
     if (aiDate && aiDecidedDate) {
       dateStr = aiDecidedDate;
-      const parsedDate = new Date(aiDecidedDate);
-      if (!isNaN(parsedDate.getTime())) weekdayStr = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+      const parsedDate = parseMochiDate(aiDecidedDate);
+      if (parsedDate) {
+        dateStr = formatMochiDate(parsedDate, dateFormat);
+        weekdayStr = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+      }
     }
     if (aiTime && aiDecidedTime) timeStr = fmtMsgTime(aiDecidedTime, isHour12) || timeStr;
     return { liveTime: timeStr, liveDateStr: dateStr, liveWeekday: weekdayStr };
-  }, [nowDate, clockMode, clockTz, clockOffset, aiDate, aiTime, aiDecidedDate, aiDecidedTime, isHour12]);
+  }, [nowDate, clockMode, clockTz, clockOffset, aiDate, aiTime, aiDecidedDate, aiDecidedTime, isHour12, dateFormat]);
 
   // Weather formatted
   const formattedWx = useMemo(() => {
@@ -3409,7 +3438,7 @@ export function MochiOsView({
       const envLines: string[] = [];
       if (clockMode === "custom") {
         const chosenDate = new Date(Date.now() + clockOffset);
-        const dateStr = chosenDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        const dateStr = formatMochiDate(chosenDate, dateFormat);
         const timeStr = fmtTime(chosenDate, isHour12);
         envLines.push(`Date: "${aiDate ? "" : dateStr}"`);
         envLines.push(`Time: "${aiTime ? "" : timeStr}"`);
@@ -4340,6 +4369,22 @@ export function MochiOsView({
                   onChange={(e) => setPeopleSearchText(e.target.value)}
                   autoComplete="off"
                 />
+                {peopleSearchText && (
+                  <button
+                    type="button"
+                    className="people-search-clear"
+                    title={localizeUi("ui.chat.mochiosview.clearSearch")}
+                    aria-label={localizeUi("ui.chat.mochiosview.clearSearch")}
+                    onClick={(event) => {
+                      setPeopleSearchText("");
+                      event.currentTarget.parentElement?.querySelector("input")?.focus();
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                  </button>
+                )}
               </div>
 
               {/* Render generated characters from phone_data grouped by alphabet */}
@@ -6972,6 +7017,23 @@ export function MochiOsView({
                     </button>
                   </div>
 
+                  <label className="lbl" htmlFor="mochi-date-format">
+                    {localizeUi("ui.chat.mochiosview.dateFormat")}
+                  </label>
+                  <select
+                    id="mochi-date-format"
+                    value={dateFormat}
+                    onChange={(event) => {
+                      const value = event.target.value as MochiDateFormat;
+                      setDateFormat(value);
+                      saveSettings({ dateFormat: value });
+                    }}
+                  >
+                    <option value="MDY">{localizeUi("ui.chat.mochiosview.dateFormatMonthDayYear")}</option>
+                    <option value="DMY">{localizeUi("ui.chat.mochiosview.dateFormatDayMonthYear")}</option>
+                    <option value="YMD">{localizeUi("ui.chat.mochiosview.dateFormatYearMonthDay")}</option>
+                  </select>
+
                   <span className="lbl">{localizeUi("ui.panels.trackerpanelappearancedrawer.temperatureUnit")}</span>
                   <div className="seg">
                     <button
@@ -7668,7 +7730,9 @@ export function MochiOsView({
 
                         const defaultContentValue =
                           formatGuidesCategory === "general"
-                            ? (DEFAULT_FORMAT_GUIDES.formatGuide[item.key] ?? "")
+                            ? (item.key === "timeDateWeather"
+                              ? formatMochiEnvironmentGuide(DEFAULT_FORMAT_GUIDES.formatGuide.timeDateWeather, { dateFormat, timeFormat, tempUnit })
+                              : (DEFAULT_FORMAT_GUIDES.formatGuide[item.key] ?? ""))
                             : formatGuidesCategory === "drawing_tags"
                               ? (DEFAULT_FORMAT_GUIDES.formatGuideDrawing.tags[item.key] ?? "")
                               : (DEFAULT_FORMAT_GUIDES.formatGuideDrawing.natural[item.key] ?? "");

@@ -4,6 +4,7 @@ export type {
   MochiTheme,
   MochiColorPreset,
   MochiTimeFormat,
+  MochiDateFormat,
   MochiTempUnit,
   MochiCurrency,
   MochiCustomRgb,

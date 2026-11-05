@@ -856,6 +856,14 @@
   white-space: nowrap;
 }
 
+.mochi-scope :is(.c-body, .mochi-private-thread) {
+  scrollbar-width: none;
+}
+
+.mochi-scope :is(.c-body, .mochi-private-thread)::-webkit-scrollbar {
+  display: none;
+}
+
 .mochi-scope .mochi-history-more {
   flex-shrink: 0;
   border: 1px solid var(--bubble-line);
@@ -884,7 +892,10 @@
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+  transform: translateY(-6px);
+  /* Snap the inline timestamp offset before revealing controls, so they descend
+     from above instead of sliding upward from the collapsed footer. */
+  transition: height 180ms ease, opacity 120ms ease, transform 180ms ease-out;
 }
 
 .mochi-scope .wmsg > .msg-actions-trigger > * {
@@ -919,6 +930,7 @@
 }
 
 .mochi-scope .mrow.actions-visible .wmsg > :is(.msg-actions-trigger, .mochi-swipe-trigger) {
+  transform: translateY(0);
   height: var(--mochi-actions-block-size, 28px);
   margin-top: 4px;
   visibility: visible;
@@ -1219,7 +1231,7 @@
   }
 
   #mochi-os-host .mochi-scope .c-head {
-    padding-block: 6px;
+    padding-block: 14px 6px;
   }
 
   #mochi-os-host .mochi-scope .c-bar {
