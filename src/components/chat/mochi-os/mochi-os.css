@@ -790,6 +790,22 @@
   font-weight: 900;
 }
 
+.mochi-scope .modal-head h3,
+.mochi-scope .settings-split-head h3 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.mochi-scope .modal-head h3::before,
+.mochi-scope .modal-head h3::after,
+.mochi-scope .settings-split-head h3::before,
+.mochi-scope .settings-split-head h3::after {
+  content: none;
+}
+
 .mochi-scope .close {
   width: 34px;
   height: 34px;
@@ -3931,7 +3947,8 @@
   width: 100%;
 }
 
-.mochi-scope .edit-profile-btn {
+.mochi-scope .p-actions .edit-profile-btn {
+  width: fit-content;
   padding: 6px 18px;
   border-radius: 999px;
   background: var(--paper-dim);
@@ -5813,6 +5830,67 @@
   font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s;
 }
 
+.mochi-scope .ai-field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  outline: none;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  background: var(--input-bg);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"]::before {
+  content: none;
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"]:hover {
+  border-color: var(--acc);
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"]:checked {
+  border-color: var(--acc);
+  background: var(--acc);
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"]:checked::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+
+.mochi-scope .ai-field-label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.mochi-scope .panel input:disabled,
+.mochi-scope .panel select:disabled {
+  opacity: 0.45;
+}
+
 .mochi-scope .mochi-group-profile-header-btn b {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5979,9 +6057,13 @@
   opacity: 1;
   cursor: default;
 }
-.mochi-scope .mochi-editable-avatar:hover .mochi-avatar-edit,
 .mochi-scope .mochi-avatar-edit:focus-visible { opacity: 1; }
-@media (hover: none) { .mochi-scope .mochi-avatar-edit { opacity: 1; } }
+@media (hover: hover) and (pointer: fine) {
+  .mochi-scope .mochi-editable-avatar:hover .mochi-avatar-edit { opacity: 1; }
+}
+@media (hover: none) {
+  .mochi-scope .mochi-avatar-edit:active { opacity: 1; }
+}
 .mochi-scope .modal.mochi-avatar-editor {
   display: flex; flex-direction: column; padding: 0; gap: 0;
   width: min(380px, 92%); max-height: 92%; overflow: hidden;
