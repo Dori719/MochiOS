@@ -114,7 +114,11 @@ Legacy transcript aliases remain supported, and group output is unchanged.
 
 ### Stickers and emoji
 
-Open **More → Emoji → Stickers → Upload images**. PNG, JPEG, GIF and WebP files
+Open **More → Emoji** for searchable emoji and sticker grids. Emoji categories
+offer quick shortcuts; sticker search includes previous names. Arrow keys navigate
+the grid, and Escape or the close button dismisses the picker.
+
+Choose **Stickers → Manage → Upload images**. PNG, JPEG, GIF and WebP files
 up to 10 MB each are supported. Review the image previews, edit each name, and
 choose **Save stickers**; Cancel leaves the library untouched. Suggested names
 are unique, and saving rejects empty names or duplicates (ignoring case,
@@ -123,7 +127,7 @@ sticker to send an image bubble; emoji selection inserts into the composer,
 where Send queues it as text.
 Use Refresh to request the phone's next reply, just as with other queued messages.
 
-Use a saved sticker's **Rename** button to change its name at any time. Previous
+Under **Manage**, use a saved sticker's **Rename** button to change its name. Previous
 names stay reserved for that sticker so existing messages continue to show its
 image. **Export JSON** downloads a complete backup, including image bytes, names,
 and previous names. **Import JSON** opens the same editable review before saving;
@@ -137,6 +141,13 @@ Images are saved on the SillyTavern server in the current user's
 are saved in `user/files/mochi-os-stickers-library.json`. These use SillyTavern's
 built-in APIs: **no server plugin or `enableServerPlugins` setting is required**.
 
+Loading also scans the image folder. Images missing from a valid or absent index
+are recovered without moving or duplicating their files. Recovered names come
+from filenames; rename them under Manage or import a JSON backup to restore names.
+**Refresh stickers** scans again. Invalid images are skipped with a notice, and a
+corrupt index is reported rather than overwritten. Deletion records prevent an
+image from reappearing if its disk cleanup fails.
+
 The library survives page reloads, chat switches, and clearing browser site data.
 Other browsers/devices connected to the same installation read the same files;
 reopening Mochi or focusing its tab refreshes the library. Libraries are per user,
@@ -148,7 +159,7 @@ images and index, including abandoned image uploads. SillyTavern's five-second h
 timeout, failed requests, manual folder deletion, and other users' libraries are
 outside this cleanup guarantee. An empty image directory may remain.
 Sticker files are not included in chat exports. Export JSON before uninstalling.
-**×** removes a sticker
+The trash button under **Manage** removes a sticker
 from that library; older transcripts then show its name if its image is unavailable.
 
 Existing OPFS/IndexedDB stickers migrate automatically when disk storage is first

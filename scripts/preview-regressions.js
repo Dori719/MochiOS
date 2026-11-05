@@ -134,13 +134,12 @@ async function stickerFile(width = 180, height = 144) {
 }
 
 async function savedStickers() {
-  const api = '/api/plugins/mochi-os-stickers';
-  const query = '?extension=mochi-os';
-  const response = await fetch(`${api}/library${query}`, { cache: 'no-store' });
-  const library = await response.json();
+  const response = await fetch('/user/files/mochi-os-stickers-library.json', { cache: 'no-store' });
+  const library = response.status === 404 ? { stickers: [] } : await response.json();
+  if (response.status === 404) return { list: [], location: 'user/images/mochi-os-stickers/' };
   if (!response.ok) throw new Error(library.error || 'The isolated disk sticker fixture is unavailable');
-  return { list: library.stickers, location: library.location, async image(entry) {
-    const response = await fetch(`${api}/images/${encodeURIComponent(entry.fileName)}${query}`, { cache: 'no-store' });
+  return { list: library.stickers, location: 'user/images/mochi-os-stickers/', async image(entry) {
+    const response = await fetch(`/user/images/mochi-os-stickers/${encodeURIComponent(library.imageFiles?.[entry.fileName] ?? entry.fileName)}`, { cache: 'no-store' });
     if (!response.ok) throw new Error('The fixture sticker image is missing from disk');
     return response.blob();
   } };
@@ -482,6 +481,47 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
   viewport.addEventListener('resize', constrainHost); constrainHost();
   const within = (bounds) => bounds.left >= -1 && bounds.top >= -1 && bounds.right <= viewport.width + 1 && bounds.bottom <= viewport.height + 1;
   const report = q('#preview-status');
+  const pickerControl = document.createElement('button');
+  pickerControl.id = 'test-picker'; pickerControl.textContent = 'Check media picker';
+  q('#preview-tools').append(pickerControl);
+  pickerControl.onclick = async () => {
+    const checks = [];
+    const assert = (ok, message) => { if (!ok) throw new Error(message); checks.push(message); };
+    try {
+      closeMochiOs(); await settle(); preview.reset();
+      await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
+      await openThread('Preview Contact'); await openPicker();
+      assert(within(q('[data-conversation-media-picker]').getBoundingClientRect()), 'Picker fits the visible phone');
+      const search = q('input[aria-label="Search emoji"]');
+      value(search, 'party'); await settle();
+      assert(all('[data-media-choice]').some((button) => button.textContent === '🥳'), 'Emoji keywords find party expressions');
+      value(search, 'no-such-expression'); await settle();
+      assert(q('.mochi-media-empty')?.textContent.includes('No emoji found'), 'No-result search explains how to recover');
+      press(q('.mochi-emoji-categories button[aria-label="Hearts"]')); await settle();
+      assert(q('.mochi-media-group-label').textContent === 'Hearts' && search.value === '', 'Category shortcuts clear search and filter the grid');
+      const choices = all('[data-media-choice]'); choices[0].focus(); key(choices[0], 'ArrowRight'); await settle();
+      assert(document.activeElement === choices[1], 'Arrow keys move focus through choices');
+      press(choices[0]); await settle();
+      assert(q('#chatView .c-bar > input').value === '❤️' && !q('[data-conversation-media-picker]'), 'Emoji inserts into composer and dismisses');
+      await openPicker('Stickers');
+      assert(!q('.mochi-sticker-management') && !q('.mochi-sticker-delete'), 'Quick picking hides management tools');
+      press(q('.mochi-sticker-manage')); await settle();
+      assert(q('.mochi-sticker-management'), 'Manage reveals library tools');
+      press(q('.mochi-sticker-manage')); await settle();
+      value(q('input[aria-label="Search stickers"]'), 'no-such-sticker'); await settle();
+      assert(all('.mochi-sticker-cell').length === 0, 'Sticker search filters the grid');
+      press(q('.mochi-media-close')); await settle();
+      assert(!q('[data-conversation-media-picker]') && document.activeElement.id === 'plusBtn', 'Close returns focus to More');
+      await openPicker(); key(q('[data-conversation-media-picker]'), 'Escape'); await settle();
+      assert(!q('[data-conversation-media-picker]'), 'Escape dismisses the picker');
+      await openPicker(); pointer(q('#chatView .c-head'), 'pointerdown'); await settle();
+      assert(!q('[data-conversation-media-picker]'), 'Outside presses dismiss the picker');
+      setKeyboard(true); await settle(); await openPicker();
+      assert(within(q('[data-conversation-media-picker]').getBoundingClientRect()) && q('.mochi-media-picker-body').clientHeight > 30, 'Keyboard-reduced picker keeps a scrollable results area');
+      report.textContent = `PASS: ${checks.length} picker checks at ${Math.round(viewport.width)} × ${Math.round(viewport.height)}.`;
+    } catch (error) { report.textContent = `FAIL after ${checks.length} picker checks: ${error.message}`; }
+    finally { setKeyboard(false); report.dataset.pickerChecks = JSON.stringify(checks); }
+  };
   const button = q('#test-features');
   const layoutControl = document.createElement('button');
   layoutControl.id = 'test-sticker-layout'; layoutControl.textContent = 'Inspect sticker layout';
@@ -771,7 +811,8 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       }
       closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
       await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
-      await openThread('Preview Group'); await openPicker('Stickers');
+      await openThread('Preview Contact'); await openPicker('Stickers');
+      press(q('.mochi-sticker-manage')); await settle();
       await until(() => !q('.mochi-sticker-tools button').disabled, 'layout sticker library');
       const token = Date.now();
       layoutNames = ['Wide', 'Tall', 'Small', 'Tiny'].map((shape) => `Layout ${shape} ${token}`);
@@ -910,7 +951,8 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
     try {
       closeMochiOs(); await settle(); preview.reset(); setKeyboard(false);
       await getContext().printMessages(); refreshMochiWidgets(); openMochiOs(); await settle(450);
-      await openThread('Preview Group'); await openPicker('Stickers');
+      await openThread('Preview Contact'); await openPicker('Stickers');
+      press(q('.mochi-sticker-manage')); await settle();
       await until(() => !q('.mochi-sticker-tools button').disabled, 'loaded sticker library');
       baseline = cells().length;
       const file = await stickerFile();
@@ -931,16 +973,18 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       await until(() => cellFor(firstName) && cellFor(secondName), 'edited sticker names saved');
       const saved = await savedStickers();
       const original = saved.list.find((entry) => entry.name === firstName);
-      assert(cells().length === baseline + 2 && saved.location === 'mochi-os/stickers' && (await saved.image(original)).size === file.size, 'Edited names and image bytes persist in the isolated extension folder, not browser storage');
+      assert(cells().length === baseline + 2 && saved.location === 'user/images/mochi-os-stickers/' && (await saved.image(original)).size === file.size, 'Edited names and image bytes persist in the isolated native images folder');
       press(cellFor(firstName).querySelector('.mochi-sticker-send')); await settle();
       await until(() => outgoing().some((row) => row.querySelector('.sticker img')?.naturalWidth > 0), 'uploaded sticker sends');
       await openPicker('Stickers');
+      press(q('.mochi-sticker-manage')); await settle();
       press(cellFor(firstName).querySelector('.mochi-sticker-rename')); await settle();
       const renameInput = q('input[aria-label="New sticker name"]');
       value(renameInput, secondName.toUpperCase()); await settle();
       assert(q('.mochi-sticker-rename-save').disabled && q('#mochi-sticker-rename-error'), 'Saved stickers cannot be renamed to another saved name');
       value(renameInput, renamedName); await settle(); press(q('.mochi-sticker-rename-save'));
       await until(() => cellFor(renamedName) && !q('form[aria-label="Rename saved sticker"]'), 'sticker renamed');
+      assert(!q('.mochi-sticker-editor') && !cellFor(firstName) && cellFor(renamedName).querySelector('.mochi-sticker-send') === document.activeElement, 'Save name closes the editor and immediately shows and focuses the new name without Refresh');
       const afterRename = (await savedStickers()).list.find((entry) => entry.name === renamedName);
       assert(afterRename.id === original.id && afterRename.fileName === original.fileName && afterRename.aliases.includes(firstName), 'Renaming keeps the same saved image and remembers its previous name');
       await until(() => outgoing().some((row) => row.querySelector('.sticker img')?.naturalWidth > 0), 'old sticker image after rename');
@@ -992,6 +1036,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       );
       await host.printMessages(); refreshMochiWidgets();
       await host.eventSource.emit('CHARACTER_MESSAGE_RENDERED', quoteStart + 1); await settle(450);
+      await openThread('Preview Group');
       await checkStickerQuotes(q('#chatView'), false, assert, 'Group phone chat');
       await openThread('Preview Contact');
       await checkStickerQuotes(q('#chatView'), false, assert, 'Private phone chat');
@@ -1005,6 +1050,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       host.chat.splice(quoteStart, 2); await host.printMessages();
       await host.eventSource.emit('MESSAGE_DELETED', host.chat.length); await settle(350);
       await openPicker('Stickers');
+      if (!q('.mochi-sticker-management')) { press(q('.mochi-sticker-manage')); await settle(); }
       setKeyboard(true); await settle(250);
       press(cellFor(renamedName).querySelector('.mochi-sticker-rename')); await settle();
       const body = q('.mochi-media-picker-body');
@@ -1021,6 +1067,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       try {
         if (q('.mochi-sticker-cancel') && !q('.mochi-sticker-cancel').disabled) { press(q('.mochi-sticker-cancel')); await settle(); }
         await openPicker('Stickers');
+        if (!q('.mochi-sticker-management')) { press(q('.mochi-sticker-manage')); await settle(); }
         for (const cell of cells().filter((cell) => ownedNames.has(cell.querySelector('.mochi-sticker-send span').textContent))) {
           press(cell.querySelector('.mochi-sticker-delete'));
           await until(() => !cell.isConnected, 'sticker-management fixture cleanup');
@@ -1112,7 +1159,7 @@ export function installPreviewRegressions({ getContext, preview, openMochiOs, cl
       assert(within(q('.overlay.show .modal').getBoundingClientRect()), 'Transfer modal fits the keyboard-reduced viewport');
       key(document, 'Escape'); setKeyboard(false); await settle(250);
       await openPicker();
-      assert(all('.mochi-media-picker-tabs button').map((control) => control.textContent).join('|') === 'Emoji|Stickers' && !q('.mochi-media-close') && !q('.mochi-gif-tab') && !q('.mochi-kaomoji-grid'), 'Picker has exactly Emoji and Stickers, with no close button or extra sections');
+      assert(all('.mochi-media-picker-tabs button').map((control) => control.textContent).join('|') === 'Emoji|Stickers' && q('.mochi-media-close') && !q('.mochi-gif-tab') && !q('.mochi-kaomoji-grid'), 'Picker has Emoji and Stickers tabs with explicit dismissal');
       assert(q('.mochi-media-picker-body').scrollHeight > q('.mochi-media-picker-body').clientHeight, 'Emoji picker scrolls inside its bounded panel');
       press(q('.mochi-emoji-grid button[title="😀"]')); await settle();
       assert(q('#chatView .c-bar > input').value === '😀', 'Emoji selection inserts into the composer');

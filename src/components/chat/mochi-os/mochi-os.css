@@ -5189,23 +5189,6 @@
   overflow: hidden;
 }
 
-/* Reset any global input overrides inside Emoji / Media Picker */
-.mochi-scope .mochi-media-picker-popover [data-emoji-search-shell] input,
-.mochi-scope .mochi-media-picker-popover [data-kaomoji-search-shell] input,
-.mochi-scope .mochi-media-picker-popover input[type="text"],
-.mochi-scope .mochi-media-picker-popover input[type="search"] {
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  font-weight: normal !important;
-  box-shadow: none !important;
-  color: inherit !important;
-  height: auto !important;
-  width: 100% !important;
-  font-size: 12px !important;
-}
-
 @media (max-width: 900px) {
   .mochi-scope .apps {
     grid-template-columns: repeat(5, 1fr);
