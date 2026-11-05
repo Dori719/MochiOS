@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { stickerName } from '../../../st/sticker-format';
+import { mochiGeneratedPhoto } from '../../../st/generated-photo';
 import { VOICE_WAVE_HEIGHTS } from './mochi-os.constants';
 import {
   formatMochiTransferDisplay, isMochiTransferType, mochiTransferNote,
@@ -74,6 +75,8 @@ export function MochiWidgetMessageBubble({ message, currency, stickerMap }: {
   message: WidgetMessage; currency: string; stickerMap: Map<string, string>;
 }) {
   const { t } = useTranslation();
+  const photo = mochiGeneratedPhoto(message.rawItem);
+  if (photo) return <div className="mochi-private-bubble"><img src={photo} alt={String(message.rawItem?.c || 'Generated photo')} style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 12 }} /></div>;
   if (isMochiTransferType(message.type)) return <MochiWidgetTransferCard message={message} currency={currency} />;
   if (message.type === 'voice') return (
     <div className="mochi-private-bubble voice" aria-label={`${t('ui.chat.mochiosview.voiceNote')}: ${message.text || message.dur || '0:05'}`}>

@@ -16,6 +16,8 @@ import type { MochiOsPhoneData, MochiOsPhoneDataResponse } from '../shared';
 import { readChatMeta, writeChatMeta } from './adapter';
 import { generateMochiOutput } from './generate';
 import { refreshLorebookPrompt } from './lorebooks';
+import { readMochiSettings } from './mochi-settings';
+import { renderMochiPhotos } from './image-generation';
 import {
   cleanAndExtractRawYaml,
   isMochiGroupRecordTag,
@@ -236,6 +238,7 @@ function userItems(
 }
 
 export interface GeneratePhoneDataInput {
+  profileId?: string | null;
   chatId: string;
   messages: Array<{ role: 'system' | 'user' | 'assistant' | string; content: string; name?: string }>;
   userPrompt?: string;
@@ -298,9 +301,11 @@ function extractGeneratedThread(cleaned: string, recordType: MochiChatRecordType
  */
 export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<{ rawOutput: string }> {
   const category = input.category ?? 'data_generation';
+  const settings = readMochiSettings();
   const signal = input.signal;
   const prompt = await refreshLorebookPrompt(input.messages, input.userName);
   const raw = await generateMochiOutput(prompt, {
+    profileId: settings.connectionProfileId,
     chatId: input.chatId,
     signal,
     isCancelled: () => Boolean(signal?.aborted),
@@ -387,6 +392,8 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
   }
 
   if (!messages.some((message) => message.me !== 1)) throw new Error('Mochi OS returned no incoming chat messages');
+
+  await renderMochiPhotos(messages, settings, input.chatId, signal, input.characterName);
 
   const environment = parseEnvironmentYaml(thread.environments.at(-1) || '');
   const records = thread.contents.flatMap((content) => parseChatHistoryBlocks(content));

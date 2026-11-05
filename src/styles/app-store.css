@@ -96,8 +96,7 @@
   border: 0; border-radius: inherit; background: transparent; cursor: pointer;
 }
 .mochi-scope .app-store-card > .app-store-card-btn { position: relative; z-index: 1; }
-.mochi-scope .app-store-card:hover { background: var(--store-action); color: var(--paper); }
-.mochi-scope .app-store-card:hover :is(.app-store-card-name, .app-store-card-desc, .app-store-card-meta) { color: var(--paper); }
+.mochi-scope .app-store-card:hover { background: var(--store-feature); color: var(--text); }
 .mochi-scope .app-store-card-details:is(:hover, :active, :focus-visible) { background: transparent; }
 .mochi-scope .app-store-categories { cursor: grab; }
 .mochi-scope .app-store-categories.is-dragging,

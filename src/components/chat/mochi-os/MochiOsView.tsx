@@ -116,9 +116,13 @@ import { MochiMessageLayout } from "./MochiMessageLayout";
 import { MochiSettingsSplit } from "./MochiSettingsSplit";
 import { stickerName } from "../../../st/stickers";
 import { AvatarEditor } from "./AvatarEditor";
+import { deleteAvatarImage } from "../../../st/avatar-images";
 import { toggleReaction, removeCharacterReaction, reactionTargetOf, USER_REACTOR } from "../../../lib/reactions";
 import { api } from "../../../lib/api-client";
 import { buildMochiPresetMessages } from "../../../st/preset";
+import { resolveMochiFormatGuide } from "../../../st/format-guides";
+import { readMochiSettings } from "../../../st/mochi-settings";
+import { mochiGeneratedPhoto } from "../../../st/generated-photo";
 import {
   useMochiOSPhoneData,
   useGenerateMochiOSPhoneData,
@@ -278,6 +282,8 @@ function MochiTextBubble({
         : "";
   const quotedName = quote && typeof quote === "object" ? String(quote.name || "") : "";
   const stickerUrl = stickerMap.get(MochiStickerName(quotedText));
+  const photo = mochiGeneratedPhoto(message.rawItem);
+  if (photo) return <div className={`b ${direction}`}><img src={photo} alt={String(message.rawItem?.c || 'Generated photo')} style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 12 }} /></div>;
 
   if (!quotedText) {
     return <div className={`b ${direction} mochi-text-bubble`}>{message.text}</div>;
@@ -623,6 +629,7 @@ export function MochiOsView({
     () => persistedSettings?.clockTz || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
   const [clockOffset, setClockOffset] = useState<number>(() => persistedSettings?.clockOffset ?? 0);
+  const [customClockTime, setCustomClockTime] = useState<number | null>(() => persistedSettings?.customClockTime ?? null);
   const [clockAiDecide, setClockAiDecide] = useState<boolean>(() => persistedSettings?.clockAiDecide ?? false);
   const [aiFields, setAiFields] = useState(() => persistedSettings?.aiFields ?? DEFAULT_MOCHI_OS_SETTINGS.aiFields);
   const aiDate = clockAiDecide && aiFields.date;
@@ -702,6 +709,7 @@ export function MochiOsView({
       setClockMode(persistedSettings.clockMode);
       setClockTz(persistedSettings.clockTz || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
       setClockOffset(persistedSettings.clockOffset);
+      setCustomClockTime(persistedSettings.customClockTime);
       setClockAiDecide(persistedSettings.clockAiDecide);
       setAiFields(persistedSettings.aiFields);
       setAiDecidedDate((persistedSettings as any)?.aiDecidedDate ?? "");
@@ -805,6 +813,7 @@ export function MochiOsView({
         clockMode,
         clockTz,
         clockOffset,
+        customClockTime,
         clockAiDecide,
         aiFields,
         aiDecidedDate,
@@ -815,6 +824,8 @@ export function MochiOsView({
         wxAiDecide,
         linkedPersonaId: persistedSettings?.linkedPersonaId ?? null,
         connectionProfileId: persistedSettings?.connectionProfileId ?? null,
+        imageConnectionProfileId: persistedSettings?.imageConnectionProfileId ?? null,
+        formatGuideMode: persistedSettings?.formatGuideMode ?? "general",
         homeIndicatorMode: persistedSettings?.homeIndicatorMode ?? "both",
         promptPresetMode,
         selectedEnginePresetId,
@@ -845,6 +856,7 @@ export function MochiOsView({
       clockMode,
       clockTz,
       clockOffset,
+      customClockTime,
       clockAiDecide,
       aiFields,
       aiDecidedDate,
@@ -855,6 +867,8 @@ export function MochiOsView({
       wxAiDecide,
       persistedSettings?.linkedPersonaId,
       persistedSettings?.connectionProfileId,
+      persistedSettings?.imageConnectionProfileId,
+      persistedSettings?.formatGuideMode,
       promptPresetMode,
       selectedEnginePresetId,
       customPresetJsonDraft,
@@ -2145,11 +2159,12 @@ export function MochiOsView({
 
   // Live timer tick
   useEffect(() => {
+    if (clockMode === "custom") return;
+    setNowDate(new Date());
     const timer = setInterval(() => {
-      const offset = clockMode === "custom" ? clockOffset : 0;
       setNowDate((previous) => {
         const next = new Date();
-        return Math.floor((previous.getTime() + offset) / 60_000) === Math.floor((next.getTime() + offset) / 60_000) ? previous : next;
+        return Math.floor(previous.getTime() / 60_000) === Math.floor(next.getTime() / 60_000) ? previous : next;
       });
     }, 1000);
     return () => clearInterval(timer);
@@ -2182,7 +2197,7 @@ export function MochiOsView({
         weekdayStr = d.toLocaleDateString("en-US", { weekday: "long" });
       }
     } else {
-      d = new Date(nowDate.getTime() + clockOffset);
+      d = new Date(customClockTime ?? nowDate.getTime() + clockOffset);
       dateStr = formatMochiDate(d, dateFormat);
       weekdayStr = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
       timeStr = fmtTime(d, isHour12);
@@ -2198,7 +2213,7 @@ export function MochiOsView({
     }
     if (aiTime && aiDecidedTime) timeStr = fmtMsgTime(aiDecidedTime, isHour12) || timeStr;
     return { liveTime: timeStr, liveDateStr: dateStr, liveWeekday: weekdayStr };
-  }, [nowDate, clockMode, clockTz, clockOffset, aiDate, aiTime, aiDecidedDate, aiDecidedTime, isHour12, dateFormat]);
+  }, [nowDate, clockMode, clockTz, clockOffset, customClockTime, aiDate, aiTime, aiDecidedDate, aiDecidedTime, isHour12, dateFormat]);
 
   // Weather formatted
   const formattedWx = useMemo(() => {
@@ -2463,7 +2478,7 @@ export function MochiOsView({
 
   // Clock widget click
   const handleOpenClockSettings = () => {
-    const currentClockDate = clockMode === "custom" ? new Date(Date.now() + clockOffset) : new Date();
+    const currentClockDate = clockMode === "custom" ? new Date(customClockTime ?? nowDate.getTime() + clockOffset) : new Date();
     setCalView(() => {
       const d = new Date(currentClockDate);
       d.setDate(1);
@@ -2500,7 +2515,8 @@ export function MochiOsView({
     const nextOffset = chosen.getTime() - Date.now();
     setClockMode("custom");
     setClockOffset(nextOffset);
-    saveSettings({ clockMode: "custom", clockOffset: nextOffset });
+    setCustomClockTime(chosen.getTime());
+    saveSettings({ clockMode: "custom", clockOffset: nextOffset, customClockTime: chosen.getTime() });
     setClockModalOpen(false);
   };
 
@@ -2730,10 +2746,8 @@ export function MochiOsView({
       }
     }
 
-    const dataGuideContent =
-      formatGuidesDraft?.formatGuide?.data !== undefined
-        ? formatGuidesDraft.formatGuide.data
-        : DEFAULT_FORMAT_GUIDES.formatGuide.data;
+    const selectedDataGuide = resolveMochiFormatGuide(formatGuidesDraft, 'data', readMochiSettings());
+    const dataGuideContent = selectedDataGuide.content;
     // Phone profile fields enrich ID cards; the persona's real name remains
     // the roleplay {{user}}, just as in SillyTavern.
     const personaName = activeLinkedPersona?.name?.trim() || activeChatData?.userName || "User";
@@ -2790,6 +2804,7 @@ export function MochiOsView({
         userInput: aiDataUserRequest.trim() ? `User Request: ${aiDataUserRequest.trim()}\n\n${baseInput}` : baseInput,
         idMacroCards: idMacroCardsContent,
         formatGuides: buildMochiDataGenerationGuideBlock({ existingYaml, dataGuide: dataGuideContent }),
+        profileId: selectedDataGuide.profileId,
         historyConfig: formatGuidesDraft.historyConfig,
       });
       const res = await generatePhoneDataMutation.mutateAsync({
@@ -2797,6 +2812,7 @@ export function MochiOsView({
         messages,
         userPrompt: aiDataUserRequest.trim() || undefined,
         category: "data_generation",
+        profileId: selectedDataGuide.profileId,
         characterName: primaryCharName,
         userName: personaName,
       });
@@ -2988,16 +3004,24 @@ export function MochiOsView({
   const saveAvatarToPhoneData = async (avatar: string) => {
     if (!activeChatId || !avatarTarget) throw new Error('Open a chat before editing its pictures.');
     const data = structuredClone(savedPhoneDataResponse?.phoneData ?? {});
+    let previousAvatar: string | undefined;
     if (avatarTarget.kind === 'user') {
+      previousAvatar = data.user?.avatar;
       data.user = { ...data.user, avatar };
     } else {
       const target = data[avatarTarget.kind]?.find((entry) => (entry.id || entry.name) === avatarTarget.id);
       if (!target) throw new Error('This contact or group is no longer in phone data.');
+      previousAvatar = target.avatar;
       target.avatar = avatar;
     }
     const rawYaml = yaml.stringify(data);
     await savePhoneDataMutation.mutateAsync({ chatId: activeChatId, rawYaml, category: 'data_generation', characterName: primaryRoleplayCharName });
     setAiDataYamlDraft(rawYaml);
+    const remainingAvatars = [data.user, ...(data.characters ?? []), ...(data.groups ?? []), ...(data.private_contacts ?? [])];
+    if (previousAvatar && previousAvatar !== avatar && !remainingAvatars.some((entry) => entry?.avatar === previousAvatar)) {
+      try { await deleteAvatarImage(previousAvatar); }
+      catch (error) { toast.error(error instanceof Error ? error.message : 'Could not delete the previous picture.'); }
+    }
     toast.success('Picture saved.');
   };
 
@@ -3469,9 +3493,8 @@ export function MochiOsView({
       });
 
       // Format Guide for private chat (or group chat if in a group), followed by time/date/weather
-      const chatGuideTemplate = activeGroupId
-        ? formatGuidesDraft?.formatGuide?.groupChat || DEFAULT_FORMAT_GUIDES.formatGuide.groupChat
-        : formatGuidesDraft?.formatGuide?.privateChat || DEFAULT_FORMAT_GUIDES.formatGuide.privateChat;
+      const selectedGuide = resolveMochiFormatGuide(formatGuidesDraft, activeGroupId ? 'groupChat' : 'privateChat', readMochiSettings());
+      const chatGuideTemplate = selectedGuide.content;
       const stickerNames = conversationStickers.map((sticker) => sticker.name);
       const stickerLibraryBlock = `## Sticker Library\n\nBelow is a list of available sticker names. When sending a sticker message, simply enter the sticker name:\n\n### General Stickers\n${stickerNames.length ? stickerNames.join(", ") : "(No stickers available)"}\n\nRules of Use：\n- Sticker Messages: Just enter the name of the sticker in the field.\n- The system will automatically match the corresponding image based on the names.\n- You may only use the stickers listed above; do not use any stickers not included in the list.\n- Try not to reuse stickers you've used in past chats.\n\n## Output Format Requirements\n\n`;
 
@@ -3592,6 +3615,7 @@ export function MochiOsView({
         userInput: combinedUserPrompt,
         idMacroCards: idMacroCardsContent,
         formatGuides: formatGuideBlock,
+        profileId: selectedGuide.profileId,
         historyConfig: formatGuidesDraft.historyConfig,
         excludedMessageIds: excludedRoleplayMessageIds,
       });
@@ -3602,6 +3626,7 @@ export function MochiOsView({
         // A group thread is archived as its own record type, so it is generated
         // under its own category instead of being flattened into a private chat.
         category: isGroupThread ? "group_chats" : "private_chats",
+        profileId: selectedGuide.profileId,
         characterName: targetCharName,
         contactName: targetContactName,
         userName: userScreenName,
@@ -6831,6 +6856,15 @@ export function MochiOsView({
 
               <button
                 type="button"
+                className={`settings-nav-item ${settingsActiveTab === "image_api" ? "active" : ""}`}
+                onClick={() => setSettingsActiveTab("image_api")}
+              >
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1" /><path d="m21 15-5-5L5 21" /></svg>
+                <span>Image API</span>
+              </button>
+
+              <button
+                type="button"
                 className={`settings-nav-item ${settingsActiveTab === "preset" ? "active" : ""}`}
                 onClick={() => setSettingsActiveTab("preset")}
               >
@@ -6875,6 +6909,7 @@ export function MochiOsView({
             {/* Right Pane (Detail/Content) */}
             <div className="settings-split-content">
               {settingsActiveTab === "api" && <MochiApiSettings />}
+              {settingsActiveTab === "image_api" && <MochiApiSettings image />}
               {settingsActiveTab === "appearance" && (
                 <div className="panel">
                   <div className="settings-section-title">

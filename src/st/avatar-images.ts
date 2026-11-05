@@ -24,6 +24,18 @@ export async function uploadAvatarImage(file: File): Promise<string> {
   return `/${path}`;
 }
 
+/** Only delete files created by Mochi's avatar uploader, never remote or ST avatars. */
+export async function deleteAvatarImage(value: unknown): Promise<void> {
+  if (typeof value !== 'string') return;
+  const path = value.replace(/^\//, '');
+  if (!/^(?:user\/)?images\/mochi-os-avatars\/avatar-[\w-]+\.(png|jpg|jpeg|webp|gif)$/.test(path)) return;
+  const response = await fetch('/api/images/delete', {
+    method: 'POST', credentials: 'same-origin', headers: ctx().getRequestHeaders(),
+    body: JSON.stringify({ path }),
+  });
+  if (!response.ok && response.status !== 404) throw new Error('The new picture was saved, but the previous avatar could not be deleted.');
+}
+
 export interface AvatarCrop { x: number; y: number; zoom: number }
 
 export function avatarCropRect(width: number, height: number, crop: AvatarCrop) {

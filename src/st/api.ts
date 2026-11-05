@@ -349,6 +349,7 @@ route('POST', '/mochios-data/:chatId/generate', async (request, params) => {
     const result = await generatePhoneData({
       chatId: params.chatId,
       messages: Array.isArray(request.body?.messages) ? request.body.messages : [],
+      profileId: request.body?.profileId,
       userPrompt: request.body?.userPrompt,
       category: request.body?.category,
       contactName: request.body?.contactName,

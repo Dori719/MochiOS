@@ -42,6 +42,7 @@ export interface GenerateOptions {
   responseLength?: number;
   chatId?: string;
   signal?: AbortSignal;
+  profileId?: string | null;
 }
 
 /**
@@ -56,7 +57,7 @@ export async function generateMochiOutput(
 ): Promise<string> {
   const isCancelled = () => Boolean(options.signal?.aborted || options.isCancelled?.());
   const chatId = options.chatId ?? activeChatId();
-  const profileId = selectedConnectionProfileId();
+  const profileId = options.profileId === undefined ? selectedConnectionProfileId() : options.profileId;
   const assertChat = () => {
     if (!chatId || activeChatId() !== chatId) throw new Error('Mochi OS: the selected SillyTavern chat changed');
   };

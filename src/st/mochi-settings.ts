@@ -2,13 +2,17 @@ import { DEFAULT_MOCHI_OS_SETTINGS, MOCHI_OS_SETTINGS_KEY, normalizeMochiOsSetti
 import { activeChatId, readChatMeta, readChatSettings, writeChatMeta, writeChatSettings } from './adapter';
 
 const environmentKeys = [
-  'timeFormat', 'dateFormat', 'tempUnit', 'clockMode', 'clockTz', 'clockOffset', 'clockAiDecide',
+  'timeFormat', 'dateFormat', 'tempUnit', 'clockMode', 'clockTz', 'clockOffset', 'customClockTime', 'clockAiDecide',
   'aiFields', 'aiDecidedDate', 'aiDecidedTime', 'wxTemp', 'wxCondition', 'wxPlace', 'wxAiDecide',
 ] as const;
 
 export function readMochiSettings(): MochiOsSettings {
   const settings = { ...normalizeMochiOsSettings(readChatSettings()[MOCHI_OS_SETTINGS_KEY]) };
   const environment = normalizeMochiOsSettings(activeChatId() ? readChatMeta().environmentSettings : null);
+  if (activeChatId() && environment.clockMode === 'custom' && environment.customClockTime === null) {
+    environment.customClockTime = Date.now() + environment.clockOffset;
+    writeChatMeta({ ...readChatMeta(), environmentSettings: { ...readChatMeta().environmentSettings, customClockTime: environment.customClockTime } });
+  }
   for (const key of environmentKeys) Object.assign(settings, { [key]: environment[key] });
   return settings;
 }

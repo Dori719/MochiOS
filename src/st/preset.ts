@@ -22,6 +22,7 @@ export interface MochiPresetBlock {
 }
 
 export interface MochiPresetInput {
+  profileId?: string | null;
   blocks: MochiPresetBlock[];
   characters: Character[];
   persona: Persona | null;
@@ -213,7 +214,7 @@ export async function buildMochiPresetMessages(input: MochiPresetInput): Promise
   const enabled = input.blocks.filter((block) => block.enabled !== false);
   const markerType = (block: MochiPresetBlock) => block.markerConfig?.type || block.identifier;
   const markerTypes = new Set(enabled.filter((block) => block.isMarker || block.markerConfig).map(markerType));
-  const limits = getMochiTokenLimits(input.responseLength);
+  const limits = getMochiTokenLimits(input.responseLength, input.profileId);
   const settings = mochiChatCompletionSettings(limits.profileId);
   const promptBudget = limits.promptBudget;
   const groupNames = input.characters.map((character) => character.data?.name || character.name).filter(Boolean);
