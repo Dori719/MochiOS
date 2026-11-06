@@ -614,9 +614,8 @@
   font-size: 16px !important;
 }
 
-/* Keep the date control and its native popup in the phone's palette even when
-   the host decorates selects with its own theme. */
-#mochi-os-host .mochi-scope #mochi-date-format {
+/* All native dropdowns share the date-format control's phone palette. */
+#mochi-os-host .mochi-scope select {
   color-scheme: light;
   background: var(--paper-dim);
   color: var(--text);
@@ -624,27 +623,31 @@
   border-radius: 14px;
   box-shadow: none;
   cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
 }
 
-#mochi-os-host .mochi-scope.theme-dark #mochi-date-format {
+#mochi-os-host .mochi-scope.theme-dark select {
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  #mochi-os-host .mochi-scope.theme-auto #mochi-date-format {
+  #mochi-os-host .mochi-scope.theme-auto select {
     color-scheme: dark;
   }
 }
 
-#mochi-os-host .mochi-scope #mochi-date-format:focus-visible {
+#mochi-os-host .mochi-scope select:focus-visible {
   border-color: var(--acc);
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
-#mochi-os-host .mochi-scope #mochi-date-format option {
+#mochi-os-host .mochi-scope select option {
   background: var(--paper);
   color: var(--text);
+  font-family: inherit;
+  font-weight: inherit;
 }
 
 /* Host themes can decorate headings with a pink rule. The persona name is a

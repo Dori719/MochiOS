@@ -950,8 +950,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 520px;
-  overflow-y: auto;
+  flex-shrink: 0;
+  overflow: visible;
   padding-right: 4px;
 }
 
@@ -5425,9 +5425,6 @@
     min-height: clamp(72px, 16vh, 96px);
   }
 
-  .mochi-scope .preset-blocks-container {
-    max-height: 58vh;
-  }
 
   .mochi-scope .mochi-return-roleplay-btn {
     font-size: clamp(10px, 2.8vw, 13px);

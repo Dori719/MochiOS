@@ -2,12 +2,17 @@ import { activeChatId, ctx } from './adapter';
 import { getMochiTokenLimits } from './context-budget';
 import type { MochiOsSettings } from '../shared/mochi-os.schema';
 import { mochiPhotoFolder } from './generated-photo';
+import { DEFAULT_MOCHI_OS_SETTINGS } from '../shared/mochi-os.schema';
 
 /** Only image-bearing response fields are accepted; arbitrary prose is not a URL. */
 export function extractMochiImage(response: any): string | null {
   const safe = (value: unknown): string | null => typeof value === 'string'
     && /^(?:https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,)/i.test(value) ? value : null;
   const message = response?.choices?.[0]?.message;
+  for (const part of response?.candidates?.[0]?.content?.parts || []) {
+    const inline = part.inlineData ?? part.inline_data;
+    if (inline?.data) return safe(`data:${inline.mimeType ?? inline.mime_type};base64,${inline.data}`);
+  }
   for (const part of [...(message?.images || []), ...(Array.isArray(message?.content) ? message.content : [])]) {
     const image = safe(part?.image_url?.url ?? part?.image_url ?? (part?.type === 'image' ? part.url : null));
     if (image) return image;
@@ -39,8 +44,13 @@ export async function renderMochiPhotos(
   };
   for (const message of messages) {
     if (message.me === 1) continue;
-    const prompt = mochiPhotoPrompt(message.rawItem || {});
-    if (!prompt) continue;
+    const originalPrompt = mochiPhotoPrompt(message.rawItem || {});
+    if (!originalPrompt) continue;
+    const config = settings.imageApi ?? DEFAULT_MOCHI_OS_SETTINGS.imageApi;
+    const prompt = [config.prefix.trim(), originalPrompt, config.suffix.trim()].filter(Boolean).join('\n\n');
+    const imageConfig: Record<string, string> = {};
+    if (config.aspectRatio !== 'auto') imageConfig.aspectRatio = config.aspectRatio;
+    if (config.format !== 'openai' && config.resolution !== 'auto') imageConfig.imageSize = config.resolution;
     assertCurrent();
     const context = ctx();
     const profileId = settings.imageConnectionProfileId || context.extensionSettings.connectionManager?.selectedProfile;
@@ -49,7 +59,7 @@ export async function renderMochiPhotos(
     const profile = service?.getProfile(profileId);
     const api = context.CONNECT_API_MAP?.[profile?.api]?.selected || profile?.api;
     if (api !== 'openai') throw new Error('Image API requires a chat-completion connection profile.');
-    const response = await service.sendRequest(profileId, [{ role: 'user', content: prompt }],
+    const response = await service.sendRequest(profileId, [{ role: 'user', content: [prompt, Object.keys(imageConfig).length ? `Image output preferences: ${JSON.stringify(imageConfig)}` : ''].filter(Boolean).join('\n\n') }],
       getMochiTokenLimits(undefined, profileId).responseLength,
       { stream: false, extractData: false, includePreset: true, signal });
     assertCurrent();
