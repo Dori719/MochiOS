@@ -313,6 +313,20 @@ function registerStickerRoutes(router, { serverRoot = process.cwd() } = {}) {
   };
   router.get("/library", handle(async (store, _request, response) => response.json(await store.read())));
   router.post("/library", handle(async (store, request, response) => response.json(await store.write(request.body))));
+  router.post("/photos", handle(async (_store, request, response) => {
+    const { ch_name: folder, filename, image, format } = request.body || {};
+    if (typeof folder !== "string" || !/^mochi-os-photos\/[^/\\<>:"|?*\x00-\x1f]+$/.test(folder) || folder.includes("..") || /[. ]$/.test(folder) || !["png", "jpeg", "webp", "gif"].includes(format) || typeof filename !== "string" || !/^[a-f0-9-]+\.(png|jpeg|webp|gif)$/.test(filename) || typeof image !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) {
+      throw fail(400, "PHOTO_INVALID", "Invalid generated photo.");
+    }
+    const root = await fs.realpath(request.user.directories.userImages);
+    const directory = path.join(root, folder);
+    await fs.mkdir(directory, { recursive: true });
+    const resolved = await fs.realpath(directory);
+    const relative = path.relative(root, resolved);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw fail(400, "PHOTO_INVALID", "Invalid photo folder.");
+    await fs.writeFile(path.join(resolved, filename), Buffer.from(image, "base64"), { flag: "wx" });
+    response.json({ path: `/user/images/${folder}/${filename}` });
+  }));
   router.get("/images/:fileName", handle(async (store, request, response) => {
     const image = await store.image(request.params.fileName);
     response.set("Content-Type", image.mimeType).send(image.bytes);

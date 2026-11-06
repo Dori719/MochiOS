@@ -3,6 +3,7 @@ import { getMochiTokenLimits } from './context-budget';
 import type { MochiOsSettings } from '../shared/mochi-os.schema';
 import { mochiPhotoFolder } from './generated-photo';
 import { DEFAULT_MOCHI_OS_SETTINGS } from '../shared/mochi-os.schema';
+import { stickerExtensionFolder } from './sticker-storage';
 
 /** Only image-bearing response fields are accepted; arbitrary prose is not a URL. */
 export function extractMochiImage(response: any): string | null {
@@ -82,11 +83,11 @@ export async function renderMochiPhotos(
     const character = context.characters.find((entry) => String(entry.name ?? entry.data?.name ?? '').toLowerCase() === sender.toLowerCase())
       ?? (!context.groupId && context.characterId !== undefined ? context.characters[Number(context.characterId)] : undefined);
     const folder = mochiPhotoFolder(character?.name || character?.data?.name || sender || context.name2 || 'Unknown character');
-    const saved = await fetch('/api/images/upload', {
+    const saved = await fetch(`/api/plugins/mochi-os-stickers/photos?extension=${encodeURIComponent(stickerExtensionFolder())}`, {
       method: 'POST', headers: context.getRequestHeaders(), signal,
       body: JSON.stringify({ image: dataUrl.split(',')[1], format, filename: `${crypto.randomUUID()}.${format}`, ch_name: folder }),
     });
-    if (!saved.ok) throw new Error('Could not save the generated photo.');
+    if (!saved.ok) throw new Error('Could not save the generated photo. Update the Mochi OS server helper and restart SillyTavern to enable character photo folders.');
     const result = await saved.json();
     if (typeof result.path !== 'string' || !result.path.replace(/^\//, '').startsWith(`user/images/${folder}/`)) throw new Error('Unexpected generated photo storage path.');
     assertCurrent();

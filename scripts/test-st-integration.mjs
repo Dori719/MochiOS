@@ -214,8 +214,9 @@ const choose = (profileId) => api.request('PUT', `/app-settings/${api.MOCHI_OS_S
 }
 {
   assert.equal(api.mochiPhotoPrompt({ t: 'text', c: 'Private dialogue' }), null);
-  assert.equal(api.mochiPhotoFolder('Seraphina'), 'mochi-os-photos-Seraphina');
-  assert.equal(api.mochiPhotoFolder('A/B: C'), 'mochi-os-photos-A_B_ C');
+  assert.equal(api.mochiPhotoFolder('Seraphina'), 'mochi-os-photos/Seraphina');
+  assert.equal(api.mochiPhotoFolder('A/B: C'), 'mochi-os-photos/A_B_ C');
+  assert.equal(api.mochiGeneratedPhoto({ image: '/user/images/mochi-os-photos/Seraphina/photo.png' }), '/user/images/mochi-os-photos/Seraphina/photo.png');
   assert.equal(api.mochiGeneratedPhoto({ image: '/user/images/mochi-os-photos-Seraphina/photo.png' }), '/user/images/mochi-os-photos-Seraphina/photo.png');
   assert.equal(api.mochiGeneratedPhoto({ image: '/user/images/mochi-os-photos/photo.png' }), '/user/images/mochi-os-photos/photo.png');
   assert.equal(api.mochiPhotoPrompt({ t: 'imgdesc', c: 'A garden', prompt: { lighting: 'sunset' }, sender: 'Secret', history: 'Private dialogue' }), 'A garden\n\n{"lighting":"sunset"}');

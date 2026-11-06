@@ -122,8 +122,9 @@
 .mochi-scope .app-store-card-left { gap: 12px; flex: 1; align-items: flex-start; }
 .mochi-scope .app-store-card-icon {
   width: 48px; height: 48px; border-radius: 15px; box-shadow: none;
-  color: var(--store-secondary); background: var(--store-feature);
+  color: #fff; background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
 }
+.mochi-scope .app-store-card-icon svg { stroke: currentColor; color: #fff; stroke-width: 1.9; }
 .mochi-scope .app-store-card-icon:is(.tone-blush, .tone-iris, .tone-tide, .tone-ember, .tone-leaf, .tone-clay, .tone-dusk, .tone-slate) {
   background: color-mix(in srgb, var(--store-icon-tone, var(--acc)) 24%, var(--paper));
 }

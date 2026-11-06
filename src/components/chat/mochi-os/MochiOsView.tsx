@@ -6739,7 +6739,7 @@ export function MochiOsView({
                         setStoreDetail(app);
                       }} />
                       <div className="app-store-card-left">
-                        <div className={`app-store-card-icon tone-${app.tone}`}>{app.icon}</div>
+                        <div className="app-store-card-icon">{getMochiHomeApp(app.id)?.icon}</div>
                         <div className="app-store-card-info">
                           <div className="app-store-card-title-row">
                             <h4 className="app-store-card-name">{app.name}</h4>
@@ -6791,7 +6791,7 @@ export function MochiOsView({
         </div>
         {storeDetail && <div className="app-store-body app-store-detail">
           <section className="app-store-detail-summary">
-            <div className={`app-store-card-icon tone-${storeDetail.tone}`} aria-hidden="true">{storeDetail.icon}</div>
+            <div className="app-store-card-icon" aria-hidden="true">{getMochiHomeApp(storeDetail.id)?.icon}</div>
             <div>
               <h2 ref={storeDetailHeading} tabIndex={-1}>{storeDetail.name}</h2>
               <p>{APP_STORE_CATEGORIES.find((category) => category.id === storeDetail.category)?.label}</p>
