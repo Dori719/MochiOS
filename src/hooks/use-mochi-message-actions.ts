@@ -55,7 +55,13 @@ export function useMochiMessageActions(onReply: (target: MochiReplyTarget) => vo
     const outside = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element) || target.closest('[role="alertdialog"], [role="menu"], [data-chat-floating-panel]')) return;
-      if (!activeElement.current?.contains(target)) setActiveId(null);
+      const withinMessage = activeElement.current?.contains(target) && target.closest(
+        '.b, .sticker, .msg-image-thumb, .mochi-photo, .msg-actions-trigger, .mochi-swipe-trigger, .mochi-reaction-row',
+      );
+      if (!withinMessage) {
+        activeElement.current = null;
+        setActiveId(null);
+      }
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;

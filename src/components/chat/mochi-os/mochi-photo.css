@@ -15,7 +15,7 @@
 .mochi-photo .mochi-photo-frame > .mochi-photo-info { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .mochi-photo-info svg { fill: var(--paper); }
 .mochi-photo.is-description .mochi-photo-image img { visibility: hidden; }
-.mochi-photo-prompt { position: absolute; inset: 0; box-sizing: border-box; display: flex; padding: 36px 12px; overflow: auto; border-radius: 12px; background: var(--paper); color: var(--text); text-align: center; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mochi-photo-prompt { position: absolute; inset: 0; box-sizing: border-box; display: flex; padding: 8px 34px; overflow: auto; border-radius: 12px; background: var(--paper); color: var(--text); text-align: center; font-family: inherit; font-size: clamp(13.5px, 3.8cqw, 15px); font-weight: 700; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mochi-photo-prompt > div { margin: auto; min-width: 0; width: 100%; }
 .mochi-photo-control:disabled { opacity: .5; cursor: wait; }
 .mochi-photo button:focus-visible { outline: 3px solid var(--accent, #7c68cc); outline-offset: 3px; }

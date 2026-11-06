@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Info, Maximize2, RefreshCw, X } from 'lucide-react';
+import { Info, Maximize2, RefreshCw } from 'lucide-react';
 import './mochi-photo.css';
 
 export function MochiPhoto({ src, item, embedded = false }: { src: string; item: Record<string, any>; embedded?: boolean }) {
@@ -67,7 +67,7 @@ export function MochiPhoto({ src, item, embedded = false }: { src: string; item:
       {descriptionOpen && <div className="mochi-photo-prompt" role="region" aria-label="Image description" tabIndex={0}><div>{description}</div></div>}
       <>
         <button type="button" className="mochi-photo-control mochi-photo-expand" aria-label="Enlarge image" title="Enlarge image" onClick={() => dialog.current?.showModal()}><Maximize2 size={15} /></button>
-        <button type="button" className="mochi-photo-control mochi-photo-info" aria-label="Image description" title="Image description" aria-expanded={descriptionOpen} onClick={() => { setDescriptionOpen(!descriptionOpen); setSelected(false); }}><Info size={20} /></button>
+        <button type="button" className="mochi-photo-control mochi-photo-info" aria-label="Image description" title="Image description" aria-expanded={descriptionOpen} onClick={() => { setDescriptionOpen(!descriptionOpen); setSelected(!window.matchMedia('(hover: hover) and (pointer: fine)').matches); }}><Info size={20} /></button>
         <button type="button" className="mochi-photo-control mochi-photo-refresh" aria-label="Regenerate image" title="Regenerate image" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} /></button>
       </>
       {busy && <div className="mochi-photo-loading" role="status"><RefreshCw size={24} /><span>Generating image…</span></div>}
@@ -75,7 +75,6 @@ export function MochiPhoto({ src, item, embedded = false }: { src: string; item:
     {error && <p className="mochi-photo-description" role="alert">{error}</p>}
     <dialog ref={dialog} className="mochi-photo-viewer" aria-label="Enlarged image" onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
       <img src={image} alt={description} />
-      <button type="button" className="mochi-photo-control mochi-photo-info" aria-label="Close enlarged image" onClick={() => dialog.current?.close()}><X size={20} /></button>
     </dialog>
   </div>;
 }
