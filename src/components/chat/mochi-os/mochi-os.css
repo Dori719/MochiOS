@@ -113,6 +113,8 @@
   --acc: #6fa2cc;
   --acc-soft: #eef6fc;
   --bubble-line: #e2f0fb;
+  --chat-bg: #f3f8fc;
+  --input-bg: #e6f3fc;
 }
 .mochi-scope.theme-dark.color-ocean {
   --screen: #1e2b3c;
@@ -173,6 +175,8 @@
   --acc: #b57fb8;
   --acc-soft: #faf2fc;
   --bubble-line: #f4e9f5;
+  --chat-bg: #faf5fc;
+  --input-bg: #f5ecf7;
 }
 .mochi-scope.theme-dark.color-plum {
   --screen: #3a283c;
@@ -233,6 +237,8 @@
   --acc: #d98e71;
   --acc-soft: #fef7f3;
   --bubble-line: #fceae1;
+  --chat-bg: #fdf7f3;
+  --input-bg: #fdf0e9;
 }
 .mochi-scope.theme-dark.color-peach {
   --screen: #4a2b1f;

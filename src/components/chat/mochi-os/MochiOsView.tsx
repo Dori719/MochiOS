@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, type ReactNod
 import { MochiMessageActions } from "./MochiMessageActions";
 import { formatMochiDate, formatMochiEnvironmentGuide, parseMochiDate } from "./mochi-environment-format";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
+import { usePrivateReadReceipts } from "./usePrivateReadReceipts";
+import { savePrivateReadReceipts } from "../../../st/phone-read-receipts";
+import { readMessage as readSavedReceiptMessage } from "../../../st/adapter";
 import { createMochiRoleplayHistoryIndexer } from "./mochi-history-index";
 import { useMochiHistoryWindow } from "../../../hooks/use-mochi-history-window";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
@@ -3827,11 +3830,101 @@ export function MochiOsView({
   // Auto-scroll chat body
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
   const historyWindow = useMochiHistoryWindow(`${activeChatId}:${activeThreadId}:${isPrivateMode}`, currentActiveContact?.msgs.length || 0, chatBodyRef);
+  const readReceiptTargets = useMemo(() => {
+    if (!currentActiveContact) return [];
+    return currentActiveContact.msgs.flatMap((message, index) => {
+      if (message.me !== 0 || message.rawItem?.userRead !== false || !message.id) return [];
+      const location = locateMochiMessageInRoleplay({
+        historyIndex: roleplayHistoryIndex, roleplayMessages: activeChatRoleplayMessages,
+        targetName: currentActiveContact.name, recordType: isGroupThread ? 'group' : 'private', threadIndex: index, threadMessageId: message.id,
+      });
+      const source = location && roleplayHistoryIndex.messagesById.get(location.roleplayMessageId);
+      if (!location || !source) return [];
+      return [{ bubbleId: message.id, messageId: location.roleplayMessageId, recordIndex: location.recordIndex,
+        itemIndex: location.indexInRecord, expectedContent: source.content, expectedSwipe: source.activeSwipeIndex ?? 0 }];
+    });
+  }, [isGroupThread, currentActiveContact, roleplayHistoryIndex, activeChatRoleplayMessages]);
+  const refreshReadReceipts = useCallback(() => {
+    return qc.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
+  }, [qc, activeChatId]);
+  const [receiptSaving, setReceiptSaving] = useState(false);
+  const receiptSavingRef = useRef(false);
+  const manualReceiptIds = useRef(new Set<string>());
+  useEffect(() => { manualReceiptIds.current.clear(); }, [activeChatId, activeThreadId, inChatView]);
+  const toggleLastReadReceipt = async () => {
+    if (!activeChatId || !currentActiveContact || receiptSavingRef.current) return;
+    const index = currentActiveContact.msgs.length - 1;
+    const message = currentActiveContact.msgs[index];
+    if (!message || message.me !== 0) return;
+    const lastLocation = locateMochiMessageInRoleplay({ historyIndex: roleplayHistoryIndex,
+      roleplayMessages: activeChatRoleplayMessages, targetName: currentActiveContact.name,
+      recordType: isGroupThread ? 'group' : 'private', threadIndex: index, threadMessageId: message.id });
+    const savedLast = lastLocation && readSavedReceiptMessage(lastLocation.roleplayMessageId);
+    const savedItem = savedLast && lastLocation
+      ? parseChatHistoryBlocks(String(savedLast.content ?? ''))[lastLocation.recordIndex]?.messages[lastLocation.indexInRecord]
+      : undefined;
+    if (!savedItem) return;
+    const nextRead = message.rawItem?.userRead !== true;
+    // A response can span several archived turns. Stop at the latest user bubble,
+    // then batch all selected character bubbles by their actual source turn.
+    const batches = new Map<string, Parameters<typeof savePrivateReadReceipts>[0]>();
+    for (let i = index; i >= 0; i--) {
+      const item = currentActiveContact.msgs[i];
+      if (item.me === 1) break;
+      const location = locateMochiMessageInRoleplay({ historyIndex: roleplayHistoryIndex,
+        roleplayMessages: activeChatRoleplayMessages, targetName: currentActiveContact.name,
+        recordType: isGroupThread ? 'group' : 'private', threadIndex: i, threadMessageId: item.id });
+      const source = location && roleplayHistoryIndex.messagesById.get(location.roleplayMessageId);
+      if (!location || !source) {
+        toast.error('A message changed. Please try again.');
+        return;
+      }
+      let batch = batches.get(location.roleplayMessageId);
+      if (!batch) {
+        batch = { chatId: activeChatId, messageId: location.roleplayMessageId,
+          expectedContent: source.content, expectedSwipe: source.activeSwipeIndex ?? 0,
+          targets: [], manualValue: nextRead };
+        batches.set(location.roleplayMessageId, batch);
+      }
+      batch.targets.push({ recordIndex: location.recordIndex, itemIndex: location.indexInRecord });
+      if (item.id) manualReceiptIds.current.add(item.id);
+    }
+    receiptSavingRef.current = true;
+    setReceiptSaving(true);
+    try {
+      for (const batch of batches.values()) {
+        if (!await savePrivateReadReceipts(batch)) {
+          toast.error('A message changed. Please try again.');
+          break;
+        }
+        // Keep the displayed thread in sync with the exact value just persisted;
+        // local contact state otherwise masks the refreshed archive for a render.
+        const update = (previous: MochiContactsMap): MochiContactsMap => {
+          const contact = previous[activeThreadId];
+          if (!contact) return previous;
+          return { ...previous, [activeThreadId]: { ...contact, msgs: contact.msgs.map((item) => {
+            if (!item.id || !batch.targets.some((target) => item.id === `${batch.messageId}:mochi:${target.recordIndex}:${target.itemIndex}`)) return item;
+            const rawItem: Record<string, any> = { ...item.rawItem, userRead: nextRead };
+            delete rawItem.userReadManual;
+            return { ...item, userRead: nextRead, rawItem };
+          }) } };
+        };
+        (isPrivateMode ? setPrivateContacts : setContacts)(update);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save read receipt');
+    } finally {
+      try { await refreshReadReceipts(); }
+      finally { receiptSavingRef.current = false; setReceiptSaving(false); }
+    }
+  };
+  usePrivateReadReceipts({ root: chatBodyRef, enabled: messagesAppOpen && inChatView && !receiptSaving,
+    chatId: activeChatId, receipts: readReceiptTargets, onSaved: refreshReadReceipts, suppressedIds: manualReceiptIds });
   useEffect(() => {
     if (chatBodyRef.current) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
     }
-  }, [currentActiveContact?.msgs, realChatMessages.length, streamBuffer, isChatGenerating, inChatView, messagesAppOpen]);
+  }, [currentActiveContact?.msgs.length, activeThreadId, realChatMessages.length, streamBuffer, isChatGenerating, inChatView, messagesAppOpen]);
 
   // Calendar builder helper
   const calDays = useMemo(() => {
@@ -5591,8 +5684,15 @@ export function MochiOsView({
                                       />
                                     </div>
                                   )}
-                                  <MochiBubbleMeta time={ts} />
+                                  <MochiBubbleMeta time={ts} userRead={isLastBubbleInThread && typeof m.rawItem?.userRead === 'boolean' ? m.rawItem.userRead : undefined} />
                                   <MochiMessageActions inert={activeMochiMsgActionId !== msgBubbleId}>
+                                    {isLastBubbleInThread && rpLocation && <button
+                                      type="button" className="mochi-reaction-btn" disabled={receiptSaving}
+                                      title={m.rawItem?.userRead === true ? 'Mark unread' : 'Mark read'}
+                                      aria-label={m.rawItem?.userRead === true ? 'Mark unread' : 'Mark read'}
+                                      aria-pressed={m.rawItem?.userRead === true}
+                                      onClick={() => { void toggleLastReadReceipt(); }}
+                                    ><Check size={13} /></button>}
                                     <ReactionAddButton
                                       className="mochi-reaction-btn"
                                       onPick={(emoji, imageUrl) => handleDemoReaction(idx, emoji, imageUrl)}

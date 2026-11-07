@@ -42,6 +42,7 @@ export async function runReplySwipeTests({ api, host, phonePath, chatPath, choos
           const items = api.parseChatHistoryBlocks(response.rawOutput)[0].messages;
           assert.equal(items[1].rawItem.quote.c, 'Quoted input');
           assert.equal(items[2].dur, '0:09');
+          assert.ok(items.every((message) => message.rawItem.userRead === false), 'New private/group replies receive unread flags even when omitted by the model');
           if (group) assert.deepEqual(items.map((message) => message.sender), ['Character', 'Other', 'Character']);
           assert.equal(api.parseMochiChatContent(response.rawOutput).filter((part) => part.type === 'widget').length, 1);
 
@@ -51,6 +52,7 @@ export async function runReplySwipeTests({ api, host, phonePath, chatPath, choos
           assert.equal(saved.swipeCount, swipeCount);
           assert.equal(host.chat[start].mes, response.rawOutput);
           assert.equal(host.chat[start].swipes.at(-1), response.rawOutput);
+          assert.ok(api.parseChatHistoryBlocks(host.chat[start].mes)[0].messages.every((message) => message.rawItem.userRead === false), 'Receipt fields survive insertion into native SillyTavern roleplay');
           assert.equal(host.chat[start].swipe_info.length, swipeCount);
           assert.deepEqual(messageTexts(api.listMessages().at(-1).content), expectedTexts, 'The phone reads the same complete saved swipe');
 

@@ -387,7 +387,11 @@ export async function generatePhoneData(input: GeneratePhoneDataInput): Promise<
       t: reply.time,
       dur: reply.dur,
       sender: reply.sender,
-      rawItem: reply.rawItem,
+      // A newly generated incoming bubble is always unread. Persist the
+      // flag even when the model omits it; only actual viewing can set it true.
+      rawItem: !isUserItem(reply.rawItem)
+        ? { ...reply.rawItem, userRead: false }
+        : reply.rawItem,
     });
   }
 

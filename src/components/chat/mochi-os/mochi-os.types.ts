@@ -40,6 +40,7 @@ export interface MochiMessage {
    */
   sender?: string;
   rawItem?: Record<string, any>;
+  userRead?: boolean;
   reactions?: MessageReaction[];
   swipes?: string[];
   activeSwipeIndex?: number;

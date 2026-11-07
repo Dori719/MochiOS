@@ -1145,6 +1145,8 @@ function parseSingleChatHistoryRecord(
                 (marker !== "me" &&
                   marker !== "user" &&
                   marker !== "isuser" &&
+                  marker !== "userread" &&
+                  marker !== "userreadmanual" &&
                   marker !== "sender" &&
                   marker !== (target || "").trim().toLowerCase()))
             );
@@ -1198,6 +1200,7 @@ function parseSingleChatHistoryRecord(
           sender: senderVal || undefined,
           rawItem: item,
           reactions: Array.isArray(item.reactions) ? item.reactions : undefined,
+          userRead: typeof item.userRead === "boolean" ? item.userRead : undefined,
         };
       });
 
@@ -1770,6 +1773,11 @@ export function serializeChatHistoryYaml(params: {
       item.c = m.text || "";
     }
 
+    // Specialized media branches also retain the persisted receipt flag.
+    if (m.me === 0 && typeof m.rawItem?.userRead === "boolean") {
+      item.userRead = m.rawItem.userRead;
+      if (typeof m.rawItem.userReadManual === "boolean") item.userReadManual = m.rawItem.userReadManual;
+    }
     return item;
   });
 

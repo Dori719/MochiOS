@@ -892,6 +892,76 @@
   white-space: nowrap;
 }
 
+.mochi-scope .mochi-message-content > .mochi-bubble-meta.has-receipt {
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  column-gap: 6px;
+}
+
+.mochi-scope .mochi-read-receipt {
+  --receipt-fill: none;
+  --receipt-outline: var(--acc);
+  --receipt-check: var(--acc);
+  display: inline-flex;
+  gap: 2px;
+  color: var(--acc);
+}
+
+.mochi-scope .mochi-read-receipt svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--acc);
+  opacity: 1;
+}
+
+.mochi-scope .mochi-read-receipt svg circle {
+  fill: var(--receipt-fill);
+  stroke: var(--receipt-outline);
+  opacity: 1;
+}
+
+.mochi-scope .mochi-read-receipt svg path {
+  fill: none;
+  stroke: var(--receipt-check);
+  opacity: 1;
+}
+
+.mochi-scope .mochi-read-receipt.is-read {
+  --receipt-fill: var(--acc);
+  --receipt-outline: none;
+  --receipt-check: color-mix(in srgb, var(--acc) 25%, #17131c);
+}
+
+/* Derive light metadata from the active palette, never the base muted tint. */
+.mochi-scope.theme-light {
+  --message-meta-color: color-mix(in srgb, var(--acc) 72%, #242129);
+  --message-meta-check: var(--paper-dim);
+}
+
+@media (prefers-color-scheme: light) {
+  .mochi-scope.theme-auto {
+    --message-meta-color: color-mix(in srgb, var(--acc) 72%, #242129);
+    --message-meta-check: var(--paper-dim);
+  }
+}
+
+.mochi-scope .mochi-message-content > .mochi-bubble-meta > .mt,
+.mochi-scope .mochi-message-content > .mochi-private-time {
+  color: var(--message-meta-color, var(--muted));
+}
+
+.mochi-scope .mochi-read-receipt {
+  --receipt-outline: var(--message-meta-color, var(--acc));
+  --receipt-check: var(--message-meta-color, var(--acc));
+}
+
+.mochi-scope .mochi-read-receipt.is-read {
+  --receipt-fill: var(--message-meta-color, var(--acc));
+  --receipt-outline: none;
+  --receipt-check: var(--message-meta-check, color-mix(in srgb, var(--acc) 25%, #17131c));
+}
+
 .mochi-scope :is(.c-body, .mochi-private-thread) {
   scrollbar-width: none;
 }

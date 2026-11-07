@@ -31,6 +31,7 @@ const result = await build({
       export { mayContainMochiWidget } from './src/st/widget-records.ts';
       export { DEFAULT_FORMAT_GUIDES } from './src/components/chat/mochi-os/mochi-os.constants.ts';
       export { resolveMochiFormatGuide } from './src/st/format-guides.ts';
+      export { markPrivateItemsRead } from './src/st/phone-read-receipts.ts';
       export { extractMochiImage, mochiPhotoPrompt, renderMochiPhotos } from './src/st/image-generation.ts';
       export { deleteAvatarImage } from './src/st/avatar-images.ts';
       export { mochiPhotoFolder, mochiGeneratedPhoto } from './src/st/generated-photo.ts';
@@ -280,6 +281,64 @@ for (const [input, twelveHour, twentyFourHour] of [
 assert.equal(api.formatRelativeTime('Today', '3:15 PM', true), '3:15 PM', 'Contact previews share the same suffix-aware formatter');
 assert.equal(api.formatRelativeTime('Today', '3:15 PM', false), '15:15');
 runEnvironmentFormatTests(api);
+
+// Receipt writes must preserve other turns, outgoing flags, and legacy messages.
+{
+  const source = `<privatechat_history target="Alice" type="private">
+messages:
+  - t: text
+    c: "Hello"
+    userRead: false # retain this comment
+  - t: sticker
+    c: "wave"
+    userRead: false
+  - t: text
+    c: "Legacy"
+</privatechat_history>
+<groupchat_history target="Friends">
+messages:
+  - t: text
+    c: "Group"
+    userRead: false
+    sender:
+      name: "Alice"
+</groupchat_history>`;
+  const changed = api.markPrivateItemsRead(source, [
+    { recordIndex: 0, itemIndex: 0 }, { recordIndex: 0, itemIndex: 1 },
+    { recordIndex: 0, itemIndex: 2 }, { recordIndex: 1, itemIndex: 0 },
+  ]);
+  const blocks = api.parseChatHistoryBlocks(changed);
+  assert.equal(blocks[0].messages[0].rawItem.userRead, true);
+  assert.equal(blocks[0].messages[0].me, 0, 'read receipts must not turn incoming messages into user messages');
+  assert.equal(blocks[0].messages[1].rawItem.userRead, true);
+  assert.equal(blocks[0].messages[2].rawItem.userRead, undefined);
+  assert.equal(blocks[1].messages[0].rawItem.userRead, true);
+  assert.equal(blocks[1].messages[0].sender, 'Alice', 'Group receipt preserves sender identity');
+  const unreadGroup = api.markPrivateItemsRead(changed, [{ recordIndex: 1, itemIndex: 0 }], false);
+  assert.equal(api.parseChatHistoryBlocks(unreadGroup)[1].messages[0].rawItem.userRead, false);
+  assert.equal(api.parseChatHistoryBlocks(unreadGroup)[0].messages[0].rawItem.userRead, true, 'Group toggle leaves private receipts unchanged');
+  const serializedGroup = api.serializeChatHistoryYaml({
+    targetName: 'Friends', recordType: 'group', date: 'November 5, 2026', time: '10:43',
+    messages: blocks[1].messages,
+  });
+  assert.equal(api.parseChatHistoryBlocks(serializedGroup)[0].messages[0].rawItem.userRead, true, 'Group receipt survives serialization');
+  assert.ok(changed.includes('# retain this comment'));
+  assert.equal(api.markPrivateItemsRead(changed, [{ recordIndex: 0, itemIndex: 0 }]), changed);
+  const manuallyUnread = api.markPrivateItemsRead(changed, [{ recordIndex: 0, itemIndex: 0 }], false);
+  const manualItem = api.parseChatHistoryBlocks(manuallyUnread)[0].messages[0];
+  assert.equal(manualItem.me, 0);
+  assert.equal(manualItem.rawItem.userRead, false);
+  assert.equal(manualItem.rawItem.userReadManual, undefined, 'Manual action writes only userRead');
+  const manuallyRead = api.markPrivateItemsRead(manuallyUnread, [{ recordIndex: 0, itemIndex: 0 }], true);
+  assert.equal(api.parseChatHistoryBlocks(manuallyRead)[0].messages[0].rawItem.userRead, true);
+  const serialized = api.serializeChatHistoryYaml({
+    targetName: 'Alice', recordType: 'private', date: 'November 5, 2026', time: '10:43',
+    messages: blocks[0].messages,
+  });
+  assert.equal(api.parseChatHistoryBlocks(serialized)[0].messages[1].rawItem.userRead, true, 'sticker receipt survives serialization');
+  assert.ok(api.DEFAULT_FORMAT_GUIDES.formatGuide.privateChat.includes('    userRead: false'));
+  assert.ok(!api.DEFAULT_FORMAT_GUIDES.formatGuide.privateChat.includes('\ntime: {{Time}}\nuserRead: false'));
+}
 
 assert.equal(api.normalizeMochiOsSettings({ theme: 'dark' }).connectionProfileId, null);
 assert.equal(typeof api.st().generateRaw, 'function', 'API must come from live getContext, not module exports');
