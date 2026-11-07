@@ -1,0 +1,74 @@
+import { build } from 'esbuild';
+import assert from 'node:assert/strict';
+const compiled = await build({ entryPoints: ['src/components/chat/mochi-os/mochi-forum-data.ts'], bundle: true, platform: 'browser', format: 'esm', write: false });
+const data = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`);
+const feed = data.parseForumFeed('<forum>\ndate: November 6, 2026\ntime: "09:30"\npinned:\n  title: Market hours\n  comments: 8\nnearby: []\ndiscover: []\ntrending: []\n</forum>');
+assert.equal(feed.pinned.comments, '8');
+const validFeed = '<forum>\nnearby: []\ndiscover: []\ntrending: []\n</forum>';
+const expectedFeed = data.parseForumFeed(validFeed);
+assert.deepEqual(data.parseForumFeed('Use `<forum>` tags, keys unchanged.\n' + validFeed), expectedFeed);
+assert.deepEqual(data.parseForumFeed('<think>Use <forum> tags, keys unchanged.</think>\n' + validFeed), expectedFeed);
+assert.deepEqual(data.parseForumFeed('<forum>\n```yaml\nnearby: []\ndiscover: []\ntrending: []\n```\n</forum>'), expectedFeed);
+assert.throws(() => data.parseForumFeed('<forum>\n` tags, keys unchanged.\n</forum>'), /invalid Forum YAML/);
+assert.throws(() => data.parseForumFeed('<forum>nearby: []</forum>'), /missing/);
+assert.throws(() => data.parseForumFeed('<forum_post>nearby: []</forum_post>'), /missing/);
+const post = data.parseForumPost('<forum_post>\ntitle: Market hours\nauthor: Noticeboard\ncontent: Open until dusk.\ncommentCount: 10\ncomments:\n  - name: Ada\n    time: "09:30"\n    c: Is the east entrance open?\n</forum_post>');
+const additions = data.parseForumComments('<forum_comment>\ncomments:\n  - name: User\n    time: "09:31"\n    c: Invented user text\n  - name: Ben\n    time: "09:32"\n    c: Yes, it is.\n    reply:\n      name: Ada\n      time: "09:30"\n</forum_comment>', 'User');
+assert.equal(additions.length, 1);
+assert.equal(data.excludeForumUserComments([{ name: ' Persona ', time: '09:30', c: 'invented' }, { name: 'Screen Name', time: '09:30', c: 'invented' }, ...additions], ['persona', 'Screen Name']).length, 1);
+assert.deepEqual(additions[0].reply, { name: 'Ada', time: '09:30' });
+const updated = data.appendForumComments(post, additions);
+const batchFeed = { ...feed, pinned: { ...feed.pinned, title: post.title }, nearby: [{ ...feed.pinned, title: 'Other topic', author: 'Ben' }] };
+const postBlock = '<forum_post>\ntitle: Market hours\nauthor: Noticeboard\ncontent: Open until dusk.\ncomments: []\n</forum_post>';
+const otherBlock = '<forum_post>\ntitle: Other topic\nauthor: Ben\ncontent: Another discussion.\ncomments: []\n</forum_post>';
+const batch = data.parseForumPostBatch(otherBlock + '\n' + postBlock, batchFeed, ['User']);
+assert.equal(Object.keys(batch).length, 2);
+assert.equal(batch[data.forumThreadKey(batchFeed, 'nearby', 0)].author, 'Ben');
+assert.throws(() => data.parseForumPostBatch(postBlock, batchFeed, ['User']), /incomplete/);
+assert.deepEqual(data.parseForumFeed(data.forumFeedEnvelope(batchFeed)), batchFeed);
+assert.equal(updated.commentCount, '11');
+assert.equal(data.appendForumComments(updated, additions).comments.length, 2);
+assert.throws(() => data.parseForumComments('<forum_comment>comments: [{name: Ada, c: hi}]</forum_comment>', 'User'), /HH:MM/);
+assert.notEqual(data.forumThreadKey(feed, 'pinned', 0), data.forumThreadKey({ ...feed, time: '10:30' }, 'pinned', 0));
+console.log('Forum: guide envelopes, validation, reply identity, user filtering, counts and deduplication passed.');
+
+const archived = [];
+globalThis.__forumArchiveTest = { chatId: 'test-chat', archived };
+const archiveBuild = await build({ entryPoints: ['src/st/forum.ts'], bundle: true, platform: 'browser', format: 'esm', write: false,
+  plugins: [{ name: 'forum-host-fixture', setup(build) {
+    build.onResolve({ filter: /^\.\/(adapter|generate|lorebooks)$/ }, args => ({ path: args.path, namespace: 'forum-fixture' }));
+    build.onLoad({ filter: /.*/, namespace: 'forum-fixture' }, args => ({ contents: args.path === './adapter'
+      ? `export const activeChatId = () => globalThis.__forumArchiveTest.chatId; export const ctx = () => ({chat: globalThis.__forumArchiveTest.archived.map(row => ({mes:row.content}))}); export const readChatMeta = () => ({}); export const writeChatMeta = () => {}; export const insertMessage = async input => { globalThis.__forumArchiveTest.archived.push(input); };`
+      : args.path === './generate' ? `export const generateMochiOutput = async () => '';` : `export const refreshLorebookPrompt = async messages => messages;`, loader: 'js' }));
+  } }],
+});
+const forum = await import(`data:text/javascript;base64,${Buffer.from(archiveBuild.outputFiles[0].text).toString('base64')}`);
+const signal = new AbortController().signal;
+await forum.archiveForumResponse('test-chat', 'forum', feed, signal);
+await forum.archiveForumResponse('test-chat', 'forum_post', post, signal);
+await forum.archiveForumResponse('test-chat', 'forum_comment', { title: post.title, comments: additions }, signal);
+assert.equal(archived.length, 3);
+assert.equal(archived[0].role, 'assistant');
+assert.deepEqual(data.parseForumFeed(archived[0].content), feed);
+assert.deepEqual(data.parseForumPost(archived[1].content), post);
+assert.deepEqual(data.parseForumComments(archived[2].content, 'User'), additions);
+const historyBuild = await build({ entryPoints: ['src/components/chat/mochi-os/mochi-forum-history.ts'], bundle: true, platform: 'browser', format: 'esm', write: false });
+const { forumStateFromHistory } = await import(`data:text/javascript;base64,${Buffer.from(historyBuild.outputFiles[0].text).toString('base64')}`);
+const turn = content => ({ mes: content });
+const firstFeed = data.forumFeedEnvelope(feed);
+const newerFeed = data.forumFeedEnvelope({ ...feed, time: '10:30' });
+const history = [turn(firstFeed), turn(postBlock), turn(newerFeed), turn(postBlock.replace('Open until dusk.', 'Open all night.'))];
+assert.equal(Object.values(forumStateFromHistory(history).posts)[0].content, 'Open all night.');
+assert.equal(Object.values(forumStateFromHistory(history.slice(0, 3)).posts)[0].content, 'Open until dusk.');
+assert.equal(forumStateFromHistory(history.slice(0, 2)).feed.time, feed.time);
+assert.equal(Object.keys(forumStateFromHistory([turn(firstFeed)]).posts).length, 0);
+assert.deepEqual(forumStateFromHistory([turn(postBlock)]), { feed: null, posts: {} });
+assert.deepEqual(forumStateFromHistory([]), { feed: null, posts: {} });
+assert.equal(forumStateFromHistory([turn(firstFeed), turn('<forum>invalid</forum>')]).feed.time, feed.time);
+const cancelled = new AbortController(); cancelled.abort();
+await forum.archiveForumResponse('test-chat', 'forum', feed, cancelled.signal);
+globalThis.__forumArchiveTest.chatId = 'other-chat';
+await assert.rejects(forum.archiveForumResponse('test-chat', 'forum', feed, signal), /chat changed/);
+assert.equal(archived.length, 3);
+delete globalThis.__forumArchiveTest;
+console.log('Forum archive: all three response types create roleplay turns; cancelled and cross-chat responses do not.');

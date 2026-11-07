@@ -24,6 +24,8 @@ import privateChatWidgetCss from '../components/chat/mochi-os/mochi-private-chat
 import groupChatWidgetCss from '../components/chat/mochi-os/mochi-group-chat-widget.css';
 import portChromeCss from '../styles/port-chrome.css';
 import appStoreCss from '../styles/app-store.css';
+import forumCss from '../styles/forum.css';
+import forumWidgetCss from '../styles/forum-widget.css';
 import photoCss from '../components/chat/mochi-os/mochi-photo.css';
 
 /**
@@ -69,6 +71,8 @@ export const MOCHI_OS_STYLES = [
   toPhoneMeasurements(groupChatWidgetCss, { blockAxis: false }),
   portChromeCss,
   appStoreCss,
+  forumCss,
+  forumWidgetCss,
   // The enlarged viewer uses the actual viewport, not the phone container.
   photoCss,
 ].join('\n\n');

@@ -1,0 +1,28 @@
+.mochi-scope.mochi-forum-widget { margin: 12px 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--chat-item-bg); color: var(--text); container-type: inline-size; font-size: 14px; text-shadow: none; }
+.mochi-scope.mochi-forum-widget * { scrollbar-width: none; }
+.mochi-scope.mochi-forum-widget *::-webkit-scrollbar { display: none; }
+.mochi-forum-widget .forum-widget-toggle { display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px; text-align: left; background: var(--paper); }
+.mochi-forum-widget .forum-widget-toggle > span { flex: 1; min-width: 0; }
+.mochi-forum-widget .forum-widget-toggle strong { display: block; overflow-wrap: anywhere; font-size: 16px; }
+.mochi-forum-widget .forum-widget-post-title { display: block; margin: 5px 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.mochi-forum-widget .forum-widget-toggle svg { flex-shrink: 0; }
+.mochi-forum-widget .forum-widget-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+.mochi-forum-widget small, .mochi-forum-widget time { display: block; font-size: 12px; color: color-mix(in srgb, var(--text) 78%, var(--chat-item-bg)); }
+.mochi-forum-widget .forum-widget-content { max-height: 600px; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.mochi-forum-widget .forum-widget-thread { display: flex; gap: 12px; padding: 18px; border-bottom: 1px solid var(--line); }
+.mochi-forum-widget .forum-widget-thread > div { min-width: 0; flex: 1; }
+.mochi-forum-widget .forum-widget-rank { flex: 0 0 32px; text-align: center; font-weight: 800; font-size: 23px; font-variant-numeric: tabular-nums; }
+.mochi-forum-widget h3 { margin: 6px 0; font-size: 15px; line-height: 1.5; }
+.mochi-forum-widget p { margin: 10px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.7; }
+.mochi-forum-widget .forum-widget-pinned { margin: 16px; padding: 14px; border-radius: 12px; background: var(--acc-soft); }
+.mochi-forum-widget .forum-widget-pinned > span { display: flex; gap: 5px; align-items: center; font-size: 12px; }
+.mochi-forum-widget .forum-widget-post { padding: 20px; }
+.mochi-forum-widget .forum-widget-comments { list-style: none; padding: 0; margin: 0; }
+.mochi-forum-widget .forum-widget-comments li { padding: 16px 20px; border-top: 1px solid var(--line); }
+.mochi-forum-widget .forum-widget-comments header { display: flex; justify-content: space-between; gap: 12px; }
+.mochi-forum-widget .forum-widget-comments time { flex-shrink: 0; }
+.mochi-forum-widget .forum-widget-reference { background: var(--input-bg); padding: 8px 10px; margin-top: 10px; border-radius: 8px; font-size: 12px; }
+.mochi-forum-widget .forum-widget-empty { padding: 16px 20px; }
+.mochi-forum-widget button:focus-visible { outline: 2px solid var(--text); outline-offset: -3px; }
+.mochi-forum-widget .forum-widget-toggle:hover { background: var(--paper-dim); }
+.mochi-forum-widget .forum-tabs button:hover { color: var(--text); border-bottom-color: var(--acc); }

@@ -19,6 +19,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { MochiGroupChatWidget } from '../components/chat/mochi-os/MochiGroupChatWidget';
 import { MochiPrivateChatWidget } from '../components/chat/mochi-os/MochiPrivateChatWidget';
+import { MochiForumWidget, parseForumWidget } from '../components/chat/mochi-os/MochiForumWidget';
 import { parseMochiChatContent } from '../components/chat/mochi-os/mochi-os.utils';
 import { ctx } from './adapter';
 import { mochiQueryClient } from './query-client';
@@ -63,6 +64,22 @@ function formatText(text: string, index: number): ReactNode {
 
 /** The message's text as text parts and widgets, or `null` when it holds none. */
 function renderBlocks(text: string, index: number): ReactNode {
+  const forumPattern = /<(forum|forum_post|forum_comment)\b[^>]*>((?:(?!<(?:forum|forum_post|forum_comment)\b)[\s\S])*?)<\/\1\s*>/gi;
+  const forumParts: ReactNode[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(forumPattern)) {
+    const data = parseForumWidget(match[0], match[1].toLowerCase());
+    if (!data) continue;
+    const before = text.slice(cursor, match.index);
+    if (before) forumParts.push(<Fragment key={`before-${match.index}`}>{renderBlocks(before, index) || formatText(before, index)}</Fragment>);
+    forumParts.push(<MochiForumWidget key={`forum-${match.index}`} data={data} />);
+    cursor = match.index! + match[0].length;
+  }
+  if (forumParts.length) {
+    const after = text.slice(cursor);
+    if (after) forumParts.push(<Fragment key="after-forum">{renderBlocks(after, index) || formatText(after, index)}</Fragment>);
+    return forumParts;
+  }
   // One pass renders every record, including private and group records in the
   // same turn. Choosing the first successful reader hid the other record type.
   const parts = parseMochiChatContent(text, ctx().name1);

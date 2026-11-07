@@ -5,7 +5,7 @@
  * ran the provider on its server. SillyTavern generates in the browser, so the
  * default goes through `generateRaw`; named profiles use the host's request service.
  */
-import { activeChatId, st } from './adapter';
+import { activeChatId, ctx, st } from './adapter';
 import { profileRequestService, selectedConnectionProfileId } from './connections';
 import { fitMochiPromptToContext, getMochiTokenLimits } from './context-budget';
 import { protectTemplateBraces, restoreTemplateBraces } from './prompt-template';
@@ -24,8 +24,13 @@ function isRateLimitError(error: unknown): boolean {
     || Boolean(error instanceof Error && error.cause && isRateLimitError(error.cause));
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cancel = () => { clearTimeout(timer); reject(new AbortedError()); };
+    const timer = setTimeout(() => { signal?.removeEventListener('abort', cancel); resolve(); }, ms);
+    signal?.addEventListener('abort', cancel, { once: true });
+    if (signal?.aborted) { signal.removeEventListener('abort', cancel); cancel(); }
+  });
 }
 
 /** Lets a cancelled generation stop being retried. */
@@ -75,6 +80,7 @@ export async function generateMochiOutput(
       let raw: string;
       if (profileId) {
         const service = await profileRequestService();
+        if (isCancelled()) throw new AbortedError();
         assertChat();
         const response = await service.sendRequest(profileId, protectedMessages, responseLength, {
           stream: false,
@@ -84,12 +90,19 @@ export async function generateMochiOutput(
         });
         raw = response.content;
       } else {
-        raw = await st().generateRaw({
+        const stop = () => { ctx().stopGeneration?.(); };
+        options.signal?.addEventListener('abort', stop, { once: true });
+        try {
+          if (isCancelled()) throw new AbortedError();
+          raw = await st().generateRaw({
           api: limits.api,
           prompt: protectedMessages,
           responseLength,
           trimNames: false,
-        });
+          });
+        } finally {
+          options.signal?.removeEventListener('abort', stop);
+        }
       }
       if (isCancelled()) throw new AbortedError();
       assertChat();
@@ -99,7 +112,7 @@ export async function generateMochiOutput(
       assertChat();
       if (!isRateLimitError(error) || attempt >= MAX_RATE_LIMIT_RETRIES) throw error;
       const delay = Math.min(RATE_LIMIT_BACKOFF_BASE_MS * 2 ** attempt, RATE_LIMIT_BACKOFF_CAP_MS);
-      await wait(delay);
+      await wait(delay, options.signal);
     }
   }
 }

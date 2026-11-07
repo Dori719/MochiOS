@@ -91,6 +91,46 @@ app shell.
 
 ## Opening it
 
+### Forum
+
+Open **Forum** on the home screen and choose **Generate forum**. The classic
+community feed opens directly to Nearby, with Discover and Trending tabs plus a shared
+pinned announcement. Author-led posts show content previews, category labels, reply and
+view counts. Forum inherits Mochi's
+selected palette, typography, and light/dark surfaces. Bottom navigation switches
+between Discussions and Read threads. Generating or refreshing Forum makes one
+AI request for the feed and saves it immediately to roleplay and the phone.
+Choose **Select posts**, select entries across sections (including the pinned post),
+then **Generate selected** to send those entries together in one AI request.
+The Forum Post guide is followed by YAML containing only the selected entries.
+Each complete, validated batch is saved as a separate roleplay response. Failed or
+cancelled batches keep the feed, existing posts, and your selection for retry.
+Repeat with another selection whenever you want more posts. Opening generated
+threads uses the saved posts without another AI request. Posts without a surviving
+roleplay record show an empty state instead of generating automatically. Posts are available in
+**Read threads**, including after a board refresh.
+
+Use **Reply** to reference a comment by its author and time, or write a standalone
+comment below the discussion. **Post** saves your comment immediately; **Load new
+replies** requests additional responses. Reply references jump to their original
+comment. Forum uses the selected Mochi API, prompt preset, and the editable Forum
+Feed, Forum Post, and Forum Comment format guides. Board data and opened threads
+are stored in the current chat's metadata and travel with chat exports. Closing
+Forum or changing chats cancels pending results. Successful generated feeds, full
+posts, and comment responses also append one **Forum** assistant message to the
+roleplay history, using their corresponding format-guide tags. `<forum>`,
+`<forum_post>`, and `<forum_comment>` blocks render as expandable, theme-aware
+Forum widgets inside roleplay messages. Feed widgets include section navigation
+and ranked Trending posts; post and comment widgets show readable replies.
+Surrounding roleplay prose is preserved. Invalid blocks remain ordinary text.
+Forum scroll areas support scrolling without visible scrollbar tracks.
+Deleting, editing, or swiping roleplay Forum records restores the latest surviving
+feed and matching post versions immediately. With no surviving feed, Forum shows
+its initial empty state. With no surviving version of an open post, the post shows
+an empty state. Reopening Forum also rebuilds its generated content from history.
+Failed or malformed responses
+leave existing content intact.
+
 Ways to open it:
 
 | Where | How |

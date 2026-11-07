@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { MochiMessageActions } from "./MochiMessageActions";
+import { MochiForum, type ForumRequest } from "./MochiForum";
+import { generateForumOutput } from "../../../st/forum";
 import { formatMochiDate, formatMochiEnvironmentGuide, parseMochiDate } from "./mochi-environment-format";
 import { MochiBubbleMeta } from "./MochiBubbleMeta";
 import { usePrivateReadReceipts } from "./usePrivateReadReceipts";
@@ -1042,6 +1044,8 @@ export function MochiOsView({
   // Messages App State
   // Messages App State (empty initially for new chats / roleplay sessions)
   const [messagesAppOpen, setMessagesAppOpen] = useState(false);
+  const [forumAppOpen, setForumAppOpen] = useState(false);
+  useEffect(() => { setForumAppOpen(false); }, [activeChatId]);
   const [appStoreOpen, setAppStoreOpen] = useState(false);
   const [storeDetail, setStoreDetail] = useState<AppStoreEntry | null>(null);
   const storeDetailHeading = useRef<HTMLHeadingElement>(null);
@@ -1191,6 +1195,7 @@ export function MochiOsView({
         setIsPrivateMode(false);
         setMessagesAppOpen(true);
       }
+      if (appId === "forum") setForumAppOpen(true);
     },
     [isAppEditingMode],
   );
@@ -2736,6 +2741,23 @@ export function MochiOsView({
   }, [activeGroupId, savedPhoneDataResponse, isPrivateMode, privateContacts, contacts, activeContactId, localizeUi]);
 
   // Handler to run AI Data Generation
+  const requestForum: ForumRequest = async (key, input, signal, feedContext) => {
+    if (!activeChatId) throw new Error("Select a roleplay chat before opening Forum.");
+    let blocks = DEFAULT_MOCHI_PRESET.blocks;
+    if (promptPresetMode === "custom") {
+      try { const preset = JSON.parse(customPresetJsonDraft || DEFAULT_MOCHI_PRESET_JSON); if (Array.isArray(preset.blocks)) blocks = preset.blocks; } catch { /* Use the standard preset when the editor is invalid. */ }
+    }
+    const selected = resolveMochiFormatGuide(formatGuidesDraft, key, readMochiSettings());
+    const ids = getChatCharacterIds(activeChatData);
+    const characters = (realCharacters as unknown as Character[]).filter(character => ids.includes(character.id));
+    const userName = activeLinkedPersona?.name?.trim() || activeChatData?.userName || "User";
+    const messages = await buildMochiPresetMessages({ blocks, characters, persona: activeLinkedPersona,
+      userName, characterName: primaryRoleplayCharName || "Character", userInput: `${input}\nUser identity aliases: ${JSON.stringify([userName, profileNicknameDraft.trim(), activeChatData?.userName].filter(Boolean))}. These are the same user. Never generate comments under any of these names.`,
+      idMacroCards: `User: ${userName}\nScreen name: ${profileNicknameDraft.trim() || userName}\n${savedPhoneDataResponse?.rawYaml || ""}`,
+      formatGuides: feedContext ? `${selected.content}\n\n${feedContext}` : selected.content, profileId: selected.profileId, historyConfig: formatGuidesDraft.historyConfig });
+    return generateForumOutput(activeChatId, messages, userName, selected.profileId, signal);
+  };
+
   const handleGeneratePhoneData = useCallback(async () => {
     if (!activeChatId) {
       toast.error(localizeUi("ui.chat.mochiosview.noActiveRoleplayChat"));
@@ -4227,6 +4249,11 @@ export function MochiOsView({
           </button>
         </div>
       </div>
+
+      {forumAppOpen && activeChatId && <MochiForum key={activeChatId} chatId={activeChatId}
+        userNames={[activeLinkedPersona?.name || "", activeChatData?.userName || ""]}
+        userName={profileNicknameDraft.trim() || activeLinkedPersona?.name || activeChatData?.userName || "User"}
+        clock={fmtMsgTime(liveTime, false) || fmtHm(nowDate.getHours(), nowDate.getMinutes(), false)} onClose={() => setForumAppOpen(false)} request={requestForum} />}
 
       {/* ================= MESSAGES APP WINDOW ================= */}
       <div className={`app-window ${messagesAppOpen ? "open" : ""} ${inChatView ? "chat" : ""}`}>
