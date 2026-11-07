@@ -4,14 +4,12 @@
  *
  * SillyTavern only looks for extensions under
  * `public/scripts/extensions/third-party/<folder>`, so the build output has to be
- * copied there. The runtime files and sticker helper are copied every time,
+ * copied there. The runtime files are copied every time,
  * so an install can never end up half-present — which is what produces
  * "Extension failed to load: [object Event]".
  *
  *   node scripts/install.mjs                     # every checkout found
  *   node scripts/install.mjs --target D:/ST     # one specific checkout
- *   node scripts/install.mjs --target D:/ST --with-sticker-storage
- *   node scripts/install.mjs --target D:/ST --sticker-storage-only
  *   SILLYTAVERN_DIR=D:/ST node scripts/install.mjs
  */
 import fs from 'node:fs';
@@ -22,8 +20,8 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 /** The folder name SillyTavern serves the extension from. */
 const FOLDER = 'mochi-os';
 
-/** Browser runtime files plus the standalone sticker server helper. */
-const FILES = ['manifest.json', 'index.js', 'app.js', 'style.css', 'sticker-storage.mjs'];
+/** Browser runtime files. Stickers use native SillyTavern storage. */
+const FILES = ['manifest.json', 'index.js', 'app.js', 'style.css'];
 
 /** Third-party extension directory inside a SillyTavern checkout. */
 const THIRD_PARTY = path.join('public', 'scripts', 'extensions', 'third-party');
@@ -104,22 +102,11 @@ function extensionFolder(target, requested) {
   return matches[0]?.name ?? FOLDER;
 }
 
-/** Repairs the backend without replacing browser runtime files or local source work. */
-export function installStickerStorage(target) {
-  assertBuilt(['sticker-storage.mjs']);
-  const plugins = path.join(target, 'plugins');
-  const destination = path.join(plugins, 'mochi-os-stickers.mjs');
-  fs.mkdirSync(plugins, { recursive: true });
-  fs.copyFileSync(path.join(ROOT, 'sticker-storage.mjs'), destination);
-  return destination;
-}
-
-/** Copies runtime files in place; server-plugin installation is explicitly opt-in. */
-export function install(target, { folder, withStickerStorage = false } = {}) {
+/** Copies runtime files in place. */
+export function install(target, { folder } = {}) {
   assertBuilt();
   const destination = path.join(target, THIRD_PARTY, extensionFolder(target, folder));
   copyRuntime(destination);
-  if (withStickerStorage) installStickerStorage(target);
   return destination;
 }
 
@@ -148,10 +135,8 @@ function main() {
       ? [path.resolve(process.argv[targetIndex + 1])]
       : candidateRoots();
   const folderIndex = process.argv.indexOf('--folder');
-  const options = { folder: folderIndex === -1 ? undefined : process.argv[folderIndex + 1], withStickerStorage: process.argv.includes('--with-sticker-storage') };
-  const stickerStorageOnly = process.argv.includes('--sticker-storage-only');
+  const options = { folder: folderIndex === -1 ? undefined : process.argv[folderIndex + 1] };
   if (folderIndex !== -1 && !options.folder) throw new Error('--folder requires an extension folder name.');
-  if (stickerStorageOnly && folderIndex !== -1) throw new Error('--sticker-storage-only installs the shared server helper; --folder only applies to browser runtime updates.');
 
   if (targets.length === 0) {
     console.warn('No SillyTavern checkout found. Pass --target <checkout> to install.');
@@ -160,14 +145,8 @@ function main() {
 
   for (const target of targets) {
     try {
-      if (stickerStorageOnly) console.log(`Mochi OS sticker plugin -> ${installStickerStorage(target)}`);
-      else console.log(`Mochi OS -> ${install(target, options)}`);
-      if (stickerStorageOnly || options.withStickerStorage) {
-        if (!stickerStorageOnly) console.log(`Mochi OS sticker plugin -> ${path.join(target, 'plugins', 'mochi-os-stickers.mjs')}`);
-        console.log('Sticker plugin installed. Set enableServerPlugins: true in this SillyTavern installation\'s active config.yaml and fully restart SillyTavern; the installer does not change configuration or restart the server.');
-      } else {
-        console.log('Stickers use SillyTavern built-in storage. No server plugin or configuration change is needed.');
-      }
+      console.log(`Mochi OS -> ${install(target, options)}`);
+      console.log('Stickers use SillyTavern built-in storage. No server plugin or configuration change is needed.');
     } catch (error) {
       console.error(`Mochi OS could not be installed into ${target}:`, error.message);
       process.exitCode = 1;

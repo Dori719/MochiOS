@@ -751,9 +751,12 @@
 }
 
 .mochi-scope .wmsg > .mochi-message-edit {
-  width: 260px;
   min-width: 0;
   max-width: 100%;
+}
+
+.mochi-scope :is(.mrow, .mochi-private-message):not(:has(> .mini, > .mochi-private-mini-avatar)) > .mochi-message-content {
+  max-width: min(66.666cqw, 100%);
 }
 
 .mochi-scope .voice > .wave {

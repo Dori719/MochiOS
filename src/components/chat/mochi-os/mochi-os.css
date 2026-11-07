@@ -3661,7 +3661,7 @@
 .mochi-scope .profile-fields-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   width: 100%;
   max-width: 480px;
   margin-bottom: 12px;
@@ -4440,42 +4440,41 @@
   background: var(--chat-bubble-in);
   border: 1px solid var(--bubble-line);
   color: var(--text);
-  border-bottom-left-radius: 6px;
+  border-top-left-radius: 6px;
 }
 
 .mochi-scope .b.out {
   background: linear-gradient(160deg, var(--tile-a), var(--tile-b));
   color: #fff;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 6px;
 }
 
 .mochi-scope .b.mochi-message-edit {
   box-sizing: border-box;
-  width: min(100%, 420px);
-  min-width: min(260px, 100%);
-  padding: 10px 12px;
+  position: relative;
+  min-width: 0;
+  margin-bottom: 36px;
+  animation: none;
 }
 
 .mochi-scope .b.out.mochi-message-edit {
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 6px;
 }
 
 .mochi-scope .mochi-message-edit-input {
   display: block;
   width: 100%;
-  min-height: 72px;
-  max-height: 180px;
-  resize: vertical;
-  border: 1px solid color-mix(in srgb, var(--acc) 58%, var(--bubble-line));
-  border-radius: 8px;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  border: 0;
+  border-radius: 2px;
   outline: none;
-  padding: 8px 10px;
-  background: color-mix(in srgb, var(--paper) 78%, transparent);
-  color: var(--text);
-  font:
-    600 13px/1.45 "Nunito",
-    system-ui,
-    sans-serif;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
 
 .mochi-scope .mochi-message-edit-input:focus-visible {
@@ -4484,6 +4483,9 @@
 }
 
 .mochi-scope .mochi-message-edit-actions {
+  position: absolute;
+  top: 100%;
+  right: 0;
   display: flex;
   justify-content: flex-end;
   gap: 6px;
@@ -5890,6 +5892,11 @@
   border-radius: inherit; background: rgb(0 0 0 / 25%); color: white;
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+
+.mochi-scope .b.in .mochi-message-edit-actions {
+  right: auto;
+  left: 0;
 }
 
 .mochi-scope .ai-field-label {

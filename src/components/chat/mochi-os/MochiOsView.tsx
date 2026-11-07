@@ -764,7 +764,7 @@ export function MochiOsView({
       allPersonas.find((persona) => persona.isActive) || null;
   }, [personaChoice, activeChatId, activeChatData, allPersonas]);
 
-  // Profile Form State (Nickname, User ID, Email, Bio)
+  // Profile Form State (Nickname, Social Handle, Email, Bio)
   const [profileNicknameDraft, setProfileNicknameDraft] = useState("");
   const [profileUserIdDraft, setProfileUserIdDraft] = useState("");
   const [profileEmailDraft, setProfileEmailDraft] = useState("");
@@ -783,7 +783,7 @@ export function MochiOsView({
   useEffect(() => {
     const user = savedPhoneDataResponse?.phoneData?.user;
     setProfileNicknameDraft(user?.nickname ?? activeLinkedPersona?.name ?? activeChatData?.userName ?? "");
-    setProfileUserIdDraft(user?.id ?? "");
+    setProfileUserIdDraft(user?.socialhandle ?? user?.id ?? "");
     setProfileBioDraft(user?.bio ?? "");
     setProfileEmailDraft(user?.email ?? "");
   }, [savedPhoneDataResponse, activeLinkedPersona?.id, activeLinkedPersona?.name, activeChatData?.userName]);
@@ -1519,6 +1519,7 @@ export function MochiOsView({
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
   const [editingMsgText, setEditingMsgText] = useState("");
+  const [editingMsgSize, setEditingMsgSize] = useState<{ width: number; height: number }>();
   const savingMochiMessageRef = useRef(false);
   const editingThreadRef = useRef(activeThreadId);
   editingThreadRef.current = activeThreadId;
@@ -1533,7 +1534,9 @@ export function MochiOsView({
     }
   }, []);
 
-  const handleStartEditMochiMessage = useCallback((msgIdx: number, currentText: string) => {
+  const handleStartEditMochiMessage = useCallback((msgIdx: number, currentText: string, button: HTMLButtonElement) => {
+    const bubble = button.closest('.wmsg')?.querySelector<HTMLElement>(':scope > .b');
+    setEditingMsgSize(bubble ? { width: bubble.offsetWidth, height: bubble.offsetHeight } : undefined);
     setEditingMsgIdx(msgIdx);
     setEditingMsgText(currentText);
   }, []);
@@ -2983,7 +2986,7 @@ export function MochiOsView({
 
       // Hydrate profile immediately
       if (res?.phoneData?.user) {
-        if (res.phoneData.user.id) setProfileUserIdDraft(res.phoneData.user.id);
+        setProfileUserIdDraft(res.phoneData.user.socialhandle ?? res.phoneData.user.id ?? "");
         if (res.phoneData.user.bio) setProfileBioDraft(res.phoneData.user.bio);
         if (res.phoneData.user.email) setProfileEmailDraft(res.phoneData.user.email);
         if (res.phoneData.user.nickname !== undefined) {
@@ -3103,13 +3106,13 @@ export function MochiOsView({
 
   // Save changes to user profile into Phone Data YAML
   const handleSaveUserProfileToPhoneData = useCallback(
-    async (patch: { nickname?: string; userId?: string; email?: string; bio?: string }) => {
+    async (patch: { nickname?: string; socialhandle?: string; email?: string; bio?: string }) => {
       if (!activeChatId) return;
       try {
         const existingData: any = savedPhoneDataResponse?.phoneData ? { ...savedPhoneDataResponse.phoneData } : {};
         const currentUser = existingData.user ? { ...existingData.user } : {};
         if (patch.nickname !== undefined) currentUser.nickname = patch.nickname;
-        if (patch.userId !== undefined) currentUser.id = patch.userId;
+        if (patch.socialhandle !== undefined) currentUser.socialhandle = patch.socialhandle;
         if (patch.email !== undefined) currentUser.email = patch.email;
         if (patch.bio !== undefined) currentUser.bio = patch.bio;
         existingData.user = currentUser;
@@ -4897,7 +4900,7 @@ export function MochiOsView({
                 </div>
                 <h3>{activeLinkedPersona?.name || localizeUi("ui.noodle.stageprofileview.yourProfile")}</h3>
 
-                {/* Nickname, User ID, and Email Input Fields */}
+                {/* Nickname, Social Handle, and Email Input Fields */}
                 <div className="profile-fields-list">
                   <div className="profile-field-group">
                     <label className="profile-field-label">{localizeUi("ui.chat.mochiosview.nickname")}</label>
@@ -4917,16 +4920,16 @@ export function MochiOsView({
                   </div>
 
                   <div className="profile-field-group">
-                    <label className="profile-field-label">{localizeUi("ui.chat.mochiosview.userId")}</label>
+                    <label className="profile-field-label">{localizeUi("ui.chat.mochiosview.socialHandle")}</label>
                     <div className="profile-field-input-wrap">
                       <input
                         type="text"
                         className="profile-field-input"
-                        placeholder={localizeUi("ui.chat.mochiosview.userIdPlaceholder")}
+                        placeholder="@socialhandle"
                         value={profileUserIdDraft}
                         onChange={(e) => setProfileUserIdDraft(e.target.value)}
                         onBlur={() => {
-                          handleSaveUserProfileToPhoneData({ userId: profileUserIdDraft.trim() });
+                          handleSaveUserProfileToPhoneData({ socialhandle: profileUserIdDraft.trim() });
                         }}
                       />
                     </div>
@@ -5472,7 +5475,7 @@ export function MochiOsView({
                                       pending={false}
                                     />
                                   ) : editingMsgIdx === idx ? (
-                                    <div className="b out mochi-message-edit">
+                                    <div className="b out mochi-message-edit" style={editingMsgSize}>
                                       <textarea
                                         value={editingMsgText}
                                         onChange={(e) => setEditingMsgText(e.target.value)}
@@ -5547,7 +5550,7 @@ export function MochiOsView({
                                       <>
                                         <button
                                           type="button"
-                                          onClick={() => handleStartEditMochiMessage(idx, m.text || "")}
+                                           onClick={(e) => handleStartEditMochiMessage(idx, m.text || "", e.currentTarget)}
                                           title={localizeUi("ui.noodle.noodlepostcard.edit")}
                                           className="mochi-reaction-btn"
                                         >
@@ -5635,7 +5638,7 @@ export function MochiOsView({
                                       onReject={() => void handleAnswerTransfer("rejected")}
                                     />
                                   ) : editingMsgIdx === idx ? (
-                                    <div className="b in mochi-message-edit">
+                                    <div className="b in mochi-message-edit" style={editingMsgSize}>
                                       <textarea
                                         value={editingMsgText}
                                         onChange={(e) => setEditingMsgText(e.target.value)}
@@ -5713,7 +5716,7 @@ export function MochiOsView({
                                       <>
                                         <button
                                           type="button"
-                                          onClick={() => handleStartEditMochiMessage(idx, m.text || "")}
+                                           onClick={(e) => handleStartEditMochiMessage(idx, m.text || "", e.currentTarget)}
                                           title={localizeUi("ui.noodle.noodlepostcard.edit")}
                                           className="mochi-reaction-btn"
                                         >
@@ -7916,7 +7919,7 @@ export function MochiOsView({
                                         setTimeout(() => setCopiedGuideKey(null), 2000);
                                       }}
                                     >
-                                      <span aria-hidden="true">📋</span>
+                                      {copiedGuideKey === item.key ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                                     </button>
                                     {isModified && (
                                       <button

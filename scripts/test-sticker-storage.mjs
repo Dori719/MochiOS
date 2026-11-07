@@ -6,12 +6,12 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
 import { createStickerFixture } from './sticker-fixture.mjs';
-import { install, installStickerStorage } from './install.mjs';
+import { install } from './install.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 
 export async function runStickerStorageTests(api) {
-  const compiled = await build({ entryPoints: [path.join(root, 'server/sticker-storage.mjs')], bundle: true, write: false, platform: 'node', format: 'esm', target: 'node20' });
+  const compiled = await build({ entryPoints: [path.join(root, 'scripts/legacy-sticker-plugin.mjs')], bundle: true, write: false, platform: 'node', format: 'esm', target: 'node20' });
   const plugin = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`);
   const temporaryRoot = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA, 'Temp', 'opencode') : os.tmpdir();
   const temporary = await fs.mkdtemp(path.join(temporaryRoot, 'mochi-sticker-tests-'));
@@ -281,10 +281,8 @@ export async function runStickerStorageTests(api) {
     globalThis.fetch = async () => new Response(null, { status: 404 });
     const unavailable = api.createStickerLibrary(() => api.extensionStickerStorage(api.createServerStickerStorage('MochiOS')), urls);
     await assert.rejects(unavailable.load(), (error) => {
-      assert.match(error.message, /Install the Mochi OS sticker server plugin/);
-      assert.match(error.message, /plugins\/mochi-os-stickers\.mjs/);
-      assert.match(error.message, /running SillyTavern installation/);
-      assert.match(error.message, /setting alone does not install the plugin/);
+      assert.match(error.message, /legacy sticker library is unavailable/);
+      assert.match(error.message, /Import a sticker JSON backup/);
       return true;
     });
     assert.equal(unavailable.getSnapshot().loaded, false);
@@ -319,20 +317,11 @@ export async function runStickerStorageTests(api) {
     assert.equal(await fs.readFile(path.join(oldSource, 'user.ts'), 'utf8'), '// Keep this local source work.\n');
     await assert.rejects(fs.stat(path.join(globalRoot, 'mochi-os')), { code: 'ENOENT' });
     await assert.rejects(fs.stat(path.join(serverRoot, 'plugins')), { code: 'ENOENT' }, 'Installing server code is opt-in');
-    const localRuntime = '// Keep locally edited browser runtime during a backend repair.\n';
-    await fs.writeFile(path.join(extension, 'app.js'), localRuntime);
-    const installedPlugin = installStickerStorage(serverRoot);
-    assert.equal(installedPlugin, path.join(serverRoot, 'plugins/mochi-os-stickers.mjs'));
-    const repairOutput = execFileSync(process.execPath, [path.join(root, 'scripts/install.mjs'), '--target', serverRoot, '--sticker-storage-only'], { encoding: 'utf8' });
-    assert.ok(repairOutput.includes(installedPlugin), 'The repair command reports the exact server plugin path');
-    assert.match(repairOutput, /active config.yaml and fully restart SillyTavern/);
-    assert.equal(await fs.readFile(path.join(extension, 'app.js'), 'utf8'), localRuntime, 'Plugin-only repair never replaces local browser runtime edits');
     assert.equal(await fs.readFile(diskIndex, 'utf8'), finalIndex);
     assert.equal(await fs.readFile(path.join(oldGit, 'HEAD'), 'utf8'), 'ref: refs/heads/local-work\n');
     assert.equal(await fs.readFile(path.join(oldSource, 'user.ts'), 'utf8'), '// Keep this local source work.\n');
     assert.equal(await fs.readFile(path.join(serverRoot, 'config.yaml'), 'utf8'), 'enableServerPlugins: false\n# User configuration\n');
-    install(serverRoot, { withStickerStorage: true });
-    assert.equal(await fs.readFile(path.join(serverRoot, 'plugins/mochi-os-stickers.mjs'), 'utf8'), await fs.readFile(path.join(root, 'sticker-storage.mjs'), 'utf8'));
+    await assert.rejects(fs.stat(path.join(extension, 'sticker-storage.mjs')), { code: 'ENOENT' }, 'The retired plugin is not distributed');
     assert.equal(await fs.readFile(path.join(serverRoot, 'config.yaml'), 'utf8'), 'enableServerPlugins: false\n# User configuration\n');
     console.log('PASS: extension-folder image files and index, cross-device persistence/concurrency, shared server validation, immutable images and aliases, disk-full rollback, corrupt-index protection, one-time browser migration/recovery, login/CSRF/path/admin guards, missing-plugin recovery, and non-destructive runtime/plugin-only installer updates');
   } finally {

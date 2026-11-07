@@ -32,7 +32,7 @@ export function MochiMessageLayout({
   const label = outgoing ? '' : sender?.trim();
   return (
     <Row {...props} className={`${rowClass}${directionClass}${className ? ` ${className}` : ''}`}>
-      {!outgoing && <MochiMessageIdentity embedded={embedded} name={name || label || '?'} color={color} avatar={avatar} crop={crop} />}
+      {!outgoing && label && <MochiMessageIdentity embedded={embedded} name={name || label} color={color} avatar={avatar} crop={crop} />}
       <div ref={contentRef} className={`mochi-message-content ${embedded ? 'mochi-private-bubble-wrap' : 'wmsg'}${contentClassName ? ` ${contentClassName}` : ''}`}>
         {label && <span className="mochi-msg-sender" style={{ color }} title={label}>{label}</span>}
         {children}

@@ -8,7 +8,7 @@ function setLayoutValue(element: HTMLElement, name: string, value: number): void
 }
 
 /** Content determines bubble bounds; controls reserve a separate usable width.
- * No message-type exceptions, and no avatar offsets tied to bubble height. */
+ * Avatars stay top-aligned beside the message frame. */
 export function alignMochiMessageLayout(message: HTMLElement): void {
   const bubble = message.querySelector<HTMLElement>(BUBBLE_SELECTOR);
   if (!bubble) return;

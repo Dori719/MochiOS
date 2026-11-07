@@ -3,7 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import * as stickerPlugin from '../sticker-storage.mjs';
+import * as stickerPlugin from './legacy-sticker-plugin.mjs';
 import { createStickerFixture } from './sticker-fixture.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');

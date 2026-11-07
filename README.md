@@ -125,7 +125,8 @@ mouse, just as you swipe the strip on mobile, then click a section to open it.
 The content scrolls independently; there is no resize divider or section grid.
 
 In **Messages → Profile**, Screen Name edits `phone_data.user.nickname`, not the
-SillyTavern persona's name. **People → Social Handle** reads and writes
+SillyTavern persona's name. Social Handle edits `phone_data.user.socialhandle`.
+Older user `id` values remain readable. **People → Social Handle** reads and writes
 `socialhandle`; older `screenName`, `screen_name` and `nickname` values remain
 readable. New private transcripts identify their contact through `target=` only;
 both the phone and inline widget resolve display aliases from `phone_data`.
@@ -209,7 +210,6 @@ mochi-os/
   index.js      the entry point SillyTavern loads
   app.js        the phone, fetched the first time it is opened
   style.css     the launcher's styles
-  sticker-storage.mjs  copy to SillyTavern/plugins/mochi-os-stickers.mjs for disk stickers
 ```
 
 Copy those into `SillyTavern/public/scripts/extensions/third-party/mochi-os/`
@@ -223,19 +223,18 @@ node scripts/install.mjs --target "D:\path\to\SillyTavern"
 ```
 
 Reload SillyTavern. Stickers work with server plugins disabled.
-The bundled server helper is retained only for legacy-library recovery.
+The retired sticker server plugin is no longer bundled or installed.
 
 `npm run build` builds and updates runtime files in neighboring SillyTavern
-installations, but does not activate the server plugin. `--with-sticker-storage`
-explicitly opts into copying the helper into SillyTavern's `plugins/` directory.
+installations using SillyTavern's native sticker storage.
 
 To build without writing to any SillyTavern installation, use
 `node build.mjs --no-install`.
 
 The installer reuses an existing Mochi OS extension folder instead of creating a
-second differently named install. It updates only runtime/helper files, preserving
+second differently named install. It updates only runtime files, preserving
 `stickers/`, `.git/`, source files, and unrelated local files. Local edits to the
-runtime/helper files themselves are replaced, so back those up first. If several
+runtime files themselves are replaced, so back those up first. If several
 Mochi OS installs exist, select one explicitly with `--folder MochiOS`.
 
 ### Legacy sticker storage recovery (older versions only)
@@ -246,32 +245,7 @@ available, Mochi imports its library automatically and leaves the original intac
 Otherwise import an existing sticker JSON backup; enabling plugins is not required
 for new sticker libraries.
 
-**`enableServerPlugins: true` is not a plugin installer.** SillyTavern scans its
-own `plugins/` folder when the server starts; it does not load the helper just
-because it is bundled inside a browser extension. Installing or updating Mochi OS
-through the browser therefore does not install its server plugin.
-
-If the setting is already true but stickers still show the setup error, run this
-from the Mochi OS directory to install **only** the missing server helper:
-
-```powershell
-node scripts/install.mjs --target "D:\path\to\SillyTavern" --sticker-storage-only
-```
-
-This writes only `plugins/mochi-os-stickers.mjs`; back up any local edits to that
-helper first. Browser runtime files, extension source files, sticker libraries,
-and server configuration are untouched. For a runtime-only manual installation without the
-installer script, copy the installed extension's `sticker-storage.mjs` to
-`SillyTavern/plugins/mochi-os-stickers.mjs` instead.
-
-Target the installation printed as **`Server directory:`** when SillyTavern starts,
-not another copy of SillyTavern or the extension folder. Keep the setting enabled
-in that server's active configuration, then **stop and start SillyTavern**; reloading
-the web page is not a server restart. Startup should initialize
-`plugins/mochi-os-stickers.mjs` and report a loaded server plugin. Reopen the picker
-or choose **Retry storage** afterward. An authenticated GET to
-`/api/plugins/mochi-os-stickers/library?extension=MochiOS` (use your actual extension
-folder name) should return the library JSON, not an unregistered-route 404.
+After migration, the old `plugins/mochi-os-stickers.mjs` helper can be removed.
 
 ### Offline checks
 
@@ -351,7 +325,7 @@ has:
 | `data_generation` YAML file | `chat_metadata.mochios.phoneDataYaml`, saved with the chat. |
 | Transcript turns | The roleplay messages themselves. Bubble keys exist only in memory; no message ids are added to transcript YAML. |
 | Incoming private/group replies | One complete YAML transcript per SillyTavern message, with each sender retained inside the record. The phone renders individual bubbles; edits and reactions target their YAML items. Older split turns remain readable and consolidate only when explicitly edited or regenerated. |
-| Sticker library | The installed extension's `stickers/` folder, read/written through the Mochi OS server plugin and shared across chats/devices using that library. |
+| Sticker library | SillyTavern's native `user/images/mochi-os-stickers/` folder, shared across chats/devices for the current user. |
 | Lorebook assignments | Only explicitly configured global, chat, persona or character books (including group members and embedded card entries). Installed but unattached books are never activated; assignments are checked again before sending. |
 | Model provider | Current connection via `generateRaw`, or saved profile via `ConnectionManagerRequestService`; template braces are protected. |
 | Engine dialogs | SillyTavern's `callGenericPopup`. |
@@ -396,8 +370,6 @@ manifest.json               what SillyTavern reads first
 index.js                    built entry point — self-contained
 app.js                      built phone — fetched on demand by index.js
 style.css                   the window, the launchers, the size container
-sticker-storage.mjs          bundled dependency-free SillyTavern server plugin
-server/sticker-storage.mjs   server plugin source; restricted disk paths and atomic writes
 src/
   index.ts                  the launchers, the event bridge, /mochi
   app.ts                    what app.js exports: the overlay, widgets, readiness
@@ -426,7 +398,7 @@ src/
   styles/port-chrome.css    the chrome the port had to write, plus utility generation output
 ```
 
-`index.js`, `app.js`, and `sticker-storage.mjs` are build output, committed because SillyTavern never
+`index.js` and `app.js` are build output, committed because SillyTavern never
 runs a package manager. `src/components/chat/mochi-os/MochiOsView.tsx` is adapted
 for this port's transcript lifecycle and interactions. The ported
 `mochi-os.css` retains the engine's design with targeted phone-layout adjustments;
@@ -451,7 +423,7 @@ npm run typecheck    # tsc across the whole port
 npm test             # offline integration contracts
 node build.mjs --no-install          # one build, no installation writes
 node build.mjs --watch --no-install  # rebuild on save, without installing
-npm run install:st   # update runtime/helper files without rebuilding or enabling the server plugin
+npm run install:st   # update runtime files without rebuilding
 npm run tailwind     # regenerate the utility sheet (see below)
 ```
 

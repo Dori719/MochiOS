@@ -129,6 +129,7 @@ export function normalizeMochiOsSettings(value: unknown): MochiOsSettings {
 }
 
 export interface MochiOsUserData {
+  socialhandle?: string;
   id?: string;
   nickname?: string;
   bio?: string;

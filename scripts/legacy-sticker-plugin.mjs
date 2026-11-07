@@ -1,4 +1,4 @@
-/** SillyTavern server plugin. Its only writable scope is a Mochi extension's stickers/. */
+/** Test-only fixture for migration from the retired sticker plugin. */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';

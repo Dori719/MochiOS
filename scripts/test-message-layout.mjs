@@ -81,8 +81,8 @@ async function checkMessageLayouts(root, output) {
             assert.match(markup, /title="Jun">Jun<\/span>/);
           } else assert.equal(senderAt, -1, `${label}: private and outgoing messages have no sender header`);
           const avatarAt = markup.indexOf(embedded ? 'class="mochi-private-mini-avatar' : 'class="mini"');
-          assert.equal(avatarAt >= 0, !outgoing, `${label}: only incoming messages have a left avatar`);
-          if (!outgoing) assert.ok(avatarAt < contentAt, `${label}: avatar is beside the content, not inside a bubble`);
+          assert.equal(avatarAt >= 0, group && !outgoing, `${label}: only incoming group messages have a left avatar`);
+          if (group && !outgoing) assert.ok(avatarAt < contentAt, `${label}: avatar is beside the content, not inside a bubble`);
           if (!embedded) {
             assert.ok(footerAt < markup.indexOf('class="msg-actions-trigger'), `${label}: actions follow the timestamp in DOM order`);
             assert.match(markup, /aria-label="Message actions" inert=""/);
@@ -119,7 +119,7 @@ async function checkMessageLayouts(root, output) {
       style: style(), getBoundingClientRect: () => rect(0, wrapperWidth()),
       classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } },
       querySelector: (selector) => selector.includes('mochi-swipe-trigger') ? null : selector.includes('msg-actions-trigger') ? actions : selector.includes('mochi-bubble-meta') ? metadata : bubble,
-      parentElement: { querySelector: () => outgoing ? null : { offsetHeight: 28 } },
+      parentElement: { querySelector: () => outgoing ? null : { offsetHeight: 28, style: {} } },
     };
     return { state, classes, bubble, time, metadata, actions, message };
   };
